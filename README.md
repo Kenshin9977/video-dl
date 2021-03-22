@@ -1,6 +1,11 @@
 # video-dl script
 
 The purpose of this script is to simplify the usage of [youtube-dl](https://github.com/ytdl-org/youtube-dl).
+## Requirements
+
+* Windows 10 as this script uses cURL. You can also install it seperately.
+
+
 ## Features
 
 * Works with every website youtube-dl [supports](https://ytdl-org.github.io/youtube-dl/supportedsites.html)
@@ -10,7 +15,7 @@ The purpose of this script is to simplify the usage of [youtube-dl](https://gith
 * Detects if a GPU capable of h264 encoding is visible by the system and if there is, use it to encode the downloaded video rather than the CPU which is slower.
 ## Downloads
 
-Binaries for Windows are available in the [releases](https://github.com/Kenshin9977/VGCAT/releases) section.
+The .zip for Windows is available in the [releases](https://github.com/Kenshin9977/video-dl-script/releases) section.
 ## Installation
 
 Extract the archive anywhere you want.

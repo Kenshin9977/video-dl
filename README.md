@@ -18,7 +18,7 @@ Go to script/ and launch install-update.bat which will download and place the la
 ## Usage
 
 Launch script/video-dl.bat, enter the URL of a video, select start and end time then close the window when finished or enter another URL. The files are downloaded in the downloads/ folder.
-You can skip the start and end time part by changing the value in config/config.ini from true to false. It's useful if you always want to get the whole video.
+You can skip the start and end time part by changing the value in config/config.ini from false to true. It's useful if you always want to get the whole video.
 ## Software used
 
 * [youtube-dl](https://github.com/ytdl-org/youtube-dl)

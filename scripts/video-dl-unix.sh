@@ -17,6 +17,25 @@ check_dependencies() {
 }
 
 load_encoder() {
+    
+    pushd ../ressources > /dev/null
+    encoder=$(./detect_hardware_unix.sh)
+    popd > /dev/null
+
+    if [[ $encoder = "NVENC" ]]
+    then
+    encoder="h264_nvenc"
+    elif [[ $encoder = "QSV" ]]
+    then
+    encoder="h264_qsv"
+    elif [[ $encoder = "VCE" ]]
+    then
+    encoder="h264_amf"
+    elif [[ $encoder = "x264" ]]
+    then
+    encoder="h264"
+    fi
+
     echo "The following encoder has been selected: $encoder"
     return
 }
@@ -62,17 +81,10 @@ download_video() {
 
 check_dependencies
 
-encoder="h264" # To be changed once hardware detection is implemented
 load_encoder
-
-whole_vid=""
 load_config
 
-url=""
 get_url
-
-start=""
-end=""
 get_video_times
 
 download_video

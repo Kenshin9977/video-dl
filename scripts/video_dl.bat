@@ -1,7 +1,7 @@
 @echo off
 
-cd ..\ressources
-for /f %%i in ('..\ressources\detect_hardware.bat') do set hw=%%i
+cd ..\resources
+for /f %%i in ('..\resources\detect_hardware.bat') do set hw=%%i
 cd ..\scripts
 set /p whole_video=<..\config\config.ini
 set whole_video="%whole_video%"

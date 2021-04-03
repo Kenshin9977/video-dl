@@ -6,12 +6,12 @@ The purpose of this script is to simplify the usage of [youtube-dl](https://gith
 
 ### Requirements
 
-* This script uses cURL which ships with Windows 10 1803 or later. You can also install it seperately.
+* This script uses cURL which ships with Windows 10 1803 or later. You can also install it separately.
 
 ### Installation
 
 Extract the archive anywhere you want.
-Go to `script/` and launch `install-update.bat` which will download and place the latest versions of `youtube-dl` and `ffmpeg` in the bin folder. This script can also be used to update those binaries. This ensure to get the latest version when you use the script.
+Go to `scripts/` and launch `install_update_binaries.bat` which will download and place the latest versions of `youtube-dl` and `ffmpeg` in the bin folder. This script can also be used to update those binaries. This ensures to get the latest version when you use the script.
 
 ## UNIX
 
@@ -24,11 +24,11 @@ Go to `script/` and launch `install-update.bat` which will download and place th
 ### Installation
 
 * Download and extract a copy of the repository.
-* Go to the `script/` folder and run `video-dl-unix.sh`, if both `youtube-dl` and `ffmpeg` are found and you are prompted to enter a URL, you are good to go.
+* Go to the `scripts/` folder and run `video_dl_unix.sh`, if both `youtube-dl` and `ffmpeg` are found and you are prompted to enter a URL, you are good to go.
 
 ## Features
 
-* Works with every website youtube-dl [supports](https://ytdl-org.github.io/youtube-dl/supportedsites.html)
+* Works with every website youtube-dl [supports](https://ytdl-org.github.io/youtube-dl/supportedsites.html).
 * Get videos in 1080p or less if this resolution isn't available.
 * Let you choose the start and end time of the video you want to download.
 * Force video recode in order to ensure compatibility with every editing software.
@@ -40,7 +40,7 @@ The .zip for Windows is available in the [releases](https://github.com/Kenshin99
 
 ## Usage
 
-Launch script/video-dl.bat, enter the URL of a video, select start and end time then close the window when finished or enter another URL. The files are downloaded in the downloads/ folder.
+Launch `scripts/video_dl.bat` (Windows) or `scripts/video_dl_unix.sh` (Linux/Mac), enter the URL of a video, select start and end time then close the window when finished or enter another URL. The files are downloaded in the `downloads/` folder.
 You can skip the start and end time part by changing the value in config/config.ini from false to true. It's useful if you always want to get the whole video.
 
 ## Software used

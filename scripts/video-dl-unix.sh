@@ -22,18 +22,14 @@ load_encoder() {
     encoder=$(./detect_hardware_unix.sh)
     popd > /dev/null
 
-    if [[ $encoder = "NVENC" ]]
-    then
-    encoder="h264_nvenc"
-    elif [[ $encoder = "QSV" ]]
-    then
-    encoder="h264_qsv"
-    elif [[ $encoder = "VCE" ]]
-    then
-    encoder="h264_amf"
-    elif [[ $encoder = "x264" ]]
-    then
-    encoder="h264"
+    if [[ $encoder = "NVENC" ]]; then
+        encoder="h264_nvenc"
+    elif [[ $encoder = "QSV" ]]; then
+        encoder="h264_qsv"
+    elif [[ $encoder = "VCE" ]]; then
+        encoder="h264"
+    elif [[ $encoder = "x264" ]]; then
+        encoder="h264"
     fi
 
     echo "The following encoder has been selected: $encoder"
@@ -84,7 +80,10 @@ check_dependencies
 load_encoder
 load_config
 
-get_url
-get_video_times
+while true
+do
+    get_url
+    get_video_times
 
-download_video
+    download_video
+done

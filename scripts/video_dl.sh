@@ -18,7 +18,7 @@ check_dependencies() {
 
 load_encoder() {
     
-    pushd ../ressources > /dev/null
+    pushd ../resources > /dev/null
     encoder=$(./detect_hardware_unix.sh)
     popd > /dev/null
 

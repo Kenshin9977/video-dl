@@ -63,7 +63,7 @@ choose_encoder() {
 
 get_cpu_encoder
 
-if type lspci; then
+if type lspci > /dev/null; then
     get_gpu_encoder
 fi
 

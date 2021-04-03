@@ -17,7 +17,7 @@ Go to `scripts/` and launch `install_update_binaries.bat` which will download an
 
 ### Requirements
 
-* You need to install both `youtube-dl` and `ffmpeg` manually. Most Linux distributions have these in their package manager. 
+* You need to install both `youtube-dl` and `ffmpeg` manually. Most Linux distributions have these in their package manager.
 * In order to use QSV, you must have the `intel-mediasdk` (apt) or `intel-media-sdk` (pacman) package installed.
 * For macOS users, Homebrew has the `youtube-dl` and `ffmpeg` packages. Videotoolbox API is used for hardware encoding.
 
@@ -49,3 +49,7 @@ You can skip the start and end time part by changing the value in config/config.
 * [ffmpeg](https://github.com/FFmpeg/FFmpeg)
 * [7zip](https://www.7-zip.org/download.html)
 * [detect_hardware](https://github.com/Kenshin9977/Detect_hardware)
+
+## Troubleshooting
+
+* UNIX users: If you get an error message such as `ERROR: [video code]: Youtube said: Unable to extract video data`, the version of `youtube-dl` present in your package manager is most likely out of date. Try uninstalling it and install it with pip by running `sudo -H pip3 install --upgrade youtube-dl` instead. (This command also updates `youtube-dl`)

@@ -19,7 +19,7 @@ Go to `script/` and launch `install-update.bat` which will download and place th
 
 * You need to install both `youtube-dl` and `ffmpeg` manually. Most Linux distributions have these in their package manager. 
 * In order to use QSV, you must have the `intel-mediasdk` (apt) or `intel-media-sdk` (pacman) package installed.
-* For macOS users, Homebrew has the `youtube-dl` and `ffmpeg` packages. Only software encoding is available.
+* For macOS users, Homebrew has the `youtube-dl` and `ffmpeg` packages. Videotoolbox API is used for hardware encoding.
 
 ### Installation
 

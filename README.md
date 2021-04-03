@@ -24,7 +24,7 @@ Go to `scripts/` and launch `install_update_binaries.bat` which will download an
 ### Installation
 
 * Download and extract a copy of the repository.
-* Go to the `scripts/` folder and run `video_dl_unix.sh`, if both `youtube-dl` and `ffmpeg` are found and you are prompted to enter a URL, you are good to go.
+* Go to the `scripts/` folder and run `video_dl.sh`, if both `youtube-dl` and `ffmpeg` are found and you are prompted to enter a URL, you are good to go.
 
 ## Features
 
@@ -40,7 +40,7 @@ The .zip for Windows is available in the [releases](https://github.com/Kenshin99
 
 ## Usage
 
-Launch `scripts/video_dl.bat` (Windows) or `scripts/video_dl_unix.sh` (Linux/Mac), enter the URL of a video, select start and end time then close the window when finished or enter another URL. The files are downloaded in the `downloads/` folder.
+Launch `scripts/video_dl.bat` (Windows) or `scripts/video_dl.sh` (Linux/Mac), enter the URL of a video, select start and end time then close the window when finished or enter another URL. The files are downloaded in the `downloads/` folder.
 You can skip the start and end time part by changing the value in config/config.ini from false to true. It's useful if you always want to get the whole video.
 
 ## Software used

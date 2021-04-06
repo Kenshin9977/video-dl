@@ -31,7 +31,8 @@ Go to `scripts/` and launch `install_update_binaries.bat` which will download an
 * Works with every website youtube-dl [supports](https://ytdl-org.github.io/youtube-dl/supportedsites.html).
 * Get videos in 1080p or less if this resolution isn't available.
 * Let you choose the start and end time of the video you want to download.
-* Force video recode in order to ensure compatibility with every editing software.
+* If the video is encoded in h264 it only remuxes it (faster than recode and lossless) in order to ensure compatibility with every editing software.
+* Otherwise it recodes the video in h264 with the -b:v 12M parameter in order to ensure compatibility.
 * Detects if a GPU capable of h264 encoding is visible by the system and if there is, use it to encode the downloaded video rather than the CPU which is slower.
 
 ## Downloads

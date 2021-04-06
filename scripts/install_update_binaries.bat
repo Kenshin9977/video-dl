@@ -10,7 +10,8 @@ curl -L --url https://yt-dl.org/latest/youtube-dl.exe --output "..\bin\youtube-d
 echo %NL%Downloading the latest version of ffmpeg.exe by gyan.dev.
 curl -L --url https://www.gyan.dev/ffmpeg/builds/ffmpeg-git-essentials.7z --output ".\ffmpeg-essentials_build.7z"
 if exist ".\ffmpeg-essentials_build.7z" (
-	..\resources\7za.exe e ".\ffmpeg-essentials_build.7z" "ffmpeg.exe" -aoa -o"..\bin\" -r
+	..\ressources\7za.exe e ".\ffmpeg-essentials_build.7z" "ffmpeg.exe" -aoa -o"..\bin\" -r
+	..\ressources\7za.exe e ".\ffmpeg-essentials_build.7z" "ffprobe.exe" -aoa -o"..\bin\" -r
 	del ".\ffmpeg-essentials_build.7z"
 	exit /b		
 )

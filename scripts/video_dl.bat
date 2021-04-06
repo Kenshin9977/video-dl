@@ -1,7 +1,7 @@
 @echo off
 
-cd ..\resources
-for /f %%i in ('..\resources\detect_hardware.bat') do set hw=%%i
+cd ..\ressources
+FOR /f %%i in ('..\ressources\detect_hardware.bat') do set hw=%%i
 cd ..\scripts
 set /p whole_video=<..\config\config.ini
 set whole_video="%whole_video%"
@@ -23,7 +23,11 @@ IF [%hw%]==[VCE] set encoder=h264_amf
 IF [%hw%]==[QSV] set encoder=h264_qsv
 IF [%hw%]==[x264] set encoder=h264
 
-"%~dp0\..\bin\youtube-dl.exe" --ffmpeg-location "%~dp0\..\bin\ffmpeg.exe" --recode-video mp4 --no-playlist --postprocessor-args "-ss %start% -to %end% -c:v %encoder% -b:v 12M -c:a copy" -f "bestvideo[height<=?1080]+bestaudio[ext=m4a]/[height<=?1080]+bestaudio/best" --merge-output-format mkv %url% -o "%~dp0\..\downloads\%%(title)s - %%(uploader)s.%%(ext)s"
+"..\bin\youtube-dl.exe" --ffmpeg-location "..\bin\ffmpeg.exe" --no-playlist -f "bestvideo[vcodec*=avc1,height<=?1080]+bestaudio[acodec*=mp4a]/[height<=?1080]+bestaudio/best" --merge-output-format mkv %url% -o "..\downloads\%%(title)s - %%(uploader)s.%%(ext)s"
 
-echo Download and conversion are finished
+FOR %%i in (..\downloads\*.mkv) do set mkv_file=%%~ni
+FOR /f %%i in ('..\bin\ffprobe.exe -v error -select_streams v:0 -show_entries stream^=codec_name -of default^=noprint_wrappers^=1:nokey^=1 "..\downloads\%mkv_file%.mkv"') do set mkv_codec=%%i
+IF [%mkv_codec%]==[h264] (..\bin\ffmpeg.exe -hide_banner -loglevel warning -i "..\downloads\%mkv_file%.mkv" -ss %start% -to %end% -c copy -y "..\downloads\%mkv_file%.mp4" & echo Download and remuxing are finished) ELSE (..\bin\ffmpeg.exe -hide_banner -loglevel warning -i "..\downloads\%mkv_file%.mkv" -ss %start% -to %end% -c:v %encoder% -b:v 12M -c:a copy -y "..\downloads\%mkv_file%.mp4" & echo Download and conversion are finished)
+DEL "..\downloads\%mkv_file%.mkv"
+
 goto :start

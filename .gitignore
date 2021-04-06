@@ -1,1 +1,10 @@
-downloads
+.idea/*
+build/*
+dist/*
+__pycache__/*
+main.spec
+*.zip
+Zombie mode songs/*
+bin/*
+downloads/*
+*.sfk

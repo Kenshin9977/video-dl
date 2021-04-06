@@ -1,4 +1,4 @@
-REM @echo off
+@echo off
 
 cd ..\resources
 FOR /f %%i in ('..\resources\detect_hardware.bat') do set hw=%%i

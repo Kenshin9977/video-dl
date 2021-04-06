@@ -32,7 +32,6 @@ FOR /f "delims=" %%i in ('..\bin\youtube-dl.exe --skip-download --get-filename -
 "..\bin\youtube-dl.exe" --no-playlist -f "bestvideo[vcodec*=avc1,width<=?1920]+bestaudio[acodec*=mp4a]/[height<=?1080]+bestaudio/best" --merge-output-format mp4 %url% -o "..\downloads\%%(title)s - %%(uploader)s.%%(ext)s"
 IF ["%downloaded_file%"]==[""] ECHO Download or remuxing/encoding failed. & goto :start
 FOR %%i in ("..\downloads\%downloaded_file%*") DO (
-	ECHO %%~nxi
 	SET downloaded_file_fullname=%%~nxi
 )
 

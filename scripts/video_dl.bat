@@ -1,13 +1,15 @@
-@echo off
+REM @echo off
 
-cd ..\ressources
-FOR /f %%i in ('..\ressources\detect_hardware.bat') do set hw=%%i
+cd ..\resources
+FOR /f %%i in ('..\resources\detect_hardware.bat') do set hw=%%i
 cd ..\scripts
 set /p whole_video=<..\config\config.ini
 set whole_video="%whole_video%"
 
-:start
+:Start
 set url=
+set downloaded_file=
+set downloaded_file_fullname=
 set /p url="Enter Video's URL : "
 set url="%url%"
 IF [%url%]==[""] echo "No URL was specified." & pause & exit
@@ -23,11 +25,32 @@ IF [%hw%]==[VCE] set encoder=h264_amf
 IF [%hw%]==[QSV] set encoder=h264_qsv
 IF [%hw%]==[x264] set encoder=h264
 
-"..\bin\youtube-dl.exe" --ffmpeg-location "..\bin\ffmpeg.exe" --no-playlist -f "bestvideo[vcodec*=avc1,height<=?1080]+bestaudio[acodec*=mp4a]/[height<=?1080]+bestaudio/best" --merge-output-format mkv %url% -o "..\downloads\%%(title)s - %%(uploader)s.%%(ext)s"
+for /f "tokens=2 delims=:." %%x in ('chcp') do set cp=%%x
+chcp 1252>nul
 
-FOR %%i in (..\downloads\*.mkv) do set mkv_file=%%~ni
-FOR /f %%i in ('..\bin\ffprobe.exe -v error -select_streams v:0 -show_entries stream^=codec_name -of default^=noprint_wrappers^=1:nokey^=1 "..\downloads\%mkv_file%.mkv"') do set mkv_codec=%%i
-IF [%mkv_codec%]==[h264] (..\bin\ffmpeg.exe -hide_banner -loglevel warning -i "..\downloads\%mkv_file%.mkv" -ss %start% -to %end% -c copy -y "..\downloads\%mkv_file%.mp4" & echo Download and remuxing are finished) ELSE (..\bin\ffmpeg.exe -hide_banner -loglevel warning -i "..\downloads\%mkv_file%.mkv" -ss %start% -to %end% -c:v %encoder% -b:v 12M -c:a copy -y "..\downloads\%mkv_file%.mp4" & echo Download and conversion are finished)
-DEL "..\downloads\%mkv_file%.mkv"
+FOR /f "delims=" %%i in ('..\bin\youtube-dl.exe --skip-download --get-filename --no-warnings --no-playlist %url% -o "%%(title)s - %%(uploader)s"') do set downloaded_file=%%i
+"..\bin\youtube-dl.exe" --no-playlist -f "bestvideo[vcodec*=avc1,width<=?1920]+bestaudio[acodec*=mp4a]/[height<=?1080]+bestaudio/best" --merge-output-format mp4 %url% -o "..\downloads\%%(title)s - %%(uploader)s.%%(ext)s"
+IF ["%downloaded_file%"]==[""] ECHO Download or remuxing/encoding failed. & goto :start
+FOR %%i in ("..\downloads\%downloaded_file%*") DO (
+	ECHO %%~nxi
+	SET downloaded_file_fullname=%%~nxi
+)
 
-goto :start
+chcp %cp%>nul
+
+IF ["%downloaded_file_fullname%"]==[""] ECHO Download failed. & goto :start
+FOR /f %%i in ('..\bin\ffprobe.exe -v error -select_streams v:0 -show_entries stream^=codec_name -of default^=noprint_wrappers^=1:nokey^=1 "..\downloads\%downloaded_file_fullname%"') do set files_codec=%%i
+ECHO File's codec: %files_codec%.
+SET flags=-hide_banner -loglevel warning
+IF [%files_codec%]==[h264] (
+	..\bin\ffmpeg.exe %flags% -i "..\downloads\%downloaded_file_fullname%" -ss %start% -to %end% -c copy -y "..\downloads\Processed_%downloaded_file%.mp4"
+	ECHO Download and remuxing are finished
+) ELSE (
+	..\bin\ffmpeg.exe %flags% -i "..\downloads\%downloaded_file_fullname%" -ss %start% -to %end% -c:v %encoder% -b:v 12M -c:a copy -y "..\downloads\Processed_%downloaded_file%.mp4"
+	ECHO Download and conversion are finished
+)
+
+DEL "..\downloads\%downloaded_file_fullname%"
+REN "..\downloads\Processed_%downloaded_file%.mp4" "%downloaded_file%.mp4""
+
+goto :Start

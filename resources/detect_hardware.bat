@@ -1,1 +1,0 @@
-Powershell.exe -executionpolicy bypass -command ".\Detect_hardware.ps1"

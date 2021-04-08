@@ -69,8 +69,33 @@ function Get-PSEncoder {
 	return "x264"
 }
 
-function PSVideo-DL {
-	$ASIC = Get-PSEncoder
+function Parse-IniFile ($file) {
+  $ini = @{}
+
+  # Create a default section if none exist in the file. Like a java prop file.
+  $section = "NO_SECTION"
+  $ini[$section] = @{}
+
+  switch -regex -file $file {
+    "^\[(.+)\]$" {
+      $section = $matches[1].Trim()
+      $ini[$section] = @{}
+    }
+    "^\s*([^#].+?)\s*=\s*(.*)" {
+      $name,$value = $matches[1..2]
+      # skip comments that start with semicolon:
+      if (!($name.StartsWith(";"))) {
+        $ini[$section][$name] = $value.Trim()
+      }
+    }
+  }
+  $ini
+}
+
+function PSVideo-DL($ASIC, $Ini){
+	$Whole = $Ini["General"]["whole_video"]
+	$DownPath = $Ini["General"]["download_path"]
+	
 	if ($ASIC -eq "NVENC") {$Encoder = "h264_nvenc"}
 	elseif ($ASIC -eq "VCE") {$Encoder = "h264_amf"}
 	elseif ($ASIC -eq "QSV") {$Encoder = "h264_qsv"}
@@ -80,62 +105,46 @@ function PSVideo-DL {
 	$Url = Read-Host "Enter video's URL"
 	if ($Url -notmatch "^https?://.*"){return "Invalid URL."}
 	if ($Url -eq "") {return "No URL was specified."}
-	Write-Host "Enter start and end time in the format HH:mm:ss (leave blank For the whole video)"
-	$Start = Read-Host "Start"
-	if ($Start -eq "") {$Start = "0:0"}
-	if ($Start -notmatch "^(\d{1,2}:)?\d{1,2}:\d{1,2}$") {return "Invalid start time."}
-	$End = Read-Host "End"
-	if ($End -eq "") {$End = "99:59:59"}
-	if ($End -notmatch "^(\d{1,2}:)?\d{1,2}:\d{1,2}$"){return "Invalid end time."}
 	
-	# $Queried_file = ..\bin\youtube-dl.exe --no-progress --console-title --abort-on-error --no-warnings --get-filename --no-playlist "$Url" -o "%(title)s - %(uploader)s"
-	# if ($Queried_file -eq $None) {return "An error occured with this URL."}
-	# if ($Queried_file -match "^ERROR: .*") {return "An error occured."}
-	# Write-Host "You requested $Queried_file"
-	$Download = ..\bin\youtube-dl.exe --console-title --no-warnings --prefer-ffmpeg --ffmpeg-location "..\bin\ffmpeg.exe" --no-playlist -f "bestvideo[vcodec*=avc1][width<=?1920]+[acodec*=mp4a]/bestvideo[vcodec*=avc1][width<=?1920]+bestaudio/bestvideo[width<=?1920]+bestaudio/bestvideo+bestaudio/best" --merge-output-format mp4 "$Url" -o "..\downloads\%(title)s - %(uploader)s.%(ext)s"
-	# | Tee-Object -Variable Download
-	# Echo Downloading _ $Download _
-	# Echo Downloading _ $Download[0][0] _
-	# Echo Downloading _ $Download[1] _
-	# Echo Downloading _ $Download[2] _
-	if ($Download[0] -eq "[") {return "An error occured while downloading."}
-	# if ($Download -eq "") {return "An error occured while downloading."}
-	# if ($Download -eq $None) {return "An error occured while downloading."}
-	# cd "..\downloads\"
+	if ($Whole -eq "false") {
+		Write-Host "Enter start and end time in the format HH:mm:ss (leave blank For the whole video)"
+		$Start = Read-Host "Start"
+		if ($Start -eq "") {$Start = "0:0"}
+		if ($Start -notmatch "^(\d{1,2}:)?\d{1,2}:\d{1,2}$") {return "Invalid start time."}
+		$End = Read-Host "End"
+		if ($End -eq "") {$End = "99:59:59"}
+		if ($End -notmatch "^(\d{1,2}:)?\d{1,2}:\d{1,2}$"){return "Invalid end time."}
+	} else {
+		$Start = "0:0"
+		$End = "99:59:59"
+	}
 	
-	# chcp 10000
-	# $File =  (Get-Childitem ..\downloads | Where-Object {$_.Name -eq "$Queried_file"})
-	$File = gci ..\downloads | sort CreationTime | select -last 1
-	# Start-Sleep -s 5
+	$Download = ..\bin\youtube-dl.exe --console-title --no-warnings --prefer-ffmpeg --ffmpeg-location "..\bin\ffmpeg.exe" --no-playlist -f "bestvideo[vcodec*=avc1][width<=?1920]+[acodec*=mp4a]/bestvideo[vcodec*=avc1][width<=?1920]+bestaudio/bestvideo[width<=?1920]+bestaudio/bestvideo+bestaudio/best" --merge-output-format mp4 "$Url" -o "$DownPath\%(title)s - %(uploader)s.%(ext)s"
+	if ($Download -eq $None -or $Download[0] -eq "[") {Echo $Download return "An error occured while downloading."}
+
+	$File = gci "$DownPath" | sort CreationTime | select -last 1
 	if ($File -eq $None) {return "Fuck."}
 	$Filename = $File.Name
 	$Filebase = $File.Basename
 	$File_ext = $File.Extension
-	# cd "..\resources\"
 	
-	$Video_codec = ..\bin\ffprobe.exe -v error -analyzeduration 2147483647 -probesize 2147483647 -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "..\downloads\$File"
-	$Audio_codec = ..\bin\ffprobe.exe -v error -analyzeduration 2147483647 -probesize 2147483647 -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "..\downloads\$File"
+	$Video_codec = ..\bin\ffprobe.exe -v error -analyzeduration 2147483647 -probesize 2147483647 -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$DownPath\$File"
+	$Audio_codec = ..\bin\ffprobe.exe -v error -analyzeduration 2147483647 -probesize 2147483647 -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$DownPath\$File"
 	Write-Host "Video codec:"$Video_codec
 	Write-Host "Audio codec:"$Audio_codec
 	
 	$Date_time = Get-Date -Format "-yyyy-MM-dd-HH-mm-ss"
 	
 	if ($Video_codec -eq "h264" -and $Audio_codec -eq "aac") {
-		# try{
-		..\bin\ffmpeg.exe -hide_banner -loglevel warning -analyzeduration 2147483647 -probesize 2147483647 -i "..\downloads\$Filename" -ss $Start -to $End -c copy -y "..\downloads\$Filebase$Date_time$File_ext"
-		# } catch {return "An error occured while remuxing."}
+		..\bin\ffmpeg.exe -hide_banner -loglevel warning -analyzeduration 2147483647 -probesize 2147483647 -i "$DownPath\$Filename" -ss $Start -to $End -c copy -y "$DownPath\$Filebase$Date_time$File_ext"
 		Write-Host "Download and remux completed."
 		}
 	elseif ($Video_codec -eq "h264") {
-		# try{
-		..\bin\ffmpeg.exe -hide_banner -loglevel warning -analyzeduration 2147483647 -probesize 2147483647 -i "..\downloads\$Filename" -ss $Start -to $End -c:v copy -c:a aac -y "..\downloads\$Filebase$Date_time$File_ext"
-		# } catch {return "An error occured while remuxing and reencoding."}
+		..\bin\ffmpeg.exe -hide_banner -loglevel warning -analyzeduration 2147483647 -probesize 2147483647 -i "$DownPath\$Filename" -ss $Start -to $End -c:v copy -c:a aac -y "$DownPath\$Filebase$Date_time$File_ext"
 		Write-Host "Download, remux an reencoding completed."
 	}
 	else {
-		# try{
-		..\bin\ffmpeg.exe -hide_banner -loglevel warning -analyzeduration 2147483647 -probesize 2147483647 -i "..\downloads\$Filename" -ss $Start -to $End -c:v $Encoder -b:v 12M -c:a aac -y "..\downloads\$Filebase$Date_time$File_ext"
-		# } catch {return "An error occured while reencoding."}
+		..\bin\ffmpeg.exe -hide_banner -loglevel warning -analyzeduration 2147483647 -probesize 2147483647 -i "$DownPath\$Filename" -ss $Start -to $End -c:v $Encoder -b:v 12M -c:a aac -y "$DownPath\$Filebase$Date_time$File_ext"
 		Write-Host "Download and reencoding completed."
 	}
 	Write-Host "Deleting the downloaded unprocessed file."
@@ -143,12 +152,12 @@ function PSVideo-DL {
 	return
 }
 
-Do {
-	PSVideo-DL
-} While($true)
+$ASIC_Param1 = Get-PSEncoder
+$Ini_Param2 = Parse-IniFile("..\config\config.ini")
+$DownPath = $Ini_Param2["General"]["download_path"]	
+if ((Test-Path $DownPath) -ne $true){return "The download_path specified in config.ini doesn't seem to exist"}
 
-# Get the name of the file with a youtube-dl command instead of guessing it with the latest created file
-# Handle error when usign youtube-dl to get the name and to download the file
-# Add processed at the end to differentiate the processed one and avoid deleting the original file in order to not have to redownload it
-# Handle config.ini default time
-# Add config.ini delete original file option
+Do {
+	PSVideo-DL -ASIC $ASIC_Param1 -Ini $Ini_Param2
+	Write-Output "`n"
+} While($true)

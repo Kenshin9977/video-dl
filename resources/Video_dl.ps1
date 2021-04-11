@@ -119,11 +119,13 @@ function PSVideo-DL($ASIC, $Ini){
 		$End = "99:59:59"
 	}
 	
+	$Current_N_MP4 = (Get-ChildItem -File $DownPath | Where-Object {$_.Extension -eq ".mp4"}| Measure-Object).Count
 	$Download = ..\bin\youtube-dl.exe --console-title --no-warnings --prefer-ffmpeg --ffmpeg-location "..\bin\ffmpeg.exe" --no-playlist -f "bestvideo[vcodec*=avc1][width<=?1920]+[acodec*=mp4a]/bestvideo[vcodec*=avc1][width<=?1920]+bestaudio/bestvideo[width<=?1920]+bestaudio/bestvideo+bestaudio/best" --merge-output-format mp4 "$Url" -o "$DownPath\%(title)s - %(uploader)s.%(ext)s"
-	if ($Download -eq $None -or $Download[0] -eq "[") {Echo $Download return "An error occured while downloading."}
+	$New_N_MP4 = (Get-ChildItem -File $DownPath | Where-Object {$_.Extension -eq ".mp4"}| Measure-Object).Count
+	if ($Download -eq $None -or $Download[0] -eq "[" -or $Current_N_MP4 -eq $New_N_MP4) {Echo $Download; return "An error occured while downloading."}
 
 	$File = gci "$DownPath" | sort CreationTime | select -last 1
-	if ($File -eq $None) {return "Fuck."}
+	if ($File -eq $None) {return "There was an error with the download."}
 	$Filename = $File.Name
 	$Filebase = $File.Basename
 	$File_ext = $File.Extension

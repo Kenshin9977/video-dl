@@ -138,19 +138,19 @@ function PSVideo-DL($ASIC, $Ini){
 	$Date_time = Get-Date -Format "-yyyy-MM-dd-HH-mm-ss"
 	
 	if ($Video_codec -eq "h264" -and $Audio_codec -eq "aac") {
-		..\bin\ffmpeg.exe -hide_banner -loglevel warning -analyzeduration 2147483647 -probesize 2147483647 -i "$DownPath\$Filename" -ss $Start -to $End -c copy -y "$DownPath\$Filebase$Date_time$File_ext"
+		..\bin\ffmpeg.exe -hide_banner -loglevel warning -analyzeduration 2147483647 -probesize 2147483647 -ss $Start -i "$DownPath\$Filename" -to $End -c copy -y "$DownPath\$Filebase$Date_time$File_ext"
 		Write-Host "Download and remux completed."
-		}
+        }
 	elseif ($Video_codec -eq "h264") {
-		..\bin\ffmpeg.exe -hide_banner -loglevel warning -analyzeduration 2147483647 -probesize 2147483647 -i "$DownPath\$Filename" -ss $Start -to $End -c:v copy -c:a aac -y "$DownPath\$Filebase$Date_time$File_ext"
+		..\bin\ffmpeg.exe -hide_banner -loglevel warning -analyzeduration 2147483647 -probesize 2147483647 -ss $Start -i "$DownPath\$Filename" -to $End -c:v copy -c:a aac -y "$DownPath\$Filebase$Date_time$File_ext"
 		Write-Host "Download, remux an reencoding completed."
 	}
 	else {
-		..\bin\ffmpeg.exe -hide_banner -loglevel warning -analyzeduration 2147483647 -probesize 2147483647 -i "$DownPath\$Filename" -ss $Start -to $End -c:v $Encoder -b:v 12M -c:a aac -y "$DownPath\$Filebase$Date_time$File_ext"
+		..\bin\ffmpeg.exe -hide_banner -loglevel warning -analyzeduration 2147483647 -probesize 2147483647 -ss $Start -i "$DownPath\$Filename" -to $End -c:v $Encoder -b:v 12M -c:a aac -y "$DownPath\$Filebase$Date_time$File_ext"
 		Write-Host "Download and reencoding completed."
 	}
 	Write-Host "Deleting the downloaded unprocessed file."
-	Remove-Item $File.fullname
+    Remove-Item $File.fullname
 	return
 }
 

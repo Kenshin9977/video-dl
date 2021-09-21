@@ -20,6 +20,7 @@ All the requirements are embedded within the installer.
 
 ## Downloads
 The installer for Windows is available in the [releases](https://github.com/Kenshin9977/video-dl-script/releases) section.
+The program isn't signed yet, so your browser will probably warn you when downloading it.
 
 
 ## Installation

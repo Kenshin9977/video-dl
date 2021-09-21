@@ -8,15 +8,12 @@ from gui import gpus_possible_encoders
 from datetime import datetime
 
 
-def post_process_dl(full_name, values, infos):
+def post_process_dl(full_name, infos):
     audio_codec = infos['acodec']
-    audio_codecs = ['mp3', 'mp4a', 'aac']
-    acodec_supported = len([i for i in audio_codecs if re.match(f"{i}", audio_codec)]) > 0
-    if values['AudioOnly']:
-        ffmpeg_audio(full_name, acodec_supported, audio_codecs, audio_codec)
-    else:
-        vcodec_supported = re.match("avc1", infos['vcodec'])
-        ffmpeg_video(full_name, acodec_supported, vcodec_supported, infos['fps'])
+    acodecs = ["aac", "mp3", "mp4a"]
+    acodec_supported = len([i for i in acodecs if re.match(f"{i}", audio_codec)]) > 0
+    vcodec_supported = re.match("avc1", infos['vcodec'])
+    ffmpeg_video(full_name, acodec_supported, vcodec_supported, infos['fps'])
 
 
 def ffmpeg_video(path, acodec_supported, vcodec_supported, fps):
@@ -30,18 +27,6 @@ def ffmpeg_video(path, acodec_supported, vcodec_supported, fps):
     ffmpegCommand = [
         'ffmpeg', '-hide_banner', '-i', path, '-c:a', recode_acodec, '-c:v', recode_vcodec, '-y', output_path]
     action = "Remuxing" if acodec_supported and vcodec_supported else "Reencoding"
-    progress_ffmpeg(ffmpegCommand, action, path)
-
-
-def ffmpeg_audio(path, acodec_supported, audio_codecs, audio_codec):
-    recode_acodec = "copy" if acodec_supported else "m4a"
-    filename = os.path.splitext(path)[0]
-    ext = os.path.splitext(path)[1] if os.path.splitext(path)[1] in audio_codecs else 'm4a'
-    now = datetime.now()
-    date_time = now.strftime(" - %Y-%m-%d-%H-%M-%S.")
-    output_path = filename + date_time + ext
-    ffmpegCommand = ['ffmpeg', '-hide_banner', '-i', path, '-c:a', recode_acodec, '-y', output_path]
-    action = "Remuxing" if acodec_supported else "Reencoding"
     progress_ffmpeg(ffmpegCommand, action, path)
 
 

@@ -55,6 +55,9 @@ You need to install:
 * ffmpeg
 * ffprobe
 
+You can use pyinstaller to create a binary file. On Windows I'm using the following command line: 
+`pyinstaller -wF --icon=icon.ico --name=Video-dl.exe video-dl/gui.py`
+
 ## Software used
 
 * [yt-dlp](https://github.com/yt-dlp/yt-dlp)

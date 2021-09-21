@@ -19,15 +19,17 @@ def video_dl(values):
     ext = infos_ydl['audio_ext'] if (values['AudioOnly'] and infos_ydl['audio_ext'] != 'none') else infos_ydl['ext']
     filename = f"{sanitize_filename(infos_ydl['title'][:100])} - {infos_ydl['uploader']}.{ext}"
     full_path = sanitize_path(os.path.join(values['path'], filename))
-    post_process_dl(full_path, values, infos_ydl)
-    os.remove(full_path)
+    if values['AudioOnly']:
+        post_process_dl(full_path, values)
+        os.remove(full_path)
 
 
 def gen_query(h, browser, audio_only, path, start, end):
     options = {'noplaylist': True, 'progress_hooks': [download_progress_bar], 'trim_file_name': 250,
                'outtmpl': os.path.join(path, "%(title).100s - %(uploader)s.%(ext)s")}
     video_format = ""
-    for acodec in ["aac", "mp3", "mp4a"]:
+    acodecs = ["aac", "mp3"] if audio_only else ["aac", "mp3", "mp4a"]
+    for acodec in acodecs:
         video_format += f'bestvideo[vcodec*=avc1][height<=?{h}]+bestaudio[acodec*={acodec}]/'
     video_format += f'bestvideo[vcodec*=avc1][height<=?{h}]+bestaudio/'
     for acodec in ["aac", "mp3", "mp4a"]:
@@ -37,10 +39,15 @@ def gen_query(h, browser, audio_only, path, start, end):
     options['format'] = audio_format if audio_only else video_format
     if audio_only:
         options['extract_audio'] = True
+        options['postprocessors'] = [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '320',
+        }]
     if start != "00:00:00" or end != "99:59:59":
         options['external_downloader'] = 'ffmpeg'
         options['external_downloader_args'] = {'ffmpeg_i': ['-ss', start, '-to', end]}
-    else:
+    elif not audio_only:
         options["merge-output-format"] = "mp4"
     if browser != "None":
         options['cookiesfrombrowser'] = [browser.lower()]

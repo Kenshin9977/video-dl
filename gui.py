@@ -52,7 +52,7 @@ def VideoDL():
          Sg.Input(size=(4, 1), disabled=True, disabled_readonly_background_color="gray", key="eS", enable_events=True,
                   default_text="59")],
         [Sg.Text("Maximum quality")],
-        [Sg.Combo(['2160p', '1440p', '1080p', '720p', '480p'], default_value='1080p', readonly=True, key="MaxHeight")],
+        [Sg.Combo(['4320p', '2160p', '1440p', '1080p', '720p', '480p'], default_value='1080p', readonly=True, key="MaxHeight")],
         [Sg.Text("Maximum framerate")],
         [Sg.Combo(['60', '30'], default_value='60', readonly=True, key="MaxFPS")],
         [Sg.Checkbox("Audio only", default=False, checkbox_color="black", enable_events=True, key="AudioOnly")],

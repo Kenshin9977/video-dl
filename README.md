@@ -16,7 +16,7 @@ All the requirements are embedded within the installer.
 * In order to use QSV, you must have the `intel-mediasdk` (apt) or `intel-media-sdk` (pacman) package installed.
 
 ### OSX
-* For macOS users, Homebrew has `ffmpeg` `ffprobe` packages.
+* For macOS users, Homebrew has the `ffmpeg` package which includes `ffprobe`. If python 3 was installed with Homebrew, you will also need the `python-tk` package.
 
 ## Downloads
 The installer for Windows is available in the [releases](https://github.com/Kenshin9977/video-dl-script/releases) section.

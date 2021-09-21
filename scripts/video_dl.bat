@@ -1,1 +1,0 @@
-powershell.exe -executionpolicy bypass -command "..\resources\Video_dl.ps1"

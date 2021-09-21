@@ -1,57 +1,52 @@
 # video-dl script
 
-The purpose of this script is to simplify the usage of [youtube-dl](https://github.com/ytdl-org/youtube-dl).
+The purpose of this script is to simplify the usage of [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+<p align="center">
+<img src="https://i.imgur.com/TtreT8D.png">
+</p>
 
-## Windows
 
-### Requirements
+## Requirements
 
-* This script uses cURL which ships with Windows 10 1803 or later. You can also install it separately.
+### Windows
+All the requirements are embedded within the installer.
 
-### Installation
-
-Extract the archive anywhere you want.
-Go to `scripts/` and launch `install_update_binaries.bat` which will download and place the latest versions of `youtube-dl` and `ffmpeg` in the bin folder. This script can also be used to update those binaries. This ensures to get the latest version when you use the script.
-
-## UNIX
-
-### Requirements
-
-* You need to install both `youtube-dl` and `ffmpeg` manually. Most Linux distributions have these in their package manager.
+### Linux
+* You need to install both `ffmpeg` and `ffprobe` manually. Most Linux distributions have these in their package manager.
 * In order to use QSV, you must have the `intel-mediasdk` (apt) or `intel-media-sdk` (pacman) package installed.
-* For macOS users, Homebrew has the `youtube-dl` and `ffmpeg` packages. Videotoolbox API is used for hardware encoding.
 
-### Installation
+### OSX
+* For macOS users, Homebrew has `ffmpeg` `ffprobe` packages.
 
-* Download and extract a copy of the repository.
-* Go to the `scripts/` folder and run `video_dl.sh`, if both `youtube-dl` and `ffmpeg` are found and you are prompted to enter a URL, you are good to go.
+## Downloads
+The installer for Windows is available in the [releases](https://github.com/Kenshin9977/video-dl-script/releases) section.
+
+
+## Installation
+
+###Windows
+Simply run the installer. The program isn't signed yet, so you'll have a window popping up telling you the program isn't safe.
+
+### UNIX
+I plan to compile binaries for both OSX and Linux. In the meantime you can compile from the sources.
 
 ## Features
 
-* Works with every website youtube-dl [supports](https://ytdl-org.github.io/youtube-dl/supportedsites.html).
-* Get videos in 1080p or less if this resolution isn't available.
-* Let you choose the start and end time of the video you want to download.
-* Only remux videos if it is encoded in h264 (faster than recode and lossless) in order to ensure compatibility with every editing software.
-* Recodes the video in h264 if it is encoded with something else using the -b:v 12M parameter in order to ensure compatibility.
-* Detects if a GPU capable of h264 encoding is visible by the system and if there is, use it to encode the downloaded video rather than the CPU which is slower.
-* Saves videos with the name of the video followed by the author's name.
-
-## Downloads
-
-The .zip for Windows is available in the [releases](https://github.com/Kenshin9977/video-dl-script/releases) section.
+* Works with every website yt-dlp [supports](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
+* Allows you to choose the max framerate and resolutions in which you want the videos in the selected resolution. It will try to find it but will get a lower value if this resolution/framerate isn't available.
+* Allows you to only download the audio of a video.
+* Let you choose the start and end time of the video you want to download. It only downloads the part you selected but the download is slower since it's handled by ffmpeg and not av2conv.
+* Allows you to get cookies from your browser in order to access restricted videos on Youtube only accessible if you log in.
+* Saves videos with the name of the video followed by the author's name, and the date time.
+* Only remuxes videos if it is encoded in h264 (faster than recode and lossless) in order to ensure compatibility with every NLE software.
+* Recodes the video in h264 if it is encoded with something else in order to ensure compatibility.
+* Detects if a GPU capable of h264 encoding is visible by the system and if there is, use it to encode the video rather than the CPU which is slower.
 
 ## Usage
 
-Launch `scripts/video_dl.bat` (Windows) or `scripts/video_dl.sh` (Linux/Mac), enter the URL of a video, select start and end time then close the window when finished or enter another URL. The files are downloaded in the `downloads/` folder.
-You can skip the start and end time part by changing the value in config/config.ini from false to true. It's useful if you always want to get the whole video.
+Launch Video-dl, enter a valid URL of a supported website, select the options you want then click "Download".
 
 ## Software used
 
-* [youtube-dl](https://github.com/ytdl-org/youtube-dl)
+* [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 * [ffmpeg](https://github.com/FFmpeg/FFmpeg)
-* [7zip](https://www.7-zip.org/download.html)
-* [detect_hardware](https://github.com/Kenshin9977/Detect_hardware)
-
-## Troubleshooting
-
-* UNIX users: If you get an error message such as `ERROR: [video code]: Youtube said: Unable to extract video data`, the version of `youtube-dl` present in your package manager is most likely out of date. Try uninstalling it and install it with pip by running `sudo -H pip3 install --upgrade youtube-dl` instead. (This command also updates `youtube-dl`)

@@ -20,7 +20,7 @@ def video_dl(values):
     filename = f"{sanitize_filename(infos_ydl['title'][:100])} - {infos_ydl['uploader']}.{ext}"
     full_path = sanitize_path(os.path.join(values['path'], filename))
     post_process_dl(full_path, values, infos_ydl)
-    # os.remove(full_path)
+    os.remove(full_path)
 
 
 def gen_query(h, browser, audio_only, path, start, end):

@@ -1,0 +1,6 @@
+ffmpeg_python==0.2.0
+quantiphy==2.15.0
+yt_dlp==2021.9.2
+ffmpeg==1.4
+GPUtil==1.4.0
+PySimpleGUI==4.47.0

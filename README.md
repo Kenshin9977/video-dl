@@ -46,7 +46,16 @@ I plan to compile binaries for both OSX and Linux. In the meantime you can compi
 
 Launch Video-dl, enter a valid URL of a supported website, select the options you want then click "Download".
 
+## Compile from sources
+
+You need to install:
+* Python >= 3.8
+* The requirements listed in requirements.txt
+* ffmpeg
+* ffprobe
+
 ## Software used
 
 * [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 * [ffmpeg](https://github.com/FFmpeg/FFmpeg)
+* [PySimpleGUI](https://pysimplegui.readthedocs.io/en/latest/)

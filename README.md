@@ -24,7 +24,7 @@ The installer for Windows is available in the [releases](https://github.com/Kens
 
 ## Installation
 
-###Windows
+### Windows
 Simply run the installer. The program isn't signed yet, so you'll have a window popping up telling you the program isn't safe.
 
 ### UNIX

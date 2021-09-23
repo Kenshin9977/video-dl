@@ -15,8 +15,8 @@ def video_dl(values: Dict) -> None:
     CANCELED = False
     trim_start = f"{values['sH']}:{values['sM']}:{values['sS']}"
     trim_end = f"{values['eH']}:{values['eM']}:{values['eS']}"
-    ydl_opts = gen_query(values['MaxHeight'], values['Browser'],
-                         values['AudioOnly'], values['path'], trim_start, trim_end)
+    ydl_opts = _gen_query(values['MaxHeight'], values['Browser'],
+                          values['AudioOnly'], values['path'], trim_start, trim_end)
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(values["url"])
     ext = infos_ydl['audio_ext'] if (
@@ -28,7 +28,7 @@ def video_dl(values: Dict) -> None:
         os.remove(full_path)
 
 
-def gen_query(h: int, browser: str, audio_only: bool, path: str, start: str, end: str) -> Dict[str, Any]:
+def _gen_query(h: int, browser: str, audio_only: bool, path: str, start: str, end: str) -> Dict[str, Any]:
     options = {'noplaylist': True, 'progress_hooks': [download_progress_bar], 'trim_file_name': 250,
                'outtmpl': os.path.join(path, "%(title).100s - %(uploader)s.%(ext)s")}
     video_format = ""

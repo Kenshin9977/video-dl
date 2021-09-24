@@ -35,7 +35,7 @@ I plan to compile binaries for both OSX and Linux. In the meantime you can compi
 
 * Works with every website yt-dlp [supports](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
 * Allows you to choose the max framerate and resolutions in which you want the videos in the selected resolution. It will try to find it but will get a lower value if this resolution/framerate isn't available.
-* Allows you to only download the audio of a video.
+* Allows you to only download the audio of a video, automatically converts the audio to MP3 320 kbps to ensure compatibility.
 * Let you choose the start and end time of the video you want to download. It only downloads the part you selected but the download is slower since it's handled by ffmpeg and not av2conv.
 * Allows you to get cookies from your browser in order to access restricted videos on Youtube only accessible if you log in.
 * Saves videos with the name of the video followed by the author's name, and the date time.

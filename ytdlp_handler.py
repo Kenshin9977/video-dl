@@ -39,7 +39,7 @@ def _gen_query(h: int, browser: str, audio_only: bool, path: str, start: str, en
     for acodec in ["aac", "mp3", "mp4a"]:
         video_format += f'/bestvideo[height<=?{h}]bestaudio[acodec={acodec}]/'
     video_format += f'bestvideo[height<=?{h}]bestaudio/best'
-    audio_format = 'bestaudio[acodec*=mp4a]/bestaudio[acodec*=mp3]/bestaudio[acodec*=aac]/bestaudio/best'
+    audio_format = 'bestaudio[acodec*=mp3]/bestaudio/best'
     options['format'] = audio_format if audio_only else video_format
     if audio_only:
         options['extract_audio'] = True

@@ -8,6 +8,7 @@ import ffmpeg
 import PySimpleGUI as Sg
 
 from gui import gpus_possible_encoders
+from lang import GuiField, get_text
 
 
 def post_process_dl(full_name: str, infos: Dict) -> None:
@@ -30,7 +31,8 @@ def _ffmpeg_video(path: str, acodec_supported: bool, vcodec_supported: bool, fps
     output_path = filename + date_time + ext
     ffmpegCommand = [
         'ffmpeg', '-hide_banner', '-i', path, '-c:a', recode_acodec, '-c:v', recode_vcodec, '-y', output_path]
-    action = "Remuxing" if acodec_supported and vcodec_supported else "Reencoding"
+    action = get_text(GuiField.ff_remux) if acodec_supported and vcodec_supported else get_text(
+        GuiField.ff_reencode)
     _progress_ffmpeg(ffmpegCommand, action, path)
 
 
@@ -41,7 +43,7 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
     layout = [[Sg.Text(action)],
               [Sg.ProgressBar(100, orientation='h',
                               size=(20, 20), key='-PROG-')],
-              [Sg.Text("Starting", key='PROGINFOS1')],
+              [Sg.Text(get_text(GuiField.ff_starting), key='PROGINFOS1')],
               [Sg.Text("", key='PROGINFOS2')],
               [Sg.Cancel()]]
 
@@ -62,7 +64,8 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
             progress_percent = _get_progress_percent(
                 items['time'], total_duration)
             progress_window['PROGINFOS1'].update(f"{progress_percent}%")
-            progress_window['PROGINFOS2'].update(f"Speed: {items['speed']}")
+            progress_window['PROGINFOS2'].update(
+                f"{get_text(GuiField.ff_speed)}: {items['speed']}")
             progress_window['-PROG-'].update(progress_percent)
     progress_window.close()
 

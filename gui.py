@@ -8,6 +8,7 @@ import GPUtil
 import PySimpleGUI as Sg
 
 from ytdlp_handler import *
+from lang import get_text, GuiField
 
 
 def _get_encoders_list() -> List[str]:
@@ -32,12 +33,12 @@ def _video_dl() -> None:
     download_path = _get_download_path()
     Sg.theme('DarkGrey13')
     layout = [
-        [Sg.Text("Link")],
+        [Sg.Text(get_text(GuiField.link))],
         [Sg.Input(key="url")],
-        [Sg.Text("Destination folder")],
+        [Sg.Text(get_text(GuiField.destination))],
         [Sg.Input(download_path, key="path"),
          Sg.FolderBrowse(button_text="...")],
-        [Sg.Checkbox("Start", default=False, checkbox_color="black", enable_events=True, key="Start"),
+        [Sg.Checkbox(get_text(GuiField.start), default=False, checkbox_color="black", enable_events=True, key="Start"),
          Sg.Input(size=(4, 1), disabled=True, disabled_readonly_background_color="gray", key="sH", enable_events=True,
                   default_text="00"),
          Sg.Text(":", size=(1, 1), pad=(0, 0)),
@@ -46,7 +47,7 @@ def _video_dl() -> None:
          Sg.Text(":", size=(1, 1), pad=(0, 0)),
          Sg.Input(size=(4, 1), disabled=True, disabled_readonly_background_color="gray", key="sS", enable_events=True,
                   default_text="00")],
-        [Sg.Checkbox("End ", default=False, checkbox_color="black", enable_events=True, key="End"),
+        [Sg.Checkbox(get_text(GuiField.end), default=False, checkbox_color="black", enable_events=True, key="End"),
          Sg.Input(size=(4, 1), disabled=True, disabled_readonly_background_color="gray", key="eH", enable_events=True,
                   default_text="99"),
          Sg.Text(":", size=(1, 1), pad=(0, 0)),
@@ -55,18 +56,18 @@ def _video_dl() -> None:
          Sg.Text(":", size=(1, 1), pad=(0, 0)),
          Sg.Input(size=(4, 1), disabled=True, disabled_readonly_background_color="gray", key="eS", enable_events=True,
                   default_text="59")],
-        [Sg.Text("Maximum quality")],
+        [Sg.Text(get_text(GuiField.quality))],
         [Sg.Combo(['4320p', '2160p', '1440p', '1080p', '720p', '480p'],
                   default_value='1080p', readonly=True, key="MaxHeight")],
-        [Sg.Text("Maximum framerate")],
+        [Sg.Text(get_text(GuiField.framerate))],
         [Sg.Combo(['60', '30'], default_value='60',
                   readonly=True, key="MaxFPS")],
-        [Sg.Checkbox("Audio only", default=False, checkbox_color="black",
+        [Sg.Checkbox(get_text(GuiField.audio_only), default=False, checkbox_color="black",
                      enable_events=True, key="AudioOnly")],
-        [Sg.Text("Use cookies from the selected browser")],
+        [Sg.Text(get_text(GuiField.cookies))],
         [Sg.Combo(['None', 'Brave', 'Chrome', 'Chromium', 'Edge', 'Firefox', 'Opera', 'Safari', 'Vivaldi'],
                   default_value='None', readonly=True, key="Browser")],
-        [Sg.Button("Download", enable_events=True, key="dl"),
+        [Sg.Button(get_text(GuiField.dl_button), enable_events=True, key="dl"),
          Sg.Text(key="error", text_color="red", visible=False)]
     ]
     window = Sg.Window('Video-dl', layout=layout, icon=icon_base64)
@@ -85,7 +86,8 @@ def _video_dl() -> None:
             _audio_only_checkbox(values, window)
         elif event == "dl":
             if values["path"] == '':
-                window["error"].update("Select an output path.", visible=True)
+                window["error"].update(
+                    get_text(GuiField.missing_output), visible=True)
             else:
                 # noinspection PyBroadException
                 try:
@@ -93,18 +95,18 @@ def _video_dl() -> None:
                 except ValueError:
                     logging.error(traceback.format_exc())
                     window["error"].update(
-                        "Download canceled.", visible=True, text_color="yellow")
+                        get_text(GuiField.dl_cancel), visible=True, text_color="yellow")
                 except yt_dlp.utils.DownloadError:
                     logging.error(traceback.format_exc())
                     window["error"].update(
-                        "Unsupported URL.", visible=True, text_color="red")
+                        get_text(GuiField.dl_unsupported_url), visible=True, text_color="red")
                 except Exception:
                     logging.error(traceback.format_exc())
                     window["error"].update(
-                        "An error has occurred.", visible=True, text_color="red")
+                        get_text(GuiField.dl_error), visible=True, text_color="red")
                 else:
                     window["error"].update(
-                        "Download finished.", visible=True, text_color="green")
+                        get_text(GuiField.dl_finish), visible=True, text_color="green")
 
 
 def _audio_only_checkbox(values: Dict, window: Sg.Window) -> None:

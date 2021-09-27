@@ -22,7 +22,7 @@ def post_process_dl(full_name: str, infos: Dict) -> None:
 
 def _ffmpeg_video(path: str, acodec_supported: bool, vcodec_supported: bool, fps: int) -> None:
     recode_acodec = "aac" if not acodec_supported else "copy"
-recode_vcodec = _best_encoder(path, fps) if not vcodec_supported else "copy"
+    recode_vcodec = _best_encoder(path, fps) if not vcodec_supported else "copy"
     tmp_path = os.path.splitext(path)[0] + '.tmp' + os.path.splitext(path)[1]
     ffmpegCommand = ['ffmpeg', '-hide_banner', '-i', path, '-c:a', recode_acodec, '-c:v', recode_vcodec, '-y', tmp_path]
     action = get_text(GuiField.ff_remux) if acodec_supported and vcodec_supported else get_text(
@@ -36,8 +36,7 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
     total_duration = file_infos['duration_ts'] / \
         int(file_infos['time_base'].split('/')[1])
     layout = [[Sg.Text(action)],
-              [Sg.ProgressBar(100, orientation='h',
-                              size=(20, 20), key='-PROG-')],
+              [Sg.ProgressBar(100, orientation='h', size=(20, 20), key='-PROG-')],
               [Sg.Text(get_text(GuiField.ff_starting), key='PROGINFOS1')],
               [Sg.Text("", key='PROGINFOS2')],
               [Sg.Cancel(button_text=get_text(GuiField.cancel_button))]]

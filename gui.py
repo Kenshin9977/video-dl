@@ -190,7 +190,7 @@ def _get_download_path() -> str:
 if __name__ == '__main__':
     _video_dl()
 
-# pyinstaller  -wF --icon=icon.ico --name=Video-dl.exe video-dl/gui.py
+# pyinstaller -wF --icon=icon.ico --name=Video-dl.exe video-dl/gui.py
 # Choose encoder
 # Tweak timecode switching to the next number when entering 2 digit in a row in the same box
 # Handle playlist and playlist index, , output links that generated errors

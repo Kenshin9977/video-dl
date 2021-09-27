@@ -20,18 +20,13 @@ def post_process_dl(full_name: str, infos: Dict) -> None:
 
 
 def _ffmpeg_video(path: str, acodec_supported: bool, vcodec_supported: bool, fps: int) -> None:
-    filename = os.path.splitext(path)[0]
-    ext = os.path.splitext(path)[1]
-    now = datetime.now()
-    date_time = now.strftime(" - %Y-%m-%d-%H-%M-%S")
     recode_acodec = "aac" if not acodec_supported else "copy"
-    recode_vcodec = _best_encoder(
-        filename, ext, fps) if not vcodec_supported else "copy"
-    output_path = filename + date_time + ext
-    ffmpegCommand = [
-        'ffmpeg', '-hide_banner', '-i', path, '-c:a', recode_acodec, '-c:v', recode_vcodec, '-y', output_path]
+    recode_vcodec = _best_encoder(path, fps) if not vcodec_supported else "copy"
+    tmp_path = os.path.splitext(path)[0] + '.tmp' + os.path.splitext(path)[1]
+    ffmpegCommand = ['ffmpeg', '-hide_banner', '-i', path, '-c:a', recode_acodec, '-c:v', recode_vcodec, '-y', tmp_path]
     action = "Remuxing" if acodec_supported and vcodec_supported else "Reencoding"
     _progress_ffmpeg(ffmpegCommand, action, path)
+    os.replace(tmp_path, path)
 
 
 def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
@@ -74,16 +69,14 @@ def _get_progress_percent(timestamp: str, total_duration: int) -> int:
     return int(progress_seconds / total_duration * 100)
 
 
-def _best_encoder(path: str, ext: str, fps: int) -> str:
-    now = datetime.now()
-    date_time = now.strftime(" - %Y-%m-%d-%H-%M-%S")
-    output_path = path + date_time + ext
-    new_input = ffmpeg.input(path + ext, ss="00:00:00",
+def _best_encoder(path: str, fps: int) -> str:
+    output_path = path + '.tmp'
+    new_input = ffmpeg.input(path, ss="00:00:00",
                              to=format(1/fps, '.3f'))
     for encoder in gpus_possible_encoders:
         try:
             (ffmpeg
-             .output(new_input, output_path, vcodec=encoder)
+             .output(new_input, path, vcodec=encoder)
              .run(overwrite_output=True))
         except ffmpeg.Error:
             continue

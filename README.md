@@ -38,7 +38,7 @@ I plan to compile binaries for both OSX and Linux. In the meantime you can compi
 * Allows you to only download the audio of a video, automatically converts the audio to MP3 320 kbps to ensure compatibility.
 * Let you choose the start and end time of the video you want to download. It only downloads the part you selected but the download is slower since it's handled by ffmpeg and not av2conv.
 * Allows you to get cookies from your browser in order to access restricted videos on Youtube only accessible if you log in.
-* Saves videos with the name of the video followed by the author's name, and the date time.
+* Saves videos with the name of the video followed by the author's name.
 * Only remuxes videos if it is encoded in h264 (faster than recode and lossless) in order to ensure compatibility with every NLE software.
 * Recodes the video in h264 if it is encoded with something else in order to ensure compatibility.
 * Detects if a GPU capable of h264 encoding is visible by the system and if there is, use it to encode the video rather than the CPU which is slower.

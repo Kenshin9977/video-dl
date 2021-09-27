@@ -3,7 +3,6 @@ from typing import Any, Dict
 
 import yt_dlp
 from quantiphy import Quantity
-from yt_dlp.YoutubeDL import sanitize_filename, sanitize_path
 
 from ffmpeg_handler import *
 
@@ -19,18 +18,15 @@ def video_dl(values: Dict) -> None:
                           values['AudioOnly'], values['path'], trim_start, trim_end)
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(values["url"])
-    ext = infos_ydl['audio_ext'] if (
-        values['AudioOnly'] and infos_ydl['audio_ext'] != 'none') else infos_ydl['ext']
-    filename = f"{sanitize_filename(infos_ydl['title'][:100])} - {infos_ydl['uploader']}.{ext}"
-    full_path = sanitize_path(os.path.join(values['path'], filename))
-    if values['AudioOnly']:
-        post_process_dl(full_path, values)
-        os.remove(full_path)
+    ext = 'mp3' if values['AudioOnly'] else infos_ydl['ext']
+    full_path = os.path.splitext(ydl.prepare_filename(infos_ydl))[0] + '.' + ext
+    if not values['AudioOnly']:
+        post_process_dl(full_path, infos_ydl)
 
 
 def _gen_query(h: int, browser: str, audio_only: bool, path: str, start: str, end: str) -> Dict[str, Any]:
-    options = {'noplaylist': True, 'progress_hooks': [download_progress_bar], 'trim_file_name': 250,
-               'outtmpl': os.path.join(path, "%(title).100s - %(uploader)s.%(ext)s")}
+    options = {'noplaylist': True, 'overwrites': True, 'progress_hooks': [download_progress_bar],
+               'trim_file_name': 250, 'outtmpl': os.path.join(path, "%(title).100s - %(uploader)s.%(ext)s")}
     video_format = ""
     acodecs = ["aac", "mp3"] if audio_only else ["aac", "mp3", "mp4a"]
     for acodec in acodecs:

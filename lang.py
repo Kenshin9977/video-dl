@@ -97,7 +97,7 @@ def get_text(field: GuiField) -> str:
         },
         GuiField.framerate: {
             Language.english: "Maximum framerate",
-            Language.french: "Nombre d'image par seconde maximum",
+            Language.french: "Fréquence d'images par seconde maximum",
             Language.german: "Maximale Bildfrequenz"
         },
         GuiField.audio_only: {

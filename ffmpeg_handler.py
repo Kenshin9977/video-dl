@@ -45,7 +45,7 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
                               size=(20, 20), key='-PROG-')],
               [Sg.Text(get_text(GuiField.ff_starting), key='PROGINFOS1')],
               [Sg.Text("", key='PROGINFOS2')],
-              [Sg.Cancel()]]
+              [Sg.Cancel(button_text=get_text(GuiField.cancel_button))]]
 
     progress_window = Sg.Window(
         action, layout, no_titlebar=True, grab_anywhere=True)

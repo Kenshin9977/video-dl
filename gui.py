@@ -7,8 +7,9 @@ from typing import Dict, List
 import GPUtil
 import PySimpleGUI as Sg
 
+from lang import (GuiField, get_available_languages_name,
+                  get_current_language_name, get_text, set_current_language)
 from ytdlp_handler import *
-from lang import get_text, GuiField
 
 
 def _get_encoders_list() -> List[str]:
@@ -33,9 +34,13 @@ def _video_dl() -> None:
     download_path = _get_download_path()
     Sg.theme('DarkGrey13')
     layout = [
-        [Sg.Text(get_text(GuiField.link))],
+        [Sg.Combo(get_available_languages_name(),
+                  default_value=get_current_language_name(),
+                  enable_events=True,
+                  readonly=True, key="Lang")],
+        [Sg.Text(get_text(GuiField.link), key="TextLink")],
         [Sg.Input(key="url")],
-        [Sg.Text(get_text(GuiField.destination))],
+        [Sg.Text(get_text(GuiField.destination), key="TextDestination")],
         [Sg.Input(download_path, key="path"),
          Sg.FolderBrowse(button_text="...")],
         [Sg.Checkbox(get_text(GuiField.start), default=False, checkbox_color="black", enable_events=True, key="Start"),
@@ -56,15 +61,15 @@ def _video_dl() -> None:
          Sg.Text(":", size=(1, 1), pad=(0, 0)),
          Sg.Input(size=(4, 1), disabled=True, disabled_readonly_background_color="gray", key="eS", enable_events=True,
                   default_text="59")],
-        [Sg.Text(get_text(GuiField.quality))],
+        [Sg.Text(get_text(GuiField.quality), key="TextQuality")],
         [Sg.Combo(['4320p', '2160p', '1440p', '1080p', '720p', '480p'],
                   default_value='1080p', readonly=True, key="MaxHeight")],
-        [Sg.Text(get_text(GuiField.framerate))],
+        [Sg.Text(get_text(GuiField.framerate), key="TextFramerate")],
         [Sg.Combo(['60', '30'], default_value='60',
                   readonly=True, key="MaxFPS")],
         [Sg.Checkbox(get_text(GuiField.audio_only), default=False, checkbox_color="black",
                      enable_events=True, key="AudioOnly")],
-        [Sg.Text(get_text(GuiField.cookies))],
+        [Sg.Text(get_text(GuiField.cookies), key="TextCookies")],
         [Sg.Combo(['None', 'Brave', 'Chrome', 'Chromium', 'Edge', 'Firefox', 'Opera', 'Safari', 'Vivaldi'],
                   default_value='None', readonly=True, key="Browser")],
         [Sg.Button(get_text(GuiField.dl_button), enable_events=True, key="dl"),
@@ -84,6 +89,8 @@ def _video_dl() -> None:
             _trim_checkbox(values, window, event)
         elif event == "AudioOnly":
             _audio_only_checkbox(values, window)
+        elif event == "Lang":
+            _change_language(values, window)
         elif event == "dl":
             if values["path"] == '':
                 window["error"].update(
@@ -187,6 +194,32 @@ def _get_download_path() -> str:
         return location
     else:
         return ''
+
+
+def _change_language(values: Dict, window: Sg.Window) -> None:
+    """
+    Updates current language and update the window's text fields.
+    """
+    set_current_language(values["Lang"])
+    _update_text_lang(window)
+
+
+def _update_text_lang(window: Sg.Window) -> None:
+    """
+    Update the text of each element on the layout.
+
+    Note: Checkboxes elements need "text=" to be specified.
+    """
+    window["TextLink"].update(get_text(GuiField.link))
+    window["TextDestination"].update(get_text(GuiField.destination))
+    window["Start"].update(text=get_text(GuiField.start))
+    window["End"].update(text=get_text(GuiField.end))
+    window["TextQuality"].update(get_text(GuiField.quality))
+    window["TextFramerate"].update(get_text(GuiField.framerate))
+    window["AudioOnly"].update(text=get_text(GuiField.audio_only))
+    window["TextCookies"].update(get_text(GuiField.cookies))
+    window["dl"].update(get_text(GuiField.dl_button))
+    return
 
 
 if __name__ == '__main__':

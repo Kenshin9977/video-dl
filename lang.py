@@ -1,5 +1,6 @@
 import enum
 import locale
+from typing import List
 
 
 class Language(enum.Enum):
@@ -32,16 +33,17 @@ class GuiField(enum.Enum):
     ff_reencode = enum.auto()
     ff_starting = enum.auto()
     ff_speed = enum.auto()
+    cancel_button = enum.auto()
 
 
-global current_language
+global _current_language
 
 
 def _get_language() -> Language:
     """
     Tries to determine the system language, fallbacks to english.
     """
-    global current_language
+    global _current_language
 
     # This dictionary maps the language of a locale to its associated enum
     lang_map = {
@@ -63,7 +65,7 @@ def _get_language() -> Language:
     return Language.english
 
 
-current_language = _get_language()
+_current_language = _get_language()
 
 
 def get_text(field: GuiField) -> str:
@@ -153,13 +155,54 @@ def get_text(field: GuiField) -> str:
             Language.french: "Démarrage",
             Language.german: "Starte"
         },
-        GuiField.ff_speed: { 
-            # Add a space at the end of the message if 
+        GuiField.ff_speed: {
+            # Add a space at the end of the message if
             # the language requires one before a colon
             Language.english: "Speed",
             Language.french: "Vitesse ",
             Language.german: "Geschwindigkeit"
+        },
+        GuiField.cancel_button: {
+            Language.english: "Cancel",
+            Language.french: "Annuler",
+            Language.german: ""
         }
     }
-    global current_language
-    return ui_text[field][current_language]
+    return ui_text[field][_current_language]
+
+
+_available_languages = {
+    Language.english: "English",
+    Language.french: "Français",
+    Language.german: "Deutsch"
+}
+
+_language_from_name = {name: lang for lang,
+                       name in _available_languages.items()}
+
+
+def get_available_languages_name() -> List[str]:
+    """
+    Returns a list of all the available languages in a human-readable form.
+    """
+    return list(_available_languages.values())
+
+
+def get_current_language_name() -> str:
+    """
+    Get the name of the current language.
+    """
+    return _available_languages[_current_language]
+
+
+def set_current_language(name: str) -> None:
+    """
+    Set the current language.
+
+    "name" must be available, else no changes will be made.
+    """
+    if name not in _language_from_name:
+        return
+    global _current_language
+    _current_language = _language_from_name[name]
+    return

@@ -11,13 +11,20 @@ from gui import gpus_possible_encoders
 from lang import GuiField, get_text
 
 
-def post_process_dl(full_name: str, infos: Dict) -> None:
-    audio_codec = infos['acodec']
-    acodecs = ["aac", "mp3", "mp4a"]
-    acodec_supported = len(
-        [i for i in acodecs if re.match(f"{i}", audio_codec)]) > 0
-    vcodec_supported = re.match("avc1", infos['vcodec']) is not None
-    _ffmpeg_video(full_name, acodec_supported, vcodec_supported, infos['fps'])
+def post_process_dl(full_name: str) -> None:
+    file_infos = ffmpeg.probe(full_name)['streams']
+    audio_codec, video_codec = 'na', 'na'
+    for i in range(0, min(2, len(file_infos))):
+        if file_infos[i]['codec_type'] == 'audio':
+            audio_codec = file_infos[i]['codec_tag_string']
+        elif file_infos[i]['codec_type'] == 'video':
+            video_codec = file_infos[i]['codec_tag_string']
+    fps2compute = ffmpeg.probe(full_name)['streams'][0]['r_frame_rate'].split('/')
+    fps = 10 if len(fps2compute) == 1 or int(fps2compute[1]) == 0 else int(fps2compute[0]) / int(fps2compute[1])
+    acodecs_list = ["aac", "mp3", "mp4a"]
+    acodec_supported = len([i for i in acodecs_list if re.match(f"{i}", audio_codec)]) > 0
+    vcodec_supported = re.match("avc1", video_codec) is not None
+    _ffmpeg_video(full_name, acodec_supported, vcodec_supported, fps)
 
 
 def _ffmpeg_video(path: str, acodec_supported: bool, vcodec_supported: bool, fps: int) -> None:
@@ -33,8 +40,7 @@ def _ffmpeg_video(path: str, acodec_supported: bool, vcodec_supported: bool, fps
 
 def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
     file_infos = ffmpeg.probe(filepath)['streams'][0]
-    total_duration = file_infos['duration_ts'] / \
-        int(file_infos['time_base'].split('/')[1])
+    total_duration = file_infos['duration_ts'] / int(file_infos['time_base'].split('/')[1])
     layout = [[Sg.Text(action)],
               [Sg.ProgressBar(100, orientation='h', size=(20, 20), key='-PROG-')],
               [Sg.Text(get_text(GuiField.ff_starting), key='PROGINFOS1')],
@@ -72,18 +78,17 @@ def _get_progress_percent(timestamp: str, total_duration: int) -> int:
 
 
 def _best_encoder(path: str, fps: int) -> str:
-    output_path = path + '.tmp'
-    new_input = ffmpeg.input(path, ss="00:00:00",
-                             to=format(1/fps, '.3f'))
+    file_name_ext = os.path.splitext(path)
+    output_path = f"{file_name_ext[0]}.tmp{file_name_ext[1]}"
+    end = format(1 / fps, '.3f')
     for encoder in gpus_possible_encoders:
         try:
-            (ffmpeg
-             .output(new_input, path, vcodec=encoder)
-             .run(overwrite_output=True))
+            ffmpeg.input(path, ss="00:00:00.00", to=end).output(output_path, vcodec=encoder).run(overwrite_output=True)
         except ffmpeg.Error:
             continue
         else:
             return encoder
         finally:
-            os.remove(path=output_path)
+            if os.path.isfile(output_path):
+                os.remove(path=output_path)
     return "libx264"

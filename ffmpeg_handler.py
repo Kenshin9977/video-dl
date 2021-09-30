@@ -1,7 +1,6 @@
 import os
 import re
 import subprocess
-from datetime import datetime
 from typing import Dict, List
 
 import ffmpeg
@@ -20,7 +19,7 @@ def post_process_dl(full_name: str) -> None:
         elif file_infos[i]['codec_type'] == 'video':
             video_codec = file_infos[i]['codec_tag_string']
     fps2compute = ffmpeg.probe(full_name)['streams'][0]['r_frame_rate'].split('/')
-    fps = 10 if len(fps2compute) == 1 or int(fps2compute[1]) == 0 else int(fps2compute[0]) / int(fps2compute[1])
+    fps = 10 if len(fps2compute) == 1 or int(fps2compute[1]) == 0 else int(fps2compute[0]) // int(fps2compute[1])
     acodecs_list = ["aac", "mp3", "mp4a"]
     acodec_supported = len([i for i in acodecs_list if re.match(f"{i}", audio_codec)]) > 0
     vcodec_supported = re.match("avc1", video_codec) is not None
@@ -73,7 +72,7 @@ def _get_progress_percent(timestamp: str, total_duration: int) -> int:
     prog = re.split('[:.]', timestamp)
     progress_seconds = int(prog[0]) * 3600 + int(prog[1]) * \
         60 + int(prog[2]) + int(prog[0]) / 100
-    return int(progress_seconds / total_duration * 100)
+    return int(progress_seconds // total_duration * 100)
 
 
 def _best_encoder(path: str, fps: int) -> str:

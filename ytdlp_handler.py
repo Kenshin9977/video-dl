@@ -1,6 +1,7 @@
 import mimetypes
 from typing import Any, Dict
 
+import PySimpleGUI
 import yt_dlp
 from quantiphy import Quantity
 
@@ -25,8 +26,9 @@ def video_dl(values: Dict) -> None:
 
 
 def _gen_query(h: int, browser: str, audio_only: bool, path: str, start: str, end: str) -> Dict[str, Any]:
-    options = {'noplaylist': True, 'overwrites': True, 'progress_hooks': [download_progress_bar],
-               'trim_file_name': 250, 'outtmpl': os.path.join(path, "%(title).100s - %(uploader)s.%(ext)s")}
+    options = {'noplaylist': True, 'overwrites': True, 'progress_hooks': [download_progress_bar], 'trim_file_name': 250,
+               'outtmpl': os.path.join(path, "%(title).100s - %(uploader)s.%(ext)s")}
+    options["compat_opts"] = "no-direct-merge"
     video_format = ""
     acodecs = ["aac", "mp3"] if audio_only else ["aac", "mp3", "mp4a"]
     for acodec in acodecs:
@@ -48,6 +50,7 @@ def _gen_query(h: int, browser: str, audio_only: bool, path: str, start: str, en
         options['external_downloader'] = 'ffmpeg'
         options['external_downloader_args'] = {
             'ffmpeg_i': ['-ss', start, '-to', end]}
+        options['concurrent_fragments'] = 20
     elif not audio_only:
         options["merge-output-format"] = "mp4"
     if browser != "None":
@@ -58,14 +61,15 @@ def _gen_query(h: int, browser: str, audio_only: bool, path: str, start: str, en
 def download_progress_bar(d):
     global CANCELED
     media_type = mimetypes.guess_type(d['filename'])[0].split('/')[0]
+    downloaded = Quantity(d['downloaded_bytes'], 'B')
+    total = Quantity(d['total_bytes'], 'B') if 'total_bytes' in d.keys() else Quantity(d['total_bytes_estimate'], 'B')
+    progress = Sg.OneLineProgressMeter('Downloading', downloaded, total, f'Downloading {media_type}',
+                                       orientation='h', no_titlebar=True, grab_anywhere=True)
     if d['status'] == 'finished':
         file_tuple = os.path.split(os.path.abspath(d['filename']))
         print("Done downloading {}".format(file_tuple[1]))
-    if d['status'] == 'downloading':
-        downloaded = Quantity(d['downloaded_bytes'], 'B')
-        total = Quantity(d['total_bytes'], 'B') if 'total_bytes' in d.keys() else Quantity(d['total_bytes_estimate'], 'B')
-        progress = Sg.OneLineProgressMeter('Downloading', downloaded, total, f'Downloading {media_type}',
-                                           orientation='h', no_titlebar=True, grab_anywhere=True)
+    elif d['status'] == 'downloading':
         if CANCELED or (not progress and downloaded < total):
             CANCELED = True
             raise ValueError
+    PySimpleGUI.OneLineProgressMeterCancel(progress)

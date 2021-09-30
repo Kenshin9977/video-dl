@@ -49,9 +49,8 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
 
     progress_window = Sg.Window(
         action, layout, no_titlebar=True, grab_anywhere=True)
-    progress_pattern = re.compile(
-        r'(frame|fps|size|time|bitrate|speed)\s*=\s*(\S+)')
-    p = subprocess.Popen(cmd, stderr=subprocess.PIPE, universal_newlines=True)
+    progress_pattern = re.compile(r'(frame|fps|size|time|bitrate|speed)\s*=\s*(\S+)')
+    p = subprocess.Popen(cmd, stderr=subprocess.PIPE, universal_newlines=True, encoding="utf8")
 
     while p.poll() is None:
         output = p.stderr.readline().rstrip(os.linesep) if p.stderr is not None else ""

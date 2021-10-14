@@ -54,7 +54,7 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
     while p.poll() is None:
         output = p.stderr.readline().rstrip(os.linesep) if p.stderr is not None else ""
         items = {key: value for key, value in progress_pattern.findall(output)}
-        if items != {}:
+        if 'time' in items.keys() and 'speed' in items.keys():
             event, _ = progress_window.read(timeout=10)
             if event == 'Cancel' or event == Sg.WIN_CLOSED:
                 progress_window.close()

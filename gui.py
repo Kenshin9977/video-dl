@@ -1,5 +1,8 @@
 import logging
 import re
+import sys
+import traceback
+
 import traceback
 from sys import platform
 from typing import Dict, List
@@ -101,19 +104,15 @@ def _video_dl() -> None:
                     video_dl(values)
                 except ValueError:
                     logging.error(traceback.format_exc())
-                    window["error"].update(
-                        get_text(GuiField.dl_cancel), visible=True, text_color="yellow")
-                except yt_dlp.utils.DownloadError:
+                    window["error"].update(get_text(GuiField.dl_cancel), visible=True, text_color="yellow")
+                except yt_dlp.utils.DownloadError as e:
                     logging.error(traceback.format_exc())
-                    window["error"].update(
-                        get_text(GuiField.dl_unsupported_url), visible=True, text_color="red")
-                except Exception:
+                    window["error"].update(get_text(GuiField.dl_unsupported_url) + str(e), visible=True, text_color="red")
+                except Exception as e:
                     logging.error(traceback.format_exc())
-                    window["error"].update(
-                        get_text(GuiField.dl_error), visible=True, text_color="red")
+                    window["error"].update(get_text(GuiField.dl_error) + str(e) + "\n" + traceback.format_exc(), visible=True, text_color="red")
                 else:
-                    window["error"].update(
-                        get_text(GuiField.dl_finish), visible=True, text_color="green")
+                    window["error"].update(get_text(GuiField.dl_finish), visible=True, text_color="green")
 
 
 def _audio_only_checkbox(values: Dict, window: Sg.Window) -> None:

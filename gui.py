@@ -110,7 +110,7 @@ def _video_dl() -> None:
                     window["error"].update(get_text(GuiField.dl_unsupported_url) + str(e), visible=True, text_color="red")
                 except Exception as e:
                     logging.error(traceback.format_exc())
-                    window["error"].update(get_text(GuiField.dl_error) + str(e) + "\n" + traceback.format_exc(), visible=True, text_color="red")
+                    window["error"].update(f"{get_text(GuiField.dl_error)}\n{str(e)}\n{traceback.format_exc()}", visible=True, text_color="red")
                 else:
                     window["error"].update(get_text(GuiField.dl_finish), visible=True, text_color="green")
 
@@ -224,7 +224,7 @@ def _update_text_lang(window: Sg.Window) -> None:
 if __name__ == '__main__':
     _video_dl()
 
-# pyinstaller -wF --icon=icon.ico --name=Video-dl.exe video-dl/gui.py
+# pyinstaller -wF --icon=icon.ico --add-binary=ffprobe.exe;ffprobe.exe --add-binary=ffmpeg.exe;ffmpeg.exe --name=Video-dl.exe video-dl/gui.py
 # Choose encoder
 # Tweak timecode switching to the next number when entering 2 digit in a row in the same box
 # Handle playlist and playlist index, , output links that generated errors

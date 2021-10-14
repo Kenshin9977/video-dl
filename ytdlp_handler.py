@@ -15,7 +15,7 @@ def video_dl(values: Dict) -> None:
     CANCELED = False
     trim_start = f"{values['sH']}:{values['sM']}:{values['sS']}"
     trim_end = f"{values['eH']}:{values['eM']}:{values['eS']}"
-    ydl_opts = _gen_query(values['MaxHeight'], values['Browser'],
+    ydl_opts = _gen_query(values['MaxHeight'][:-1], values['Browser'],
                           values['AudioOnly'], values['path'], trim_start, trim_end)
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(values["url"])
@@ -31,6 +31,9 @@ def _gen_query(h: int, browser: str, audio_only: bool, path: str, start: str, en
     options["compat_opts"] = "no-direct-merge"
     video_format = ""
     acodecs = ["aac", "mp3"] if audio_only else ["aac", "mp3", "mp4a"]
+    for acodec in acodecs:
+        video_format += f'bestvideo[vcodec*=avc1][height={h}]+bestaudio[acodec*={acodec}]/'
+    video_format += f'bestvideo[height={h}]+bestaudio/'
     for acodec in acodecs:
         video_format += f'bestvideo[vcodec*=avc1][height<=?{h}]+bestaudio[acodec*={acodec}]/'
     video_format += f'bestvideo[vcodec*=avc1][height<=?{h}]+bestaudio/'

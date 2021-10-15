@@ -29,7 +29,7 @@ def post_process_dl(full_name: str) -> None:
 def _ffmpeg_video(path: str, acodec_supported: bool, vcodec_supported: bool, fps: int) -> None:
     recode_acodec = "aac" if not acodec_supported else "copy"
     recode_vcodec = _best_encoder(path, fps) if not vcodec_supported else "copy"
-    tmp_path = os.path.splitext(path)[0] + '.tmp' + os.path.splitext(path)[1]
+    tmp_path = os.path.splitext(path)[0] + '.tmp' + ".mp4"
     ffmpegCommand = ['ffmpeg', '-hide_banner', '-i', path, '-c:a', recode_acodec, '-c:v', recode_vcodec, '-y', tmp_path]
     action = get_text(GuiField.ff_remux) if acodec_supported and vcodec_supported else get_text(
         GuiField.ff_reencode)
@@ -38,8 +38,10 @@ def _ffmpeg_video(path: str, acodec_supported: bool, vcodec_supported: bool, fps
 
 
 def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
-    file_infos = ffmpeg.probe(filepath)['streams'][0]
-    total_duration = file_infos['duration_ts'] / int(file_infos['time_base'].split('/')[1])
+    result = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of",
+                             "default=noprint_wrappers=1:nokey=1", filepath],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    total_duration = int(float(result.stdout))
     layout = [[Sg.Text(action)],
               [Sg.ProgressBar(100, orientation='h', size=(20, 20), key='-PROG-')],
               [Sg.Text(get_text(GuiField.ff_starting), key='PROGINFOS1')],
@@ -59,8 +61,7 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
             if event == 'Cancel' or event == Sg.WIN_CLOSED:
                 progress_window.close()
                 raise ValueError
-            progress_percent = _get_progress_percent(
-                items['time'], total_duration)
+            progress_percent = _get_progress_percent(items['time'], total_duration)
             progress_window['PROGINFOS1'].update(f"{progress_percent}%")
             progress_window['PROGINFOS2'].update(
                 f"{get_text(GuiField.ff_speed)}: {items['speed']}")
@@ -72,12 +73,12 @@ def _get_progress_percent(timestamp: str, total_duration: int) -> int:
     prog = re.split('[:.]', timestamp)
     progress_seconds = int(prog[0]) * 3600 + int(prog[1]) * \
         60 + int(prog[2]) + int(prog[0]) / 100
-    return int(progress_seconds // total_duration * 100)
+    return int(progress_seconds / total_duration * 100)
 
 
 def _best_encoder(path: str, fps: int) -> str:
     file_name_ext = os.path.splitext(path)
-    output_path = f"{file_name_ext[0]}.tmp{file_name_ext[1]}"
+    output_path = f"{file_name_ext[0]}.tmp.mp4"
     end = format(1 / fps, '.3f')
     for encoder in gpus_possible_encoders:
         try:

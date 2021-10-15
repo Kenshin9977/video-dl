@@ -1,5 +1,4 @@
 import datetime
-import mimetypes
 import PySimpleGUI
 import yt_dlp
 
@@ -38,7 +37,7 @@ def _gen_query(h: int, browser: str, audio_only: bool, path: str, start: str, en
                                    keep_on_top=True)
     options = {'noplaylist': True, 'overwrites': True, 'progress_hooks': [download_progress_bar],
                'trim_file_name': 250, 'outtmpl': os.path.join(path, "%(title).100s - %(uploader)s.%(ext)s")}
-    # options["compat_opts"] = "no-direct-merge"
+    options["compat_opts"] = "no-direct-merge"
     video_format = ""
     acodecs = ["aac", "mp3"] if audio_only else ["aac", "mp3", "mp4a"]
     for acodec in acodecs:
@@ -73,14 +72,12 @@ def _gen_query(h: int, browser: str, audio_only: bool, path: str, start: str, en
 
 def download_progress_bar(d):
     global CANCELED, DL_PROGRESS_WINDOW, TIME_LAST_UPDATE
-    media_type = mimetypes.guess_type(d['filename'])[0].split('/')[0]
     speed = '-' if 'speed' not in d.keys() or d['speed'] is None else Quantity(d['speed'], 'B/s').render(prec=2)
     downloaded = '-' if 'speed' not in d.keys() or d['speed'] is None else Quantity(d['downloaded_bytes'], 'B')
     total = Quantity(d['total_bytes'], 'B') if 'total_bytes' in d.keys() else Quantity(d['total_bytes_estimate'], 'B')
     event, _ = DL_PROGRESS_WINDOW.read(timeout=10)
     if d['status'] == 'finished':
         file_tuple = os.path.split(os.path.abspath(d['filename']))
-        # print("Done downloading {}".format(file_tuple[1]))
         DL_PROGRESS_WINDOW.close()
     elif d['status'] == 'downloading':
         if event == get_text(GuiField.cancel_button):

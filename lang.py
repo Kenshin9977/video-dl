@@ -12,6 +12,7 @@ class Language(enum.Enum):
 class GuiField(enum.Enum):
     # Main window static text
     link = enum.auto()
+    download = enum.auto()
     destination = enum.auto()
     start = enum.auto()
     end = enum.auto()
@@ -55,11 +56,11 @@ def _get_language() -> Language:
     locale.setlocale(locale.LC_ALL, "")
     system_language = locale.getdefaultlocale()[0]
 
-    if (system_language is None):
+    if system_language is None:
         return Language.english
 
     for available_language in lang_map.keys():
-        if(available_language in system_language):
+        if available_language in system_language:
             return lang_map[available_language]
 
     return Language.english
@@ -74,6 +75,11 @@ def get_text(field: GuiField) -> str:
             Language.english: "Link",
             Language.french: "Lien",
             Language.german: "Link"
+        },
+        GuiField.download: {
+            Language.english: "Download",
+            Language.french: "Téléchargement",
+            Language.german: "Herunterladen"
         },
         GuiField.destination: {
             Language.english: "Destination folder",

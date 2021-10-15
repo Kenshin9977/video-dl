@@ -37,9 +37,7 @@ def _video_dl() -> None:
     download_path = _get_download_path()
     Sg.theme('DarkGrey13')
     layout = [
-        [Sg.Combo(get_available_languages_name(),
-                  default_value=get_current_language_name(),
-                  enable_events=True,
+        [Sg.Combo(get_available_languages_name(), default_value=get_current_language_name(), enable_events=True,
                   readonly=True, key="Lang")],
         [Sg.Text(get_text(GuiField.link), key="TextLink")],
         [Sg.Input(key="url")],
@@ -224,10 +222,12 @@ def _update_text_lang(window: Sg.Window) -> None:
 if __name__ == '__main__':
     _video_dl()
 
-# pyinstaller -wF --icon=icon.ico --add-binary=ffprobe.exe;ffprobe.exe --add-binary=ffmpeg.exe;ffmpeg.exe --name=Video-dl.exe video-dl/gui.py
+# pyinstaller -F --icon=icon.ico --add-binary=ffprobe.exe;ffprobe.exe --add-binary=ffmpeg.exe;ffmpeg.exe --name=Video-dl.exe video-dl/gui.py
 # Choose encoder
 # Tweak timecode switching to the next number when entering 2 digit in a row in the same box
 # Handle playlist and playlist index, , output links that generated errors
 # Handle multiple links, output links that generated errors
 # Option keep untrimmed file
 # Cross compile binaries using dockers environments
+# Option download subtitles
+# Rewrite download progress bar without one line meter method

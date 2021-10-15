@@ -48,8 +48,7 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
               [Sg.Text("", key='PROGINFOS2')],
               [Sg.Cancel(button_text=get_text(GuiField.cancel_button))]]
 
-    progress_window = Sg.Window(
-        action, layout, no_titlebar=True, grab_anywhere=True)
+    progress_window = Sg.Window(action, layout, no_titlebar=True, grab_anywhere=True, keep_on_top=True)
     progress_pattern = re.compile(r'(frame|fps|size|time|bitrate|speed)\s*=\s*(\S+)')
     p = subprocess.Popen(cmd, stderr=subprocess.PIPE, universal_newlines=True, encoding="utf8")
 
@@ -58,13 +57,12 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
         items = {key: value for key, value in progress_pattern.findall(output)}
         if 'time' in items.keys() and 'speed' in items.keys():
             event, _ = progress_window.read(timeout=10)
-            if event == 'Cancel' or event == Sg.WIN_CLOSED:
+            if event == get_text(GuiField.cancel_button) or event == Sg.WIN_CLOSED:
                 progress_window.close()
                 raise ValueError
             progress_percent = _get_progress_percent(items['time'], total_duration)
             progress_window['PROGINFOS1'].update(f"{progress_percent}%")
-            progress_window['PROGINFOS2'].update(
-                f"{get_text(GuiField.ff_speed)}: {items['speed']}")
+            progress_window['PROGINFOS2'].update(f"{get_text(GuiField.ff_speed)}: {items['speed']}")
             progress_window['-PROG-'].update(progress_percent)
     progress_window.close()
 

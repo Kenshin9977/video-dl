@@ -1,13 +1,15 @@
+import datetime
 import mimetypes
-from typing import Any, Dict
-
 import PySimpleGUI
 import yt_dlp
-from quantiphy import Quantity
 
+from typing import Any, Dict
+from quantiphy import Quantity
 from ffmpeg_handler import *
 
 CANCELED = False
+DL_PROGRESS_WINDOW = Sg.Window(get_text(GuiField.download), no_titlebar=True, grab_anywhere=True)
+TIME_LAST_UPDATE = datetime.datetime.now()
 
 
 def video_dl(values: Dict) -> None:
@@ -26,9 +28,17 @@ def video_dl(values: Dict) -> None:
 
 
 def _gen_query(h: int, browser: str, audio_only: bool, path: str, start: str, end: str) -> Dict[str, Any]:
-    options = {'noplaylist': True, 'overwrites': True, 'progress_hooks': [download_progress_bar], 'trim_file_name': 250,
-               'outtmpl': os.path.join(path, "%(title).100s - %(uploader)s.%(ext)s")}
-    options["compat_opts"] = "no-direct-merge"
+    global DL_PROGRESS_WINDOW
+    layout = [[Sg.Text(get_text(GuiField.download))],
+              [Sg.ProgressBar(100, orientation='h', size=(20, 20), key='-PROG-')],
+              [Sg.Text(get_text(GuiField.ff_starting), key='PROGINFOS1')],
+              [Sg.Text("", key='PROGINFOS2')],
+              [Sg.Cancel(button_text=get_text(GuiField.cancel_button))]]
+    DL_PROGRESS_WINDOW = Sg.Window(get_text(GuiField.download), layout, no_titlebar=True, grab_anywhere=True,
+                                   keep_on_top=True)
+    options = {'noplaylist': True, 'overwrites': True, 'progress_hooks': [download_progress_bar],
+               'trim_file_name': 250, 'outtmpl': os.path.join(path, "%(title).100s - %(uploader)s.%(ext)s")}
+    # options["compat_opts"] = "no-direct-merge"
     video_format = ""
     acodecs = ["aac", "mp3"] if audio_only else ["aac", "mp3", "mp4a"]
     for acodec in acodecs:
@@ -62,17 +72,25 @@ def _gen_query(h: int, browser: str, audio_only: bool, path: str, start: str, en
 
 
 def download_progress_bar(d):
-    global CANCELED
+    global CANCELED, DL_PROGRESS_WINDOW, TIME_LAST_UPDATE
     media_type = mimetypes.guess_type(d['filename'])[0].split('/')[0]
-    downloaded = Quantity(d['downloaded_bytes'], 'B')
+    speed = '-' if 'speed' not in d.keys() or d['speed'] is None else Quantity(d['speed'], 'B/s').render(prec=2)
+    downloaded = '-' if 'speed' not in d.keys() or d['speed'] is None else Quantity(d['downloaded_bytes'], 'B')
     total = Quantity(d['total_bytes'], 'B') if 'total_bytes' in d.keys() else Quantity(d['total_bytes_estimate'], 'B')
-    progress = Sg.OneLineProgressMeter('Downloading', downloaded, total, f'Downloading {media_type}',
-                                       orientation='h', no_titlebar=True, grab_anywhere=True)
+    event, _ = DL_PROGRESS_WINDOW.read(timeout=10)
     if d['status'] == 'finished':
         file_tuple = os.path.split(os.path.abspath(d['filename']))
-        print("Done downloading {}".format(file_tuple[1]))
+        # print("Done downloading {}".format(file_tuple[1]))
+        DL_PROGRESS_WINDOW.close()
     elif d['status'] == 'downloading':
-        if CANCELED or (not progress and downloaded < total):
-            CANCELED = True
+        if event == get_text(GuiField.cancel_button):
+            DL_PROGRESS_WINDOW.close()
             raise ValueError
-    PySimpleGUI.OneLineProgressMeterCancel(progress)
+    progress_percent = '-' if downloaded == '-' else int(downloaded / total * 100)
+    DL_PROGRESS_WINDOW['PROGINFOS1'].update(f"{progress_percent}%")
+    DL_PROGRESS_WINDOW['-PROG-'].update(progress_percent)
+    now = datetime.datetime.now()
+    delta_ms = (now - TIME_LAST_UPDATE).seconds * 1000 + (now - TIME_LAST_UPDATE).microseconds // 1000
+    if delta_ms >= 200:
+        DL_PROGRESS_WINDOW['PROGINFOS2'].update(f"{get_text(GuiField.ff_speed)}: {speed}")
+        TIME_LAST_UPDATE = now

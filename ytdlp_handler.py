@@ -60,9 +60,11 @@ def _gen_query(h: int, browser: str, audio_only: bool, path: str, start: str, en
         }]
     if start != "00:00:00" or end != "99:59:59":
         options['external_downloader'] = 'ffmpeg'
-        options['external_downloader_args'] = {
-            'ffmpeg_i': ['-ss', start, '-to', end]}
         options['concurrent_fragments'] = 20
+        if start == "00:00:00":
+            options['external_downloader_args'] = {'ffmpeg_i': ['-ss', start, '-to', end]}
+        else:
+            options['external_downloader_args'] = {'ffmpeg_i': ['-ss', start]}
     elif not audio_only:
         options["merge-output-format"] = "mp4"
     if browser != "None":

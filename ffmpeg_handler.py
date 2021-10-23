@@ -1,11 +1,12 @@
 import os
 import re
-import subprocess
+
 from typing import Dict, List
 
 import ffmpeg
 import PySimpleGUI as Sg
 
+from subprocess import Popen, PIPE, STDOUT, run
 from gui import gpus_possible_encoders
 from lang import GuiField, get_text
 
@@ -38,9 +39,9 @@ def _ffmpeg_video(path: str, acodec_supported: bool, vcodec_supported: bool, fps
 
 
 def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
-    result = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of",
+    result = run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of",
                              "default=noprint_wrappers=1:nokey=1", filepath],
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                            stdout=PIPE, stderr=STDOUT)
     total_duration = int(float(result.stdout))
     layout = [[Sg.Text(action)],
               [Sg.ProgressBar(100, orientation='h', size=(20, 20), key='-PROG-')],
@@ -50,7 +51,7 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
 
     progress_window = Sg.Window(action, layout, no_titlebar=True, grab_anywhere=True, keep_on_top=True)
     progress_pattern = re.compile(r'(frame|fps|size|time|bitrate|speed)\s*=\s*(\S+)')
-    p = subprocess.Popen(cmd, stderr=subprocess.PIPE, universal_newlines=True, encoding="utf8")
+    p = Popen(cmd, stderr=PIPE, universal_newlines=True, encoding="utf8")
 
     while p.poll() is None:
         output = p.stderr.readline().rstrip(os.linesep) if p.stderr is not None else ""

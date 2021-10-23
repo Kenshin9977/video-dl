@@ -227,7 +227,5 @@ if __name__ == '__main__':
 # Tweak timecode switching to the next number when entering 2 digit in a row in the same box
 # Handle playlist and playlist index, , output links that generated errors
 # Handle multiple links, output links that generated errors
-# Option keep untrimmed file
 # Cross compile binaries using dockers environments
 # Option download subtitles
-# Rewrite download progress bar without one line meter method

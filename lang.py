@@ -11,6 +11,7 @@ class Language(enum.Enum):
 
 class GuiField(enum.Enum):
     # Main window static text
+    incorrect_timestamp = enum.auto()
     link = enum.auto()
     download = enum.auto()
     destination = enum.auto()
@@ -71,6 +72,11 @@ _current_language = _get_language()
 
 def get_text(field: GuiField) -> str:
     ui_text = {
+        GuiField.incorrect_timestamp: {
+            Language.english: "Invalid timestamps",
+            Language.french: "Temps saisis invalides",
+            Language.german: "Ungültiger Zeitstempel"
+        },
         GuiField.link: {
             Language.english: "Link",
             Language.french: "Lien",

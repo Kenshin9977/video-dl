@@ -84,8 +84,6 @@ def _video_dl() -> None:
             break
         window["error"].update(visible=False)
         _fill_timecode(values, window)
-        if values["Start"] and values["End"]:
-            _check_timecode(values, window)
         if event == "Start" or event == "End":
             _trim_checkbox(values, window, event)
         elif event == "AudioOnly":
@@ -93,16 +91,20 @@ def _video_dl() -> None:
         elif event == "Lang":
             _change_language(values, window)
         elif event == "dl":
-            if values["path"] == '':
-                window["error"].update(
-                    get_text(GuiField.missing_output), visible=True)
+            if values["Start"] and values["End"] and _check_timecode(values, window):
+                window["error"].update(get_text(GuiField.incorrect_timestamp), visible=True, text_color="yellow")
+            elif values["path"] == '':
+                window["error"].update(get_text(GuiField.missing_output), visible=True)
             else:
+                window["error"].update(visible=False)
                 # noinspection PyBroadException
                 try:
                     video_dl(values)
                 except ValueError:
                     logging.error(traceback.format_exc())
                     window["error"].update(get_text(GuiField.dl_cancel), visible=True, text_color="yellow")
+                except FileExistsError:
+                    window["error"].update(get_text(GuiField.dl_finish), visible=True, text_color="green")
                 except yt_dlp.utils.DownloadError as e:
                     logging.error(traceback.format_exc())
                     window["error"].update(get_text(GuiField.dl_unsupported_url) + str(e), visible=True, text_color="red")
@@ -140,31 +142,10 @@ def _fill_timecode(values: Dict, window: Sg.Window) -> None:
             values[value] = '0' + values[value][-1]
 
 
-def _check_timecode(values: Dict, window: Sg.Window) -> None:
-    sH = int(values["sH"])
-    eH = int(values["eH"])
-    sM = int(values["sM"])
-    eM = int(values["eM"])
-    sS = int(values["sS"])
-    eS = int(values["eS"])
-
-    if sH > eH:
-        if eH == 0:
-            window['sH'].update("00")
-        else:
-            window['sH'].update(values["eH"])
-
-    if sH == eH and sM > eM:
-        if eM == 0:
-            window['sM'].update("00")
-        else:
-            window['sM'].update(values["eM"])
-
-    if sH == eH and sM == eM and sS > eS:
-        if eS == 0:
-            window['sS'].update("00")
-        else:
-            window['sS'].update(values["eS"])
+def _check_timecode(values: Dict, window: Sg.Window) -> bool:
+    sH, sM, sS = int(values["sH"]), int(values["sM"]), int(values["sS"])
+    eH, eM, eS = int(values["eH"]), int(values["eM"]), int(values["eS"])
+    return sH > eH or (sH == eH and sM > eM) or (sH == eH and sM == eM and sS > eS)
 
 
 def _trim_checkbox(values: Dict, window: Sg.Window, index: str) -> None:

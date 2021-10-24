@@ -12,7 +12,7 @@ TIME_LAST_UPDATE = datetime.datetime.now()
 
 
 def video_dl(values: Dict) -> None:
-    global CANCELED
+    global CANCELED, DL_PROGRESS_WINDOW
     CANCELED = False
     trim_start = f"{values['sH']}:{values['sM']}:{values['sS']}"
     trim_end = f"{values['eH']}:{values['eM']}:{values['eS']}"
@@ -20,6 +20,7 @@ def video_dl(values: Dict) -> None:
                           values['AudioOnly'], values['path'], trim_start, trim_end)
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(values["url"])
+    DL_PROGRESS_WINDOW.close()
     ext = 'mp3' if values['AudioOnly'] else infos_ydl['ext']
     full_path = os.path.splitext(ydl.prepare_filename(infos_ydl))[0] + '.' + ext
     if not values['AudioOnly']:
@@ -35,8 +36,11 @@ def _gen_query(h: int, browser: str, audio_only: bool, path: str, start: str, en
               [Sg.Cancel(button_text=get_text(GuiField.cancel_button))]]
     DL_PROGRESS_WINDOW = Sg.Window(get_text(GuiField.download), layout, no_titlebar=True, grab_anywhere=True,
                                    keep_on_top=True)
-    options = {'noplaylist': True, 'overwrites': True, 'progress_hooks': [download_progress_bar],
-               'trim_file_name': 250, 'outtmpl': os.path.join(path, "%(title).100s - %(uploader)s.%(ext)s")}
+    options = {'noplaylist': True,
+               'overwrites': True,
+               'trim_file_name': 250,
+               'outtmpl': os.path.join(path, "%(title).100s - %(uploader)s.%(ext)s"),
+               'progress_hooks': [download_progress_bar]}
     options["compat_opts"] = "no-direct-merge"
     video_format = ""
     acodecs = ["aac", "mp3"] if audio_only else ["aac", "mp3", "mp4a"]
@@ -75,21 +79,22 @@ def _gen_query(h: int, browser: str, audio_only: bool, path: str, start: str, en
 def download_progress_bar(d):
     global CANCELED, DL_PROGRESS_WINDOW, TIME_LAST_UPDATE
     speed = '-' if 'speed' not in d.keys() or d['speed'] is None else Quantity(d['speed'], 'B/s').render(prec=2)
-    downloaded = '-' if 'speed' not in d.keys() or d['speed'] is None else Quantity(d['downloaded_bytes'], 'B')
+    downloaded = '-' if 'downloaded_bytes' not in d.keys() or d['downloaded_bytes'] is None else Quantity(d['downloaded_bytes'], 'B')
     total = Quantity(d['total_bytes'], 'B') if 'total_bytes' in d.keys() else Quantity(d['total_bytes_estimate'], 'B')
-    event, _ = DL_PROGRESS_WINDOW.read(timeout=10)
-    if d['status'] == 'finished':
-        file_tuple = os.path.split(os.path.abspath(d['filename']))
+    event, _ = DL_PROGRESS_WINDOW.read(timeout=20)
+    if event == Sg.WIN_CLOSED:
         DL_PROGRESS_WINDOW.close()
+        raise FileExistsError
     elif d['status'] == 'downloading':
         if event == get_text(GuiField.cancel_button):
             DL_PROGRESS_WINDOW.close()
             raise ValueError
-    progress_percent = '-' if downloaded == '-' else int(downloaded / total * 100)
-    DL_PROGRESS_WINDOW['PROGINFOS1'].update(f"{progress_percent}%")
-    DL_PROGRESS_WINDOW['-PROG-'].update(progress_percent)
-    now = datetime.datetime.now()
-    delta_ms = (now - TIME_LAST_UPDATE).seconds * 1000 + (now - TIME_LAST_UPDATE).microseconds // 1000
-    if delta_ms >= 200:
-        DL_PROGRESS_WINDOW['PROGINFOS2'].update(f"{get_text(GuiField.ff_speed)}: {speed}")
-        TIME_LAST_UPDATE = now
+        progress_percent = '-' if downloaded == '-' or total == 0 else int(downloaded / total * 100)
+        DL_PROGRESS_WINDOW['PROGINFOS1'].update(f"{progress_percent}%")
+        DL_PROGRESS_WINDOW['-PROG-'].update(progress_percent)
+        now = datetime.datetime.now()
+        delta_ms = (now - TIME_LAST_UPDATE).seconds * 1000 + (now - TIME_LAST_UPDATE).microseconds // 1000
+        if delta_ms >= 200:
+            DL_PROGRESS_WINDOW['PROGINFOS2'].update(f"{get_text(GuiField.ff_speed)}: {speed}")
+            TIME_LAST_UPDATE = now
+    return

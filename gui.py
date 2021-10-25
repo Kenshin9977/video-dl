@@ -16,20 +16,24 @@ from ytdlp_handler import *
 def _get_encoders_list() -> dict:
     encoders_dict = dict()
     encoders_dict.update({"x264": list(), "x265": list(), "ProRes": ["prores"], "AV1": ["libaom-av1"]})
+    tmp_list_x264 = encoders_dict["x264"]
+    tmp_list_x265 = encoders_dict["x265"]
     gpus = GPUtil.getGPUs()
     for gpu in gpus:
         gpu_name = gpu.name
         if re.match("NVIDIA", gpu_name):
-            encoders_dict["x264"].append("h264_nvenc")
-            encoders_dict["x265"].append("hevc_nvenv")
+            tmp_list_x264.append("h264_nvenc")
+            tmp_list_x265.append("hevc_nvenv")
         if re.match("AMD", gpu_name):
-            encoders_dict["x264"].append("h264_amf")
-            encoders_dict["x265"].append("hevc_amf")
+            tmp_list_x264.append("h264_amf")
+            tmp_list_x265.append("hevc_amf")
         if re.match("Intel", gpu_name):
-            encoders_dict["x264"].append("h264_qsv")
-            encoders_dict["x265"].append("hevc_qsv")
-    encoders_dict["x264"].append("libx264")
-    encoders_dict["x265"].append("libx265")
+            tmp_list_x264.append("h264_qsv")
+            tmp_list_x265.append("hevc_qsv")
+    tmp_list_x264.append("libx264")
+    tmp_list_x265.append("libx265")
+    encoders_dict["x264"] = tmp_list_x264
+    encoders_dict["x265"] = tmp_list_x265
     return encoders_dict
 
 

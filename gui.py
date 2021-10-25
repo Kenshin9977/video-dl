@@ -16,8 +16,8 @@ from ytdlp_handler import *
 def _get_encoders_list() -> dict:
     encoders_dict = dict()
     encoders_dict.update({"x264": list(), "x265": list(), "ProRes": ["prores"], "AV1": ["libaom-av1"]})
-    tmp_list_x264 = encoders_dict["x264"]
-    tmp_list_x265 = encoders_dict["x265"]
+    tmp_list_x264 = list()
+    tmp_list_x265 = list()
     gpus = GPUtil.getGPUs()
     for gpu in gpus:
         gpu_name = gpu.name

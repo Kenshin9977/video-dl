@@ -19,6 +19,7 @@ class GuiField(enum.Enum):
     end = enum.auto()
     quality = enum.auto()
     framerate = enum.auto()
+    vcodec = enum.auto()
     audio_only = enum.auto()
     cookies = enum.auto()
     dl_button = enum.auto()
@@ -111,6 +112,11 @@ def get_text(field: GuiField) -> str:
             Language.english: "Maximum framerate",
             Language.french: "Fréquence d'images par seconde maximum",
             Language.german: "Maximale Bildfrequenz"
+        },
+        GuiField.vcodec: {
+            Language.english: "Video codec",
+            Language.french: "Codec vidéo",
+            Language.german: "Codec für video"
         },
         GuiField.audio_only: {
             Language.english: "Audio only",

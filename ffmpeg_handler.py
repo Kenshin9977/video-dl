@@ -11,7 +11,7 @@ from gui import gpus_possible_encoders
 from lang import GuiField, get_text
 
 
-def post_process_dl(full_name: str) -> None:
+def post_process_dl(full_name: str, target_codec: str) -> None:
     file_infos = ffmpeg.probe(full_name)['streams']
     audio_codec, video_codec = 'na', 'na'
     for i in range(0, min(2, len(file_infos))):
@@ -23,13 +23,13 @@ def post_process_dl(full_name: str) -> None:
     fps = 10 if len(fps2compute) == 1 or int(fps2compute[1]) == 0 else int(fps2compute[0]) // int(fps2compute[1])
     acodecs_list = ["aac", "mp3", "mp4a"]
     acodec_supported = len([i for i in acodecs_list if re.match(f"{i}", audio_codec)]) > 0
-    vcodec_supported = re.match("avc1", video_codec) is not None
-    _ffmpeg_video(full_name, acodec_supported, vcodec_supported, fps)
+    vcodec_supported = re.match("avc1", video_codec) is not None and target_codec == "x264"
+    _ffmpeg_video(full_name, acodec_supported, vcodec_supported, fps, target_codec)
 
 
-def _ffmpeg_video(path: str, acodec_supported: bool, vcodec_supported: bool, fps: int) -> None:
+def _ffmpeg_video(path: str, acodec_supported: bool, vcodec_supported: bool, fps: int, target_codec: str) -> None:
     recode_acodec = "aac" if not acodec_supported else "copy"
-    recode_vcodec = _best_encoder(path, fps) if not vcodec_supported else "copy"
+    recode_vcodec = _best_encoder(path, fps, target_codec) if not vcodec_supported else "copy"
     tmp_path = os.path.splitext(path)[0] + '.tmp' + ".mp4"
     ffmpegCommand = ['ffmpeg', '-hide_banner', '-i', path, '-c:a', recode_acodec, '-c:v', recode_vcodec, '-y', tmp_path]
     action = get_text(GuiField.ff_remux) if acodec_supported and vcodec_supported else get_text(
@@ -75,18 +75,21 @@ def _get_progress_percent(timestamp: str, total_duration: int) -> int:
     return int(progress_seconds / total_duration * 100)
 
 
-def _best_encoder(path: str, fps: int) -> str:
+def _best_encoder(path: str, fps: int, target_codec: str) -> str:
     file_name_ext = os.path.splitext(path)
     output_path = f"{file_name_ext[0]}.tmp.mp4"
     end = format(1 / fps, '.3f')
-    for encoder in gpus_possible_encoders:
-        try:
-            ffmpeg.input(path, ss="00:00:00.00", to=end).output(output_path, vcodec=encoder).run(overwrite_output=True)
-        except ffmpeg.Error:
-            continue
-        else:
-            return encoder
-        finally:
-            if os.path.isfile(output_path):
-                os.remove(path=output_path)
-    return "libx264"
+    codecs_available = gpus_possible_encoders[target_codec]
+    if isinstance(codecs_available, str):
+        return codecs_available
+    else:
+        for encoder in codecs_available:
+            try:
+                ffmpeg.input(path, ss="00:00:00.00", to=end).output(output_path, vcodec=codecs_available).run(overwrite_output=True)
+            except ffmpeg.Error:
+                continue
+            else:
+                return encoder
+            finally:
+                if os.path.isfile(output_path):
+                    os.remove(path=output_path)

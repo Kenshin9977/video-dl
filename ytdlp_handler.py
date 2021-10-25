@@ -24,7 +24,7 @@ def video_dl(values: Dict) -> None:
     ext = 'mp3' if values['AudioOnly'] else infos_ydl['ext']
     full_path = os.path.splitext(ydl.prepare_filename(infos_ydl))[0] + '.' + ext
     if not values['AudioOnly']:
-        post_process_dl(full_path)
+        post_process_dl(full_path, values["TargetCodec"])
 
 
 def _gen_query(h: int, browser: str, audio_only: bool, path: str, start: str, end: str) -> Dict[str, Any]:

@@ -15,18 +15,23 @@ from lang import (GuiField, get_available_languages_name,
 from ytdlp_handler import *
 
 
-def _get_encoders_list() -> List[str]:
-    encoders_list = list()
+def _get_encoders_list() -> dict:
+    encoders_dict = {"x264": list(), "x265": list(), "ProRes": "prores", "AV1": "libaom-av1"}
     gpus = GPUtil.getGPUs()
     for gpu in gpus:
         gpu_name = gpu.name
         if re.match("NVIDIA", gpu_name):
-            encoders_list.append("h264_nvenc")
+            encoders_dict["x264"].append("h264_nvenc")
+            encoders_dict["x265"].append("hevc_nvenv")
         if re.match("AMD", gpu_name):
-            encoders_list.append("h264_amf")
+            encoders_dict["x264"].append("h264_amf")
+            encoders_dict["x265"].append("hevc_amf")
         if re.match("Intel", gpu_name):
-            encoders_list.append("h264_qsv")
-    return encoders_list
+            encoders_dict["x264"].append("h264_qsv")
+            encoders_dict["x265"].append("hevc_qsv")
+    encoders_dict["x264"].append("libx264")
+    encoders_dict["x265"].append("libx265")
+    return encoders_dict
 
 
 gpus_possible_encoders = _get_encoders_list()
@@ -66,8 +71,9 @@ def _video_dl() -> None:
         [Sg.Combo(['4320p', '2160p', '1440p', '1080p', '720p', '480p'],
                   default_value='1080p', readonly=True, key="MaxHeight")],
         [Sg.Text(get_text(GuiField.framerate), key="TextFramerate")],
-        [Sg.Combo(['60', '30'], default_value='60',
-                  readonly=True, key="MaxFPS")],
+        [Sg.Combo(['60', '30'], default_value='60', readonly=True, key="MaxFPS")],
+        [Sg.Text(get_text(GuiField.vcodec), key="TextVCodec")],
+        [Sg.Combo(['x264', 'x265', 'ProRes', 'AV1'], default_value='x264', readonly=True, key="TargetCodec")],
         [Sg.Checkbox(get_text(GuiField.audio_only), default=False, checkbox_color="black",
                      enable_events=True, key="AudioOnly")],
         [Sg.Text(get_text(GuiField.cookies), key="TextCookies")],
@@ -119,6 +125,7 @@ def _audio_only_checkbox(values: Dict, window: Sg.Window) -> None:
     audio_checkbox = values["AudioOnly"]
     window["MaxHeight"].update(disabled=audio_checkbox)
     window["MaxFPS"].update(disabled=audio_checkbox)
+    window["TargetCodec"].update(disabled=audio_checkbox)
 
 
 def _fill_timecode(values: Dict, window: Sg.Window) -> None:

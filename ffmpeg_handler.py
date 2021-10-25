@@ -29,13 +29,21 @@ def post_process_dl(full_name: str, target_codec: str) -> None:
 
 def _ffmpeg_video(path: str, acodec_supported: bool, vcodec_supported: bool, fps: int, target_codec: str) -> None:
     recode_acodec = "aac" if not acodec_supported else "copy"
+    new_ext = ".mp4"
+    if target_codec == "ProRes":
+        new_ext = ".mov"
     recode_vcodec = _best_encoder(path, fps, target_codec) if not vcodec_supported else "copy"
-    tmp_path = os.path.splitext(path)[0] + '.tmp' + ".mp4"
-    ffmpegCommand = ['ffmpeg', '-hide_banner', '-i', path, '-c:a', recode_acodec, '-c:v', recode_vcodec, '-y', tmp_path]
-    action = get_text(GuiField.ff_remux) if acodec_supported and vcodec_supported else get_text(
-        GuiField.ff_reencode)
+    tmp_path = os.path.splitext(path)[0] + '.tmp' + new_ext
+    ffmpegCommand = ['ffmpeg', '-hide_banner', '-i', path, '-c:a', recode_acodec, '-c:v', recode_vcodec]
+    if target_codec == "ProRes":
+        ffmpegCommand.extend(["-profile:v", "0"])
+    ffmpegCommand.extend(['-y', tmp_path])
+    action = get_text(GuiField.ff_remux) if acodec_supported and vcodec_supported else get_text(GuiField.ff_reencode)
     _progress_ffmpeg(ffmpegCommand, action, path)
-    os.replace(tmp_path, path)
+    if not os.path.isfile(tmp_path):
+        raise ffmpeg.Error
+    os.remove(path)
+    os.rename(src=tmp_path, dst=os.path.splitext(path)[0] + new_ext)
 
 
 def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
@@ -70,19 +78,21 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
 
 def _get_progress_percent(timestamp: str, total_duration: int) -> int:
     prog = re.split('[:.]', timestamp)
-    progress_seconds = int(prog[0]) * 3600 + int(prog[1]) * \
-        60 + int(prog[2]) + int(prog[0]) / 100
+    progress_seconds = int(prog[0]) * 3600 + int(prog[1]) * 0 + int(prog[2]) + int(prog[0]) / 100
     return int(progress_seconds / total_duration * 100)
 
 
 def _best_encoder(path: str, fps: int, target_codec: str) -> str:
     file_name_ext = os.path.splitext(path)
-    output_path = f"{file_name_ext[0]}.tmp.mp4"
+    new_ext = ".mp4"
+    if target_codec == "ProRes":
+        new_ext = ".mov"
+    output_path = f"{file_name_ext[0]}.tmp{new_ext}"
     end = format(1 / fps, '.3f')
     vcodecs = gpus_possible_encoders[target_codec]
     for encoder in vcodecs:
         try:
-            ffmpeg.input(path, ss="00:00:00.00", to=end).output(output_path, vcodec=vcodecs).run(overwrite_output=True)
+            ffmpeg.input(path, ss="00:00:00.00", to=end).output(output_path, vcodec=encoder, profile="0").run(overwrite_output=True)
         except ffmpeg.Error:
             continue
         else:
@@ -90,4 +100,4 @@ def _best_encoder(path: str, fps: int, target_codec: str) -> str:
         finally:
             if os.path.isfile(output_path):
                 os.remove(path=output_path)
-    return "No codec found"
+    raise ffmpeg.Error

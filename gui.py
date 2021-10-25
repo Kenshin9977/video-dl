@@ -15,7 +15,7 @@ from ytdlp_handler import *
 
 def _get_encoders_list() -> dict:
     encoders_dict = dict()
-    encoders_dict.update({"x264": list(), "x265": list(), "ProRes": ["prores"], "AV1": ["libaom-av1"]})
+    encoders_dict.update({"x264": list(), "x265": list(), "ProRes": ["prores_ks"], "AV1": ["libaom-av1"]})
     tmp_list_x264 = list()
     tmp_list_x265 = list()
     gpus = GPUtil.getGPUs()
@@ -23,7 +23,7 @@ def _get_encoders_list() -> dict:
         gpu_name = gpu.name
         if re.match("NVIDIA", gpu_name):
             tmp_list_x264.append("h264_nvenc")
-            tmp_list_x265.append("hevc_nvenv")
+            tmp_list_x265.append("hevc_nvenc")
         if re.match("AMD", gpu_name):
             tmp_list_x264.append("h264_amf")
             tmp_list_x265.append("hevc_amf")
@@ -76,7 +76,7 @@ def _video_dl() -> None:
         [Sg.Text(get_text(GuiField.framerate), key="TextFramerate")],
         [Sg.Combo(['60', '30'], default_value='60', readonly=True, key="MaxFPS")],
         [Sg.Text(get_text(GuiField.vcodec), key="TextVCodec")],
-        [Sg.Combo(['x264', 'x265', 'ProRes', 'AV1'], default_value='x264', readonly=True, key="TargetCodec")],
+        [Sg.Combo(['x264', 'x265', 'ProRes'], default_value='x264', readonly=True, key="TargetCodec")],
         [Sg.Checkbox(get_text(GuiField.audio_only), default=False, checkbox_color="black",
                      enable_events=True, key="AudioOnly")],
         [Sg.Text(get_text(GuiField.cookies), key="TextCookies")],

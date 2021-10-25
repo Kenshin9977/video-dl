@@ -79,18 +79,15 @@ def _best_encoder(path: str, fps: int, target_codec: str) -> str:
     file_name_ext = os.path.splitext(path)
     output_path = f"{file_name_ext[0]}.tmp.mp4"
     end = format(1 / fps, '.3f')
-    codecs_available = gpus_possible_encoders[target_codec]
-    if isinstance(codecs_available, str):
-        return codecs_available
-    else:
-        for encoder in codecs_available:
-            try:
-                ffmpeg.input(path, ss="00:00:00.00", to=end).output(output_path, vcodec=codecs_available).run(overwrite_output=True)
-            except ffmpeg.Error:
-                continue
-            else:
-                return encoder
-            finally:
-                if os.path.isfile(output_path):
-                    os.remove(path=output_path)
+    vcodecs = gpus_possible_encoders[target_codec]
+    for encoder in vcodecs:
+        try:
+            ffmpeg.input(path, ss="00:00:00.00", to=end).output(output_path, vcodec=vcodecs).run(overwrite_output=True)
+        except ffmpeg.Error:
+            continue
+        else:
+            return encoder
+        finally:
+            if os.path.isfile(output_path):
+                os.remove(path=output_path)
     return "No codec found"

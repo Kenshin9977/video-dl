@@ -93,3 +93,4 @@ def _best_encoder(path: str, fps: int, target_codec: str) -> str:
             finally:
                 if os.path.isfile(output_path):
                     os.remove(path=output_path)
+    return "No codec found"

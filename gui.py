@@ -1,9 +1,7 @@
 import logging
 import re
-import sys
 import traceback
 
-import traceback
 from sys import platform
 from typing import Dict, List
 
@@ -211,9 +209,7 @@ if __name__ == '__main__':
     _video_dl()
 
 # pyinstaller -F --icon=icon.ico --add-binary=ffprobe.exe;ffprobe.exe --add-binary=ffmpeg.exe;ffmpeg.exe --name=Video-dl.exe video-dl/gui.py
-# Choose encoder
 # Tweak timecode switching to the next number when entering 2 digit in a row in the same box
 # Handle playlist and playlist index, , output links that generated errors
 # Handle multiple links, output links that generated errors
-# Cross compile binaries using dockers environments
 # Option download subtitles

@@ -1,8 +1,10 @@
 import logging
 import re
 import traceback
+import hashlib
+import requests
+import platform
 
-from sys import platform
 from typing import Dict, List
 
 import GPUtil
@@ -187,7 +189,7 @@ def _trim_checkbox(values: Dict, window: Sg.Window, index: str) -> None:
 
 
 def _get_download_path() -> str:
-    if platform == "win32":
+    if platform == "Windows":
         import winreg
         sub_key = r'SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders'
         downloads_guid = '{374DE290-123F-4565-9164-39C4925E467B}'
@@ -224,8 +226,21 @@ def _update_text_lang(window: Sg.Window) -> None:
     return
 
 
+def _update() -> bool:
+    r"https://github.com/Kenshin9977/video-dl/releases/latest/download/Video-dl-setup.exe"
+
+
 if __name__ == '__main__':
-    _video_dl()
+    if platform == "Windows":
+        ext = ".exe"
+    elif platform == "Linux":
+        ext = ".deb"
+    else:
+        print("Unsuported OS")
+    if not _update():
+        _video_dl()
+    else:
+        os.system(r".\Updater.exe")
 
 # pyinstaller -F --icon=icon.ico --add-binary=ffprobe.exe;ffprobe.exe --add-binary=ffmpeg.exe;ffmpeg.exe --name=Video-dl.exe video-dl/gui.py
 # Tweak timecode switching to the next number when entering 2 digit in a row in the same box

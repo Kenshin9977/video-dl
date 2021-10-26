@@ -17,6 +17,7 @@ class GuiField(enum.Enum):
     destination = enum.auto()
     start = enum.auto()
     end = enum.auto()
+    subtitles = enum.auto()
     quality = enum.auto()
     framerate = enum.auto()
     vcodec = enum.auto()
@@ -102,6 +103,11 @@ def get_text(field: GuiField) -> str:
             Language.english: "End",
             Language.french: "Fin",
             Language.german: "Ende"
+        },
+        GuiField.subtitles: {
+            Language.english: "Subtitles",
+            Language.french: "Sous-titres",
+            Language.german: "Untertitel"
         },
         GuiField.quality: {
             Language.english: "Maximum quality",

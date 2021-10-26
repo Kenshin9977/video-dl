@@ -63,6 +63,7 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
 
     while p.poll() is None:
         output = p.stderr.readline().rstrip(os.linesep) if p.stderr is not None else ""
+        print(output)
         items = {key: value for key, value in progress_pattern.findall(output)}
         if 'time' in items.keys() and 'speed' in items.keys():
             event, _ = progress_window.read(timeout=10)
@@ -78,7 +79,7 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
 
 def _get_progress_percent(timestamp: str, total_duration: int) -> int:
     prog = re.split('[:.]', timestamp)
-    progress_seconds = int(prog[0]) * 3600 + int(prog[1]) * 0 + int(prog[2]) + int(prog[0]) / 100
+    progress_seconds = int(prog[0]) * 3600 + int(prog[1]) * 60 + int(prog[2]) + int(prog[0]) / 100
     return int(progress_seconds / total_duration * 100)
 
 

@@ -52,7 +52,8 @@ def _video_dl() -> None:
         [Sg.Text(get_text(GuiField.destination), key="TextDestination")],
         [Sg.Input(download_path, key="path"),
          Sg.FolderBrowse(button_text="...")],
-        [Sg.Checkbox(get_text(GuiField.start), default=False, checkbox_color="black", enable_events=True, key="Start"),
+        [Sg.Checkbox(get_text(GuiField.start), default=False, checkbox_color="black", enable_events=True, key="Start",
+                     size=(4, 1)),
          Sg.Input(size=(4, 1), disabled=True, disabled_readonly_background_color="gray", key="sH", enable_events=True,
                   default_text="00"),
          Sg.Text(":", size=(1, 1), pad=(0, 0)),
@@ -61,7 +62,8 @@ def _video_dl() -> None:
          Sg.Text(":", size=(1, 1), pad=(0, 0)),
          Sg.Input(size=(4, 1), disabled=True, disabled_readonly_background_color="gray", key="sS", enable_events=True,
                   default_text="00")],
-        [Sg.Checkbox(get_text(GuiField.end), default=False, checkbox_color="black", enable_events=True, key="End"),
+        [Sg.Checkbox(get_text(GuiField.end), default=False, checkbox_color="black", enable_events=True, key="End",
+                     size=(4, 1)),
          Sg.Input(size=(4, 1), disabled=True, disabled_readonly_background_color="gray", key="eH", enable_events=True,
                   default_text="99"),
          Sg.Text(":", size=(1, 1), pad=(0, 0)),
@@ -70,18 +72,23 @@ def _video_dl() -> None:
          Sg.Text(":", size=(1, 1), pad=(0, 0)),
          Sg.Input(size=(4, 1), disabled=True, disabled_readonly_background_color="gray", key="eS", enable_events=True,
                   default_text="59")],
-        [Sg.Text(get_text(GuiField.quality), key="TextQuality")],
-        [Sg.Combo(['4320p', '2160p', '1440p', '1080p', '720p', '480p'],
-                  default_value='1080p', readonly=True, key="MaxHeight")],
-        [Sg.Text(get_text(GuiField.framerate), key="TextFramerate")],
-        [Sg.Combo(['60', '30'], default_value='60', readonly=True, key="MaxFPS")],
-        [Sg.Text(get_text(GuiField.vcodec), key="TextVCodec")],
-        [Sg.Combo(['x264', 'x265', 'ProRes'], default_value='x264', readonly=True, key="TargetCodec")],
-        [Sg.Checkbox(get_text(GuiField.audio_only), default=False, checkbox_color="black",
-                     enable_events=True, key="AudioOnly")],
-        [Sg.Text(get_text(GuiField.cookies), key="TextCookies")],
+        [Sg.Checkbox(get_text(GuiField.audio_only), default=False, checkbox_color="black",enable_events=True,
+                     key="AudioOnly")],
+        [Sg.Checkbox(get_text(GuiField.subtitles), default=False, checkbox_color="black", enable_events=True,
+                     key="Subtitles"),
+         # Sg.Combo(get_available_languages_name(), default_value=get_current_language_name(), readonly=True,
+         #          key="SubtitlesLanguage", size=(8, 1), disabled=True)
+         ],
+        [Sg.Combo(['4320p', '2160p', '1440p', '1080p', '720p', '480p', '360p', '240p', '144p'], default_value='1080p',
+                  readonly=True, key="MaxHeight", size=(8, 1)),
+         Sg.Text(get_text(GuiField.quality), key="TextQuality")],
+        [Sg.Combo(['x264', 'x265', 'ProRes'], default_value='x264', readonly=True, key="TargetCodec", size=(8, 1)),
+         Sg.Text(get_text(GuiField.vcodec), key="TextVCodec")],
+        [Sg.Combo(['60', '30'], default_value='60', readonly=True, key="MaxFPS", size=(8, 1)),
+         Sg.Text(get_text(GuiField.framerate), key="TextFramerate")],
         [Sg.Combo(['None', 'Brave', 'Chrome', 'Chromium', 'Edge', 'Firefox', 'Opera', 'Safari', 'Vivaldi'],
-                  default_value='None', readonly=True, key="Browser")],
+                  default_value='None', readonly=True, key="Browser", size=(8, 1)),
+         Sg.Text(get_text(GuiField.cookies), key="TextCookies")],
         [Sg.Button(get_text(GuiField.dl_button), enable_events=True, key="dl"),
          Sg.Text(key="error", text_color="red", visible=False)]
     ]
@@ -95,6 +102,8 @@ def _video_dl() -> None:
         _fill_timecode(values, window)
         if event == "Start" or event == "End":
             _trim_checkbox(values, window, event)
+        # elif event == "Subtitles":
+        #     _subtitles_checkbox(values, window)
         elif event == "AudioOnly":
             _audio_only_checkbox(values, window)
         elif event == "Lang":
@@ -122,6 +131,11 @@ def _video_dl() -> None:
                     window["error"].update(f"{get_text(GuiField.dl_error)}\n{str(e)}\n{traceback.format_exc()}", visible=True, text_color="red")
                 else:
                     window["error"].update(get_text(GuiField.dl_finish), visible=True, text_color="green")
+
+
+# def _subtitles_checkbox(values: Dict, window: Sg.Window) -> None:
+#     audio_checkbox = not values["Subtitles"]
+#     window["SubtitlesLanguage"].update(disabled=audio_checkbox)
 
 
 def _audio_only_checkbox(values: Dict, window: Sg.Window) -> None:
@@ -215,6 +229,5 @@ if __name__ == '__main__':
 
 # pyinstaller -F --icon=icon.ico --add-binary=ffprobe.exe;ffprobe.exe --add-binary=ffmpeg.exe;ffmpeg.exe --name=Video-dl.exe video-dl/gui.py
 # Tweak timecode switching to the next number when entering 2 digit in a row in the same box
-# Handle playlist and playlist index, , output links that generated errors
+# Handle playlist and playlist index, output links that generated errors
 # Handle multiple links, output links that generated errors
-# Option download subtitles

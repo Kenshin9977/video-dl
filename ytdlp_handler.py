@@ -16,8 +16,8 @@ def video_dl(values: Dict) -> None:
     CANCELED = False
     trim_start = f"{values['sH']}:{values['sM']}:{values['sS']}"
     trim_end = f"{values['eH']}:{values['eM']}:{values['eS']}"
-    ydl_opts = _gen_query(values['MaxHeight'][:-1], values['Browser'],
-                          values['AudioOnly'], values['path'], trim_start, trim_end)
+    ydl_opts = _gen_query(values['MaxHeight'][:-1], values['Browser'], values['AudioOnly'], values['path'],
+                          values['Subtitles'], trim_start, trim_end)
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(values["url"])
     DL_PROGRESS_WINDOW.close()
@@ -27,7 +27,7 @@ def video_dl(values: Dict) -> None:
         post_process_dl(full_path, values["TargetCodec"])
 
 
-def _gen_query(h: int, browser: str, audio_only: bool, path: str, start: str, end: str) -> Dict[str, Any]:
+def _gen_query(h: int, browser: str, audio_only: bool, path: str, subtitles: bool, start: str, end: str) -> Dict[str, Any]:
     global DL_PROGRESS_WINDOW
     layout = [[Sg.Text(get_text(GuiField.download))],
               [Sg.ProgressBar(100, orientation='h', size=(20, 20), key='-PROG-')],
@@ -62,6 +62,9 @@ def _gen_query(h: int, browser: str, audio_only: bool, path: str, start: str, en
             'preferredcodec': 'mp3',
             'preferredquality': '320',
         }]
+    if subtitles:
+        options['subtitleslangs'] = ['all']
+        options['writesubtitles'] = True
     if start != "00:00:00" or end != "99:59:59":
         options['external_downloader'] = 'ffmpeg'
         options['concurrent_fragments'] = 20

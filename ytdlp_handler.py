@@ -40,7 +40,8 @@ def _gen_query(h: int, browser: str, audio_only: bool, path: str, subtitles: boo
                'overwrites': True,
                'trim_file_name': 250,
                'outtmpl': os.path.join(path, "%(title).100s - %(uploader)s.%(ext)s"),
-               'progress_hooks': [download_progress_bar]}
+               'progress_hooks': [download_progress_bar]
+               }
     options["compat_opts"] = "no-direct-merge"
     video_format = ""
     acodecs = ["aac", "mp3"] if audio_only else ["aac", "mp3", "mp4a"]

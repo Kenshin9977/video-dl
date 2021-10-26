@@ -6,6 +6,9 @@ from typing import Any, Dict
 from quantiphy import Quantity
 from ffmpeg_handler import *
 
+from yt_dlp.postprocessor.ffmpeg import EXT_TO_OUT_FORMATS
+EXT_TO_OUT_FORMATS['vtt'] = 'webvtt'
+
 CANCELED = False
 DL_PROGRESS_WINDOW = Sg.Window(get_text(GuiField.download), no_titlebar=True, grab_anywhere=True)
 TIME_LAST_UPDATE = datetime.datetime.now()
@@ -40,9 +43,10 @@ def _gen_query(h: int, browser: str, audio_only: bool, path: str, subtitles: boo
                'overwrites': True,
                'trim_file_name': 250,
                'outtmpl': os.path.join(path, "%(title).100s - %(uploader)s.%(ext)s"),
-               'progress_hooks': [download_progress_bar]
+               'progress_hooks': [download_progress_bar],
+               # 'verbose': True,
                }
-    options["compat_opts"] = "no-direct-merge"
+    options["compat_opts"] = ["no-direct-merge"]
     video_format = ""
     acodecs = ["aac", "mp3"] if audio_only else ["aac", "mp3", "mp4a"]
     for acodec in acodecs:

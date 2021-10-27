@@ -226,21 +226,29 @@ def _update_text_lang(window: Sg.Window) -> None:
     return
 
 
-def _update() -> bool:
-    r"https://github.com/Kenshin9977/video-dl/releases/latest/download/Video-dl-setup.exe"
+def _update(binary_name: str) -> bool:
+    hashlib
+    f"https://github.com/Kenshin9977/video-dl/releases/latest/download/{binary_name}"
+    return
 
 
 if __name__ == '__main__':
+    ext, binary = None, None
     if platform == "Windows":
         ext = ".exe"
+        binary = "Video-dl-setup.exe"
     elif platform == "Linux":
         ext = ".deb"
+        binary = "Video-dl_amd64.deb"
     else:
-        print("Unsuported OS")
-    if not _update():
+        print("Unsuported OS.")
+    if not _update(binary):
         _video_dl()
-    else:
-        os.system(r".\Updater.exe")
+    elif ext is not None:
+        try:
+            os.system(f"./Updater{ext}")
+        except FileNotFoundError:
+            print("Get the correct binary for your platform.")
 
 # pyinstaller -F --icon=icon.ico --add-binary=ffprobe.exe;ffprobe.exe --add-binary=ffmpeg.exe;ffmpeg.exe --name=Video-dl.exe video-dl/gui.py
 # Tweak timecode switching to the next number when entering 2 digit in a row in the same box

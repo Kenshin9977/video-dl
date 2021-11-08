@@ -4,7 +4,7 @@ import traceback
 import hashlib
 import requests
 import platform
-
+import sys
 from typing import Dict, List
 
 import GPUtil
@@ -227,21 +227,32 @@ def _update_text_lang(window: Sg.Window) -> None:
 
 
 def _update(binary_name: str) -> bool:
-    hashlib
-    f"https://github.com/Kenshin9977/video-dl/releases/latest/download/{binary_name}"
-    return
+    buf_size = 65536
+    local_bin_sha1 = hashlib.sha1()
+    latest_bin_sha1 = hashlib.sha1()
+    with open(f"C:\\Users\\KenshinLap\\PycharmProjects\\video-dl\\dist\\{binary_name}", 'rb') as f:
+        while True:
+            data = f.read(buf_size)
+            if not data:
+                break
+            local_bin_sha1.update(data)
+    r = requests.get(f"https://github.com/Kenshin9977/video-dl/releases/latest/download/{binary_name}")
+    for data in r.iter_content(8192):
+        latest_bin_sha1.update(data)
+    return latest_bin_sha1 == local_bin_sha1
 
 
 if __name__ == '__main__':
     ext, binary = None, None
-    if platform == "Windows":
+    platform_name = platform.system()
+    if platform_name == "Windows":
         ext = ".exe"
-        binary = "Video-dl-setup.exe"
-    elif platform == "Linux":
+        binary = "Video-dl.exe"
+    elif platform_name == "Linux":
         ext = ".deb"
         binary = "Video-dl_amd64.deb"
     else:
-        print("Unsuported OS.")
+        print("The auto updater doesn't support this operating system.")
     if not _update(binary):
         _video_dl()
     elif ext is not None:
@@ -249,6 +260,7 @@ if __name__ == '__main__':
             os.system(f"./Updater{ext}")
         except FileNotFoundError:
             print("Get the correct binary for your platform.")
+
 
 # pyinstaller -F --icon=icon.ico --add-binary=ffprobe.exe;ffprobe.exe --add-binary=ffmpeg.exe;ffmpeg.exe --name=Video-dl.exe video-dl/gui.py
 # Tweak timecode switching to the next number when entering 2 digit in a row in the same box

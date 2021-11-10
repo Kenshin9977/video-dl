@@ -243,7 +243,7 @@ def _update(binary_name: str) -> bool:
 
 
 if __name__ == '__main__':
-    ext, binary = None, None
+    no_update = False
     platform_name = platform.system()
     if platform_name == "Windows":
         ext = ".exe"
@@ -253,7 +253,8 @@ if __name__ == '__main__':
         binary = "Video-dl_amd64.deb"
     else:
         print("The auto updater doesn't support this operating system.")
-    if not _update(binary):
+        no_update = True
+    if no_update or not _update(binary):
         _video_dl()
     elif ext is not None:
         try:

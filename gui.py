@@ -5,6 +5,7 @@ import PySimpleGUI as Sg
 from typing import Dict
 from hwaccel_handler import _get_encoders_list
 from updater import Updater
+from gen_new_version import APP_VERSION
 
 from lang import (
     GuiField,
@@ -31,7 +32,8 @@ def _video_dl() -> None:
                 enable_events=True,
                 readonly=True,
                 key="Lang",
-            )
+            ),
+            Sg.Text(f'v{APP_VERSION}', justification='right', expand_x=True)
         ],
         [Sg.Text(get_text(GuiField.link), key="TextLink")],
         [Sg.Input(key="url")],

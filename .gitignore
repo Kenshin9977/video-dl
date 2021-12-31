@@ -8,3 +8,7 @@ Zombie mode songs/*
 bin/*
 downloads/*
 *.sfk
+/signature.json
+/versions.json
+/video-dl.exe.spec
+/video-dlvideo-dl.exe.spec

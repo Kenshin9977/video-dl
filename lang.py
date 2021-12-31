@@ -50,11 +50,7 @@ def _get_language() -> Language:
     global _current_language
 
     # This dictionary maps the language of a locale to its associated enum
-    lang_map = {
-        "en": Language.english,
-        "fr": Language.french,
-        "de": Language.german
-    }
+    lang_map = {"en": Language.english, "fr": Language.french, "de": Language.german}
 
     locale.setlocale(locale.LC_ALL, "")
     system_language = locale.getdefaultlocale()[0]
@@ -77,120 +73,120 @@ def get_text(field: GuiField) -> str:
         GuiField.incorrect_timestamp: {
             Language.english: "Invalid timestamps",
             Language.french: "Temps saisis invalides",
-            Language.german: "Ungültiger Zeitstempel"
+            Language.german: "Ungültiger Zeitstempel",
         },
         GuiField.link: {
             Language.english: "Link",
             Language.french: "Lien",
-            Language.german: "Link"
+            Language.german: "Link",
         },
         GuiField.download: {
             Language.english: "Download",
             Language.french: "Téléchargement",
-            Language.german: "Herunterladen"
+            Language.german: "Herunterladen",
         },
         GuiField.destination: {
             Language.english: "Destination folder",
             Language.french: "Dossier de destination",
-            Language.german: "Zielordner"
+            Language.german: "Zielordner",
         },
         GuiField.start: {
             Language.english: "Start",
             Language.french: "Début",
-            Language.german: "Anfang"
+            Language.german: "Anfang",
         },
         GuiField.end: {
             Language.english: "End",
             Language.french: "Fin",
-            Language.german: "Ende"
+            Language.german: "Ende",
         },
         GuiField.subtitles: {
             Language.english: "Subtitles",
             Language.french: "Sous-titres",
-            Language.german: "Untertitel"
+            Language.german: "Untertitel",
         },
         GuiField.quality: {
             Language.english: "Maximum quality",
             Language.french: "Qualité maximale",
-            Language.german: "Maximale Qualität"
+            Language.german: "Maximale Qualität",
         },
         GuiField.framerate: {
             Language.english: "Maximum framerate",
             Language.french: "Fréquence d'images par seconde maximum",
-            Language.german: "Maximale Bildfrequenz"
+            Language.german: "Maximale Bildfrequenz",
         },
         GuiField.vcodec: {
             Language.english: "Video codec",
             Language.french: "Codec vidéo",
-            Language.german: "Codec für video"
+            Language.german: "Codec für video",
         },
         GuiField.audio_only: {
             Language.english: "Audio only",
             Language.french: "Audio seul",
-            Language.german: "Nur Audio"
+            Language.german: "Nur Audio",
         },
         GuiField.cookies: {
             Language.english: "Use cookies from the selected browser",
             Language.french: "Utiliser les cookies du navigateur selectionné",
-            Language.german: "Benutze Cookies des ausgewählten Webbrowsers"
+            Language.german: "Benutze Cookies des ausgewählten Webbrowsers",
         },
         GuiField.dl_button: {
             Language.english: "Download",
             Language.french: "Télécharger",
-            Language.german: "Herunterladen"
+            Language.german: "Herunterladen",
         },
         GuiField.dl_cancel: {
             Language.english: "Download cancelled.",
             Language.french: "Téléchargement annulé.",
-            Language.german: "Herunterladen abgebrochen."
+            Language.german: "Herunterladen abgebrochen.",
         },
         GuiField.dl_unsupported_url: {
             Language.english: "Unsupported URL.",
             Language.french: "URL non supportée.",
-            Language.german: "URL nicht unterstützt."
+            Language.german: "URL nicht unterstützt.",
         },
         GuiField.dl_error: {
             Language.english: "An error has occurred.",
             Language.french: "Une erreur s'est produite.",
-            Language.german: "Ein Fehler ist aufgetreten."
+            Language.german: "Ein Fehler ist aufgetreten.",
         },
         GuiField.dl_finish: {
             Language.english: "Download finished.",
             Language.french: "Téléchargement terminé.",
-            Language.german: "Herunterladen abgeschlossen."
+            Language.german: "Herunterladen abgeschlossen.",
         },
         GuiField.missing_output: {
             Language.english: "Select an output path.",
             Language.french: "Indiquez un dossier de destination.",
-            Language.german: "Wähle einen Zielordner."
+            Language.german: "Wähle einen Zielordner.",
         },
         GuiField.ff_remux: {
             Language.english: "Remuxing",
             Language.french: "Remuxage",
-            Language.german: "Remuxen"
+            Language.german: "Remuxen",
         },
         GuiField.ff_reencode: {
             Language.english: "Re-encoding",
             Language.french: "Réencodage",
-            Language.german: "Neukodierung"
+            Language.german: "Neukodierung",
         },
         GuiField.ff_starting: {
             Language.english: "Starting",
             Language.french: "Démarrage",
-            Language.german: "Starte"
+            Language.german: "Starte",
         },
         GuiField.ff_speed: {
             # Add a space at the end of the message if
             # the language requires one before a colon
             Language.english: "Speed",
             Language.french: "Vitesse ",
-            Language.german: "Geschwindigkeit"
+            Language.german: "Geschwindigkeit",
         },
         GuiField.cancel_button: {
             Language.english: "Cancel",
             Language.french: "Annuler",
-            Language.german: ""
-        }
+            Language.german: "",
+        },
     }
     return ui_text[field][_current_language]
 
@@ -198,11 +194,10 @@ def get_text(field: GuiField) -> str:
 _available_languages = {
     Language.english: "English",
     Language.french: "Français",
-    Language.german: "Deutsch"
+    Language.german: "Deutsch",
 }
 
-_language_from_name = {name: lang for lang,
-                       name in _available_languages.items()}
+_language_from_name = {name: lang for lang, name in _available_languages.items()}
 
 
 def get_available_languages_name() -> List[str]:

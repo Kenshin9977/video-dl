@@ -50,11 +50,13 @@ class Updater:
 
     def _get_versions_json(self) -> None:
         self._clean_versions_files()
-        r = get(f"http://video-dl-binaries.s3.amazonaws.com/{self.versions_archive_name}")
+        r = get(
+            f"http://video-dl-binaries.s3.amazonaws.com/{self.versions_archive_name}"
+        )
         if r.status_code != 200:
             log.info(f"{self.versions_archive_name} doesn't exists")
             return
-        with open(self.versions_archive_name, 'wb') as f:
+        with open(self.versions_archive_name, "wb") as f:
             f.write(r.content)
         with ZipFile(self.versions_archive_name, "r") as zip_ref:
             zip_ref.extractall()
@@ -91,7 +93,7 @@ class Updater:
         r = get(f"http://video-dl-binaries.s3.amazonaws.com/{latest_archive_name}")
         if r.status_code != 200:
             log.error("Couldn't retrieve the latest version")
-        with open(latest_archive_name, 'wb') as f:
+        with open(latest_archive_name, "wb") as f:
             f.write(r.content)
 
     def _replace_with_latest(self, latest_archive_name) -> None:

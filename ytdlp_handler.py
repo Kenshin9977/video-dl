@@ -7,6 +7,7 @@ from typing import Any, Dict
 from quantiphy import Quantity
 from ffmpeg_handler import post_process_dl
 from yt_dlp.postprocessor.ffmpeg import EXT_TO_OUT_FORMATS
+from pathlib import Path
 
 from lang import (
     GuiField,
@@ -39,10 +40,27 @@ def video_dl(values: Dict) -> None:
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(values["url"])
     DL_PROGRESS_WINDOW.close()
+
+    if infos_ydl["_type"] == "playlist":
+        for infos_ydl_entry in infos_ydl["entries"]:
+            post_download(values, ydl, infos_ydl_entry)
+    else:
+        post_download(values, ydl, infos_ydl)
+
+
+def post_download(values: Dict, ydl, infos_ydl):
+    """
+    Execute all needed processes after a youtube video download :
+    - Execute not AudioOnly process
+    - Move output file(s)
+    """
     ext = "mp3" if values["AudioOnly"] else infos_ydl["ext"]
     full_path = os.path.splitext(ydl.prepare_filename(infos_ydl))[0] + "." + ext
     if not values["AudioOnly"]:
         post_process_dl(full_path, values["TargetCodec"])
+
+    # Move the output file to the user specified output directory
+    Path("{}".format(full_path)).rename("{}/{}".format(values["path"], full_path))
 
 
 def _gen_query(
@@ -75,9 +93,9 @@ def _gen_query(
         "trim_file_name": 250,
         "outtmpl": os.path.join("%(title).100s - %(uploader)s.%(ext)s"),
         "progress_hooks": [download_progress_bar],
+        "compat_opts": ["no-direct-merge"],
         # 'verbose': True,
     }
-    options["compat_opts"] = ["no-direct-merge"]
     video_format = ""
     acodecs = ["aac", "mp3"] if audio_only else ["aac", "mp3", "mp4a"]
     for acodec in acodecs:

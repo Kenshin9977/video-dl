@@ -2,7 +2,7 @@
 
 The purpose of this script is to simplify the usage of [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 <p align="center">
-<img src="https://i.imgur.com/TtreT8D.png">
+<img src="https://i.imgur.com/HP9yvMm.png">
 </p>
 
 
@@ -41,7 +41,8 @@ I plan to compile binaries for both OSX and Linux. In the meantime you can compi
 * Saves videos with the name of the video followed by the author's name.
 * Only remuxes videos if it is encoded in h264 (faster than recode and lossless) in order to ensure compatibility with every NLE software.
 * Recodes the video in h264 if it is encoded with something else in order to ensure compatibility.
-* Detects if a GPU capable of h264 encoding is visible by the system and if there is, use it to encode the video rather than the CPU which is slower.
+* Detects if a GPU capable of h264/h265 encoding is visible by the system and if there is, use it to encode the video rather than the CPU which is slower.
+* Can download subtitles
 
 ## Usage
 

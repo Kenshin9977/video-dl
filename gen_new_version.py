@@ -164,6 +164,8 @@ def get_name_for_platform() -> str:
         ext = ".exe"
     elif platform == "Linux":
         ext = "_amd64.deb"
+    elif platform == "Darwin":
+        ext = ".dmg"
     if ext is None:
         log.error("Platform isn't supported")
         raise RuntimeError

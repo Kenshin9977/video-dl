@@ -43,9 +43,12 @@ class Updater:
         if self.versions_dict is None:
             log.info("No versions file found")
             return False
-        self.latest_version = self.versions_dict[APP_NAME][self.platform][
-            "latest_version"
-        ]
+        if self.platform in self.versions_dict[APP_NAME]:
+            self.latest_version = self.versions_dict[APP_NAME][self.platform][
+                "latest_version"
+            ]
+        else:
+            self.latest_version = APP_VERSION
         return self.latest_version != APP_VERSION
 
     def _get_versions_json(self) -> None:

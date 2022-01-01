@@ -100,16 +100,26 @@ class GenUpdate:
             r'(?P<major>\d+)\.(?P<minor>\d+)\.'
             r'(?P<patch>\d+)', self.app_version
         )
+        if not cv_re or not lv_re:
+            log.error("No versions infos found")
+            return False
         if lv_re.group("major") > cv_re.group("major"):
             log.error("Major version is lesser than the latest one")
             return False
+        elif lv_re.group("major") < cv_re.group("major"):
+            log.info("Found a new major version")
+            return True
         elif lv_re.group("minor") > cv_re.group("minor"):
             log.error("Minor version is lesser than the latest one")
             return False
+        elif lv_re.group("minor") < cv_re.group("minor"):
+            log.info("Found a new minor version")
+            return True
         elif lv_re.group("patch") >= cv_re.group("patch"):
             log.error("Patch version is lesser or equal to the latest one")
             return False
         else:
+            log.info("Found a new patch version")
             return True
 
     def _clean_versions_files(self) -> None:

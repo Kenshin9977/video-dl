@@ -58,9 +58,9 @@ class Updater:
             return
         with open(self.versions_archive_name, "wb") as f:
             f.write(r.content)
-        with ZipFile(self.versions_archive_name, "r") as zip_ref:
+        with ZipFile(self.versions_archive_name, "rb") as zip_ref:
             zip_ref.extractall()
-        with open(self.versions_json_name) as f:
+        with open(self.versions_json_name, "rb") as f:
             self.versions_dict = json.load(f)
         if self.versions_dict is None:
             log.info(f"{self.versions_json_name} doesn't exists")

@@ -40,15 +40,10 @@ class GuiField(enum.Enum):
     cancel_button = enum.auto()
 
 
-global _current_language
-
-
 def _get_language() -> Language:
     """
     Tries to determine the system language, fallbacks to english.
     """
-    global _current_language
-
     # This dictionary maps the language of a locale to its associated enum
     lang_map = {"en": Language.english, "fr": Language.french, "de": Language.german}
 

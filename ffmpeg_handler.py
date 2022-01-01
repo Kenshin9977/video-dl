@@ -143,7 +143,7 @@ def _best_encoder(path: str, fps: int, target_codec: str) -> str:
     for encoder in vcodecs:
         try:
             ffmpeg.input(path, ss="00:00:00.00", to=end).output(
-                output_path, vcodec=encoder, profile="0"
+                output_path, vcodec=encoder
             ).run(overwrite_output=True)
         except ffmpeg.Error:
             continue

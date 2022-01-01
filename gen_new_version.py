@@ -1,17 +1,17 @@
 import json
 import logging
 import os
+import PyInstaller.__main__
 
 from bs3 import Bs3client
 from os.path import getsize, join, exists
 from platform import system
 from re import match
-from subprocess import call
 from util import compute_sha256, compute_signature
 from zipfile import ZipFile
 
 APP_NAME = "video-dl"
-APP_VERSION = "0.5.0"
+APP_VERSION = "0.5.19"
 PLATFORM = system()
 ASSETS = {"Windows": ["ffmpeg.exe", "ffprobe.exe"]}
 log = logging.getLogger(__name__)
@@ -24,7 +24,6 @@ def update():
 
 
 class GenUpdate:
-
     def __init__(self):
         self.archive_name = gen_archive_name()
         self.app_name = APP_NAME
@@ -49,7 +48,7 @@ class GenUpdate:
 
     def _gen_app_archive(self):
         self._gen_binary()
-        zipObj = ZipFile(self.archive_name, 'w')
+        zipObj = ZipFile(self.archive_name, "w")
         path2bin = join("dist", self.bin_name)
         if not exists(path2bin):
             log.error("Binary file wasn't found")
@@ -59,8 +58,8 @@ class GenUpdate:
 
     def _gen_json_archive(self) -> None:
         versions_dict = self._gen_versions_json()
-        zipObj = ZipFile(self.versions_archive_name, 'w')
-        with open(self.versions_json_name, 'w') as outfile:
+        zipObj = ZipFile(self.versions_archive_name, "w")
+        with open(self.versions_json_name, "w") as outfile:
             json.dump(versions_dict, outfile)
         # signature_dict = {"signature": compute_signature(json_versions_path)}
         # with open("signature.json", 'w') as outfile:
@@ -77,7 +76,7 @@ class GenUpdate:
         if not self.s3client.download(self.versions_archive_name, can_fail=True):
             log.info(f"{self.versions_json_name} doesn't exists")
             return dict()
-        with ZipFile(self.versions_archive_name, 'r') as zip_ref:
+        with ZipFile(self.versions_archive_name, "r") as zip_ref:
             zip_ref.extractall()
         with open(self.versions_json_name) as f:
             versions_dict = json.load(f)
@@ -89,51 +88,53 @@ class GenUpdate:
 
     def _gen_binary(self) -> None:
         log.info("Generating the binary file")
-        call(["pyinstaller", "-F", "--icon=icon.ico", f"--name={self.bin_name}", "gui.py"])
+        PyInstaller.__main__.run(
+            ["-F", "--icon=icon.ico", f"--name={self.bin_name}", "gui.py"]
+        )
 
     def _check_version_number_validity(self, latest_version) -> bool:
         lv_re = match(
-            r'(?P<major>\d+)\.(?P<minor>\d+)\.'
-            r'(?P<patch>\d+)', latest_version
+            r"(?P<major>\d+)\.(?P<minor>\d+)\." r"(?P<patch>\d+)", latest_version
         )
         cv_re = match(
-            r'(?P<major>\d+)\.(?P<minor>\d+)\.'
-            r'(?P<patch>\d+)', self.app_version
+            r"(?P<major>\d+)\.(?P<minor>\d+)\." r"(?P<patch>\d+)", self.app_version
         )
         if not cv_re or not lv_re:
             log.error("No versions infos found")
             return False
-        if lv_re.group("major") > cv_re.group("major"):
+        if int(lv_re.group("major")) > int(cv_re.group("major")):
             log.error("Major version is lesser than the latest one")
             return False
-        elif lv_re.group("major") < cv_re.group("major"):
+        elif int(lv_re.group("major")) < int(cv_re.group("major")):
             log.info("Found a new major version")
             return True
-        elif lv_re.group("minor") > cv_re.group("minor"):
+        elif int(lv_re.group("minor")) > int(cv_re.group("minor")):
             log.error("Minor version is lesser than the latest one")
             return False
-        elif lv_re.group("minor") < cv_re.group("minor"):
+        elif int(lv_re.group("minor")) < int(cv_re.group("minor")):
             log.info("Found a new minor version")
             return True
-        elif lv_re.group("patch") >= cv_re.group("patch"):
+        elif int(lv_re.group("patch")) >= int(cv_re.group("patch")):
             log.error("Patch version is lesser or equal to the latest one")
             return False
         else:
-            log.info("Found a new patch version")
+            log.info("Version number is valid")
             return True
 
     def _clean_versions_files(self) -> None:
         try:
+            log.info("Removing existing versions files")
             os.remove(self.versions_json_name)
             os.remove(self.versions_archive_name)
-            log.info("Cleaned folder of existing versions files")
         except FileNotFoundError:
-            log.info("versions files not found")
+            log.info("No versions files were found")
 
     def _gen_versions_json(self) -> dict:
         dict_versions = self._get_versions_json()
         try:
-            latest_version = dict_versions[self.app_name][self.platform]["latest_version"]
+            latest_version = dict_versions[self.app_name][self.platform][
+                "latest_version"
+            ]
             if not self._check_version_number_validity(latest_version):
                 log.error("Version number isn't valid")
                 raise ValueError
@@ -147,7 +148,7 @@ class GenUpdate:
                         self.app_version: {
                             "archive_name": self.archive_name,
                             "archive_size": getsize(self.archive_name),
-                            "archive_hash": compute_sha256(join("dist", self.bin_name))
+                            "archive_hash": compute_sha256(self.archive_name),
                         },
                     },
                 },
@@ -171,8 +172,8 @@ def get_name_for_platform() -> str:
 
 def gen_archive_name() -> str:
     correct_format = match(
-        r'(?P<major>\d+)\.(?P<minor>\d+)\.'
-        r'(?P<patch>\d+)', APP_VERSION)
+        r"(?P<major>\d+)\.(?P<minor>\d+)\." r"(?P<patch>\d+)", APP_VERSION
+    )
     if not correct_format:
         log.error("Version number isn't formatted correctly")
         raise ValueError

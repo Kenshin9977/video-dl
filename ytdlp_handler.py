@@ -73,7 +73,7 @@ def _gen_query(
         "noplaylist": True,
         "overwrites": True,
         "trim_file_name": 250,
-        "outtmpl": os.path.join( "%(title).100s - %(uploader)s.%(ext)s"),
+        "outtmpl": os.path.join("%(title).100s - %(uploader)s.%(ext)s"),
         "progress_hooks": [download_progress_bar],
         # 'verbose': True,
     }

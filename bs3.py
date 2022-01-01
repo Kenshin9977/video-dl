@@ -11,11 +11,11 @@ class Bs3client:
     def __init__(self, aws_skey=None, aws_id=None):
         try:
             self.bucket = boto3.resource(
-                service_name='s3',
+                service_name="s3",
                 aws_secret_access_key=env["AWS_SECRET"] if not aws_skey else aws_skey,
                 aws_access_key_id=env["AWS_ID"] if not aws_id else aws_id,
-                region_name="eu-west-3"
-            ).Bucket("video-dl-windows-builds")
+                region_name="eu-west-3",
+            ).Bucket("video-dl-binaries")
         except KeyError as e:
             print(f"Environment variable missing {e}")
             raise KeyError
@@ -31,4 +31,6 @@ class Bs3client:
         return True
 
     def upload(self, filename):
-        self.bucket.upload_file(filename, path.basename(filename))
+        self.bucket.upload_file(
+            filename, path.basename(filename), ExtraArgs={"ACL": "public-read"}
+        )

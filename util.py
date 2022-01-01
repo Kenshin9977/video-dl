@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 def compute_sha256(filepath):
     buf_size = 65536
     bin_sha256 = sha256()
-    with open(filepath, 'rb') as f:
+    with open(filepath, "rb") as f:
         while True:
             data = f.read(buf_size)
             if not data:
@@ -25,7 +25,7 @@ def compute_signature(filepath):
     # except KeyError:
     #     log.error("SKEY needs to be set as env variable")
     #     raise KeyError
-    with open(filepath, 'rb') as f:
+    with open(filepath, "rb") as f:
         byte_file = f.read()
         skey = SigningKey.generate()
         signed = skey.sign(byte_file)

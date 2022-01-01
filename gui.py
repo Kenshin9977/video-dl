@@ -33,7 +33,7 @@ def _video_dl() -> None:
                 readonly=True,
                 key="Lang",
             ),
-            Sg.Text(f'v{APP_VERSION}', justification='right', expand_x=True)
+            Sg.Text(f"v{APP_VERSION}", justification="right", expand_x=True),
         ],
         [Sg.Text(get_text(GuiField.link), key="TextLink")],
         [Sg.Input(key="url")],

@@ -203,4 +203,4 @@ websockets==10.1; python_version >= "3.7" \
 yt-dlp==2021.12.27; python_version >= "3.6" \
     --hash=sha256:2244df3759751487e796b23b67216bee98e70832a3a43c2526b0b0e0bbfbcb5b \
     --hash=sha256:bb46898a175d149c9c6bb2846056590d297aa4eafad8487c3e1315d2c6090896
-pyinstaller~=4.5.1
+pyinstaller==4.5.1

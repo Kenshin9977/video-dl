@@ -37,6 +37,15 @@ def _video_dl() -> None:
         ],
         [Sg.Text(get_text(GuiField.link), key="TextLink")],
         [Sg.Input(key="url")],
+        [
+            Sg.Checkbox(
+                get_text(GuiField.is_playlist),
+                default=False,
+                checkbox_color="black",
+                enable_events=True,
+                key="IsPlaylist",
+            )
+        ],
         [Sg.Text(get_text(GuiField.destination), key="TextDestination")],
         [Sg.Input(download_path, key="path"), Sg.FolderBrowse(button_text="...")],
         [

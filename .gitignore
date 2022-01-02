@@ -1,4 +1,5 @@
 .idea/*
+output/*
 build/*
 dist/*
 __pycache__/*

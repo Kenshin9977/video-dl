@@ -1,4 +1,5 @@
 import datetime
+
 import PySimpleGUI as Sg
 import yt_dlp
 import os
@@ -33,12 +34,28 @@ def video_dl(values: Dict) -> None:
         values["AudioOnly"],
         values["path"],
         values["Subtitles"],
+        values["IsPlaylist"],
         trim_start,
         trim_end,
     )
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(values["url"])
+
     DL_PROGRESS_WINDOW.close()
+
+    if "_type" in infos_ydl.keys() and infos_ydl["_type"] == "playlist":
+        for video_index, infos_ydl_entry in enumerate(infos_ydl["entries"]):
+            _post_download(values, ydl, infos_ydl_entry)
+    else:
+        _post_download(values, ydl, infos_ydl)
+
+
+def _post_download(values: Dict, ydl, infos_ydl):
+    """
+    Execute all needed processes after a youtube video download :
+    - Execute not AudioOnly process
+    """
+
     ext = "mp3" if values["AudioOnly"] else infos_ydl["ext"]
     full_path = os.path.splitext(ydl.prepare_filename(infos_ydl))[0] + "." + ext
     if not values["AudioOnly"]:
@@ -51,6 +68,7 @@ def _gen_query(
     audio_only: bool,
     path: str,
     subtitles: bool,
+    playlist: bool,
     start: str,
     end: str,
 ) -> Dict[str, Any]:
@@ -70,14 +88,15 @@ def _gen_query(
         keep_on_top=True,
     )
     options = {
-        "noplaylist": True,
+        "noplaylist": not playlist,
         "overwrites": True,
         "trim_file_name": 250,
-        "outtmpl": os.path.join("%(title).100s - %(uploader)s.%(ext)s"),
+        "outtmpl": os.path.join(f"{path}", "%(title).100s - %(uploader)s.%(ext)s"),
+        "playlist_items": None if playlist else "1",
         "progress_hooks": [download_progress_bar],
+        "compat_opts": ["no-direct-merge"],
         # 'verbose': True,
     }
-    options["compat_opts"] = ["no-direct-merge"]
     video_format = ""
     acodecs = ["aac", "mp3"] if audio_only else ["aac", "mp3", "mp4a"]
     for acodec in acodecs:
@@ -151,7 +170,13 @@ def download_progress_bar(d):
         progress_percent = (
             "-" if downloaded == "-" or total == 0 else int(downloaded / total * 100)
         )
-        DL_PROGRESS_WINDOW["PROGINFOS1"].update(f"{progress_percent}%")
+
+        if not d['info_dict']['playlist_index'] or d['info_dict']['n_entries'] == 1:
+            percent_str = f"{progress_percent}%"
+        else:
+            percent_str = f"{progress_percent}% ({d['info_dict']['playlist_index']}/{d['info_dict']['n_entries']})"
+
+        DL_PROGRESS_WINDOW["PROGINFOS1"].update(percent_str)
         DL_PROGRESS_WINDOW["-PROG-"].update(progress_percent)
         now = datetime.datetime.now()
         delta_ms = (now - TIME_LAST_UPDATE).seconds * 1000 + (

@@ -13,6 +13,7 @@ class GuiField(enum.Enum):
     # Main window static text
     incorrect_timestamp = enum.auto()
     link = enum.auto()
+    is_playlist = enum.auto()
     download = enum.auto()
     destination = enum.auto()
     start = enum.auto()
@@ -74,6 +75,11 @@ def get_text(field: GuiField) -> str:
             Language.english: "Link",
             Language.french: "Lien",
             Language.german: "Link",
+        },
+        GuiField.is_playlist: {
+            Language.english: "Playlist",
+            Language.french: "Playlist",
+            Language.german: "Wiedergabeliste",
         },
         GuiField.download: {
             Language.english: "Download",

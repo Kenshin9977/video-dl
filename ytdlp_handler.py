@@ -34,6 +34,7 @@ def video_dl(values: Dict) -> None:
         values["AudioOnly"],
         values["path"],
         values["Subtitles"],
+        not values["IsPlaylist"],
         trim_start,
         trim_end,
     )
@@ -41,11 +42,9 @@ def video_dl(values: Dict) -> None:
         infos_ydl = ydl.extract_info(values["url"])
     DL_PROGRESS_WINDOW.close()
 
-    if values['IsPlaylist'] and "_type" in infos_ydl.keys() and infos_ydl["_type"] == "playlist":
+    if "_type" in infos_ydl.keys() and infos_ydl["_type"] == "playlist":
         for infos_ydl_entry in infos_ydl["entries"]:
             _post_download(values, ydl, infos_ydl_entry)
-    elif "_type" in infos_ydl.keys() and infos_ydl["_type"] == "playlist":
-        _post_download(values, ydl, infos_ydl["entries"][0])
     else:
         _post_download(values, ydl, infos_ydl)
 
@@ -68,6 +67,7 @@ def _gen_query(
     audio_only: bool,
     path: str,
     subtitles: bool,
+    first_of_playlist: bool,
     start: str,
     end: str,
 ) -> Dict[str, Any]:
@@ -92,6 +92,7 @@ def _gen_query(
         "trim_file_name": 250,
         "outtmpl": os.path.join(f"{path}", "%(title).100s - %(uploader)s.%(ext)s"),
         "progress_hooks": [download_progress_bar],
+        "playlist_items": "1" if first_of_playlist else None,
         "compat_opts": ["no-direct-merge"],
         # 'verbose': True,
     }

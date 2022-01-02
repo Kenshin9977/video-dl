@@ -44,7 +44,7 @@ def video_dl(values: Dict) -> None:
     DL_PROGRESS_WINDOW.close()
 
     if "_type" in infos_ydl.keys() and infos_ydl["_type"] == "playlist":
-        for infos_ydl_entry in infos_ydl["entries"]:
+        for video_index, infos_ydl_entry in enumerate(infos_ydl["entries"]):
             _post_download(values, ydl, infos_ydl_entry)
     else:
         _post_download(values, ydl, infos_ydl)

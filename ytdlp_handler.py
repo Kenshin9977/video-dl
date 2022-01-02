@@ -1,5 +1,4 @@
 import datetime
-import shutil
 
 import PySimpleGUI as Sg
 import yt_dlp
@@ -62,9 +61,6 @@ def _post_download(values: Dict, ydl, infos_ydl):
     if not values["AudioOnly"]:
         post_process_dl(full_path, values["TargetCodec"])
 
-    # Move the output file to the user specified output directory
-    shutil.move(full_path, os.path.join(values['path'], full_path))
-
 
 def _gen_query(
     h: int,
@@ -94,7 +90,7 @@ def _gen_query(
         "noplaylist": True,
         "overwrites": True,
         "trim_file_name": 250,
-        "outtmpl": os.path.join("%(title).100s - %(uploader)s.%(ext)s"),
+        "outtmpl": os.path.join(f"{path}", "%(title).100s - %(uploader)s.%(ext)s"),
         "progress_hooks": [download_progress_bar],
         "compat_opts": ["no-direct-merge"],
         # 'verbose': True,
@@ -145,6 +141,8 @@ def _gen_query(
 
 
 def download_progress_bar(d):
+    print(f"D = {d}")
+
     global CANCELED, DL_PROGRESS_WINDOW, TIME_LAST_UPDATE
     speed = (
         "-"

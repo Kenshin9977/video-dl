@@ -171,10 +171,12 @@ def download_progress_bar(d):
             "-" if downloaded == "-" or total == 0 else int(downloaded / total * 100)
         )
 
-        playlist_index = 1 if not d['info_dict']['playlist_index'] else d['info_dict']['playlist_index']
-        n_entries = 1 if not d['info_dict']['playlist_index'] else d['info_dict']['n_entries']
+        if not d['info_dict']['playlist_index'] or d['info_dict']['n_entries'] == 1:
+            percent_str = f"{progress_percent}%"
+        else:
+            percent_str = f"{progress_percent}% ({d['info_dict']['playlist_index']}/{d['info_dict']['n_entries']})"
 
-        DL_PROGRESS_WINDOW["PROGINFOS1"].update(f"{progress_percent}% ({playlist_index - 1}/{n_entries})")
+        DL_PROGRESS_WINDOW["PROGINFOS1"].update(percent_str)
         DL_PROGRESS_WINDOW["-PROG-"].update(progress_percent)
         now = datetime.datetime.now()
         delta_ms = (now - TIME_LAST_UPDATE).seconds * 1000 + (

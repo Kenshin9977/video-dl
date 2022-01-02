@@ -40,6 +40,7 @@ def video_dl(values: Dict) -> None:
     )
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(values["url"])
+
     DL_PROGRESS_WINDOW.close()
 
     if "_type" in infos_ydl.keys() and infos_ydl["_type"] == "playlist":
@@ -142,8 +143,6 @@ def _gen_query(
 
 
 def download_progress_bar(d):
-    print(f"D = {d}")
-
     global CANCELED, DL_PROGRESS_WINDOW, TIME_LAST_UPDATE
     speed = (
         "-"
@@ -171,7 +170,11 @@ def download_progress_bar(d):
         progress_percent = (
             "-" if downloaded == "-" or total == 0 else int(downloaded / total * 100)
         )
-        DL_PROGRESS_WINDOW["PROGINFOS1"].update(f"{progress_percent}%")
+
+        playlist_index = 1 if not d['info_dict']['playlist_index'] else d['info_dict']['playlist_index']
+        n_entries = 1 if not d['info_dict']['playlist_index'] else d['info_dict']['n_entries']
+
+        DL_PROGRESS_WINDOW["PROGINFOS1"].update(f"{progress_percent}% ({playlist_index - 1}/{n_entries})")
         DL_PROGRESS_WINDOW["-PROG-"].update(progress_percent)
         now = datetime.datetime.now()
         delta_ms = (now - TIME_LAST_UPDATE).seconds * 1000 + (

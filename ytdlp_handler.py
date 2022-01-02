@@ -34,7 +34,7 @@ def video_dl(values: Dict) -> None:
         values["AudioOnly"],
         values["path"],
         values["Subtitles"],
-        not values["IsPlaylist"],
+        values["IsPlaylist"],
         trim_start,
         trim_end,
     )
@@ -68,7 +68,7 @@ def _gen_query(
     audio_only: bool,
     path: str,
     subtitles: bool,
-    first_of_playlist: bool,
+    playlist: bool,
     start: str,
     end: str,
 ) -> Dict[str, Any]:
@@ -88,12 +88,12 @@ def _gen_query(
         keep_on_top=True,
     )
     options = {
-        "noplaylist": True,
+        "noplaylist": not playlist,
         "overwrites": True,
         "trim_file_name": 250,
         "outtmpl": os.path.join(f"{path}", "%(title).100s - %(uploader)s.%(ext)s"),
+        "playlist_items": None if playlist else "1",
         "progress_hooks": [download_progress_bar],
-        "playlist_items": "1" if first_of_playlist else None,
         "compat_opts": ["no-direct-merge"],
         # 'verbose': True,
     }

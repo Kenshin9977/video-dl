@@ -11,7 +11,7 @@ from util import compute_sha256, compute_signature
 from zipfile import ZipFile
 
 APP_NAME = "video-dl"
-APP_VERSION = "0.5.0"
+APP_VERSION = "0.6.0"
 PLATFORM = system()
 ASSETS = {"Windows": ["ffmpeg.exe", "ffprobe.exe"]}
 log = logging.getLogger(__name__)
@@ -106,19 +106,19 @@ class GenUpdate:
             log.error("Major version is lesser than the latest one")
             return False
         elif int(lv_re.group("major")) < int(cv_re.group("major")):
-            log.info("Found a new major version")
+            log.info("Version number is valid: Generating new major version")
             return True
         elif int(lv_re.group("minor")) > int(cv_re.group("minor")):
             log.error("Minor version is lesser than the latest one")
             return False
         elif int(lv_re.group("minor")) < int(cv_re.group("minor")):
-            log.info("Found a new minor version")
+            log.info("Version number is valid: Generating new minor version")
             return True
         elif int(lv_re.group("patch")) >= int(cv_re.group("patch")):
             log.error("Patch version is lesser or equal to the latest one")
             return False
         else:
-            log.info("Version number is valid")
+            log.info("Version number is valid: Generating new patch version")
             return True
 
     def _clean_versions_files(self) -> None:

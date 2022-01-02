@@ -42,9 +42,11 @@ def video_dl(values: Dict) -> None:
         infos_ydl = ydl.extract_info(values["url"])
     DL_PROGRESS_WINDOW.close()
 
-    if "_type" in infos_ydl.keys() and infos_ydl["_type"] == "playlist":
+    if values['IsPlaylist'] and "_type" in infos_ydl.keys() and infos_ydl["_type"] == "playlist":
         for infos_ydl_entry in infos_ydl["entries"]:
             _post_download(values, ydl, infos_ydl_entry)
+    elif "_type" in infos_ydl.keys() and infos_ydl["_type"] == "playlist":
+        _post_download(values, ydl, infos_ydl["entries"][0])
     else:
         _post_download(values, ydl, infos_ydl)
 

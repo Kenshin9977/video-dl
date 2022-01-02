@@ -54,8 +54,8 @@ def _post_download(values: Dict, ydl, infos_ydl):
     """
     Execute all needed processes after a youtube video download :
     - Execute not AudioOnly process
-    - Move output file(s)
     """
+
     ext = "mp3" if values["AudioOnly"] else infos_ydl["ext"]
     full_path = os.path.splitext(ydl.prepare_filename(infos_ydl))[0] + "." + ext
     if not values["AudioOnly"]:

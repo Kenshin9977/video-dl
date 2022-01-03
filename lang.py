@@ -41,9 +41,6 @@ class GuiField(enum.Enum):
     ff_speed = enum.auto()
     cancel_button = enum.auto()
 
-    # Error messages
-    error_invalid_start_end_playlist = enum.auto()
-
 
 def _get_language() -> Language:
     """
@@ -196,11 +193,6 @@ def get_text(field: GuiField) -> str:
             Language.english: "Cancel",
             Language.french: "Annuler",
             Language.german: "",
-        },
-        GuiField.error_invalid_start_end_playlist: {
-            Language.english: "Start playlist value CANNOT be greater than end playlist value",
-            Language.french: "La valeur début de la playlist ne peut pas être supérieur à la valeur fin",
-            Language.german: "Der Startwert der Playlist kann nicht größer sein als der Endwert",
         },
     }
     return ui_text[field][_current_language]

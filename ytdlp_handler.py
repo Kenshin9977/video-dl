@@ -27,11 +27,6 @@ def video_dl(values: Dict) -> None:
     global CANCELED, DL_PROGRESS_WINDOW
     CANCELED = False
 
-    begin_playlist_index = values["BeginPlaylistIndex"].strip()
-    end_playlist_index = values["EndPlaylistIndex"].strip()
-    playlist_start = 0 if begin_playlist_index == '' else int(begin_playlist_index)
-    playlist_end = 0 if end_playlist_index == '' else int(end_playlist_index)
-
     trim_start = f"{values['sH']}:{values['sM']}:{values['sS']}"
     trim_end = f"{values['eH']}:{values['eM']}:{values['eS']}"
     ydl_opts = _gen_query(
@@ -43,9 +38,7 @@ def video_dl(values: Dict) -> None:
         values["IsPlaylist"],
         trim_start,
         trim_end,
-        playlist_start,
-        playlist_end,
-        values["PlaylistItems"].strip()
+        values["PlaylistItems"],
     )
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -81,8 +74,6 @@ def _gen_query(
         playlist: bool,
         start: str,
         end: str,
-        start_playlist: int,
-        end_playlist: int,
         playlist_items: str
 ) -> Dict[str, Any]:
     global DL_PROGRESS_WINDOW
@@ -104,22 +95,12 @@ def _gen_query(
         "noplaylist": not playlist,
         "overwrites": True,
         "trim_file_name": 250,
+        "playlist_items": playlist_items if playlist and playlist_items != "" else "1",
         "outtmpl": os.path.join(f"{path}", "%(title).100s - %(uploader)s.%(ext)s"),
         "progress_hooks": [download_progress_bar],
         "compat_opts": ["no-direct-merge"],
         # 'verbose': True,
     }
-
-    if playlist and len(playlist_items) > 0:
-        options["playlist_items"] = playlist_items
-    elif playlist and start_playlist > 0 and end_playlist > 0:
-        if start_playlist > end_playlist:
-            raise ValueError(get_text(GuiField.error_invalid_start_end_playlist))
-
-        options["playliststart"] = start_playlist
-        options["playlistend"] = end_playlist
-    elif not playlist:
-        options["playlist_items"] = "1"
 
     video_format = ""
     acodecs = ["aac", "mp3"] if audio_only else ["aac", "mp3", "mp4a"]
@@ -195,7 +176,7 @@ def download_progress_bar(d):
             "-" if downloaded == "-" or total == 0 else int(downloaded / total * 100)
         )
 
-        if not d['info_dict']['playlist_index'] or d['info_dict']['n_entries'] == 1:
+        if not d["info_dict"]["playlist_index"] or d["info_dict"]["n_entries"] == 1:
             percent_str = f"{progress_percent}%"
         else:
             percent_str = f"{progress_percent}% ({d['info_dict']['playlist_index']}/{d['info_dict']['n_entries']})"

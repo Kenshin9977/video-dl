@@ -26,6 +26,12 @@ TIME_LAST_UPDATE = datetime.datetime.now()
 def video_dl(values: Dict) -> None:
     global CANCELED, DL_PROGRESS_WINDOW
     CANCELED = False
+
+    begin_playlist_index = values["BeginPlaylistIndex"].strip()
+    end_playlist_index = values["EndPlaylistIndex"].strip()
+    playlist_start = 0 if begin_playlist_index == '' else int(begin_playlist_index)
+    playlist_end = 0 if end_playlist_index == '' else int(end_playlist_index)
+
     trim_start = f"{values['sH']}:{values['sM']}:{values['sS']}"
     trim_end = f"{values['eH']}:{values['eM']}:{values['eS']}"
     ydl_opts = _gen_query(
@@ -37,7 +43,11 @@ def video_dl(values: Dict) -> None:
         values["IsPlaylist"],
         trim_start,
         trim_end,
+        playlist_start,
+        playlist_end,
+        values["PlaylistItems"].strip()
     )
+
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(values["url"])
 
@@ -63,14 +73,17 @@ def _post_download(values: Dict, ydl, infos_ydl):
 
 
 def _gen_query(
-    h: int,
-    browser: str,
-    audio_only: bool,
-    path: str,
-    subtitles: bool,
-    playlist: bool,
-    start: str,
-    end: str,
+        h: int,
+        browser: str,
+        audio_only: bool,
+        path: str,
+        subtitles: bool,
+        playlist: bool,
+        start: str,
+        end: str,
+        start_playlist: int,
+        end_playlist: int,
+        playlist_items: str
 ) -> Dict[str, Any]:
     global DL_PROGRESS_WINDOW
     layout = [
@@ -92,11 +105,22 @@ def _gen_query(
         "overwrites": True,
         "trim_file_name": 250,
         "outtmpl": os.path.join(f"{path}", "%(title).100s - %(uploader)s.%(ext)s"),
-        "playlist_items": None if playlist else "1",
         "progress_hooks": [download_progress_bar],
         "compat_opts": ["no-direct-merge"],
         # 'verbose': True,
     }
+
+    if playlist and len(playlist_items) > 0:
+        options["playlist_items"] = playlist_items
+    elif playlist and start_playlist > 0 and end_playlist > 0:
+        if start_playlist > end_playlist:
+            raise ValueError(get_text(GuiField.error_invalid_start_end_playlist))
+
+        options["playliststart"] = start_playlist
+        options["playlistend"] = end_playlist
+    elif not playlist:
+        options["playlist_items"] = "1"
+
     video_format = ""
     acodecs = ["aac", "mp3"] if audio_only else ["aac", "mp3", "mp4a"]
     for acodec in acodecs:
@@ -180,11 +204,11 @@ def download_progress_bar(d):
         DL_PROGRESS_WINDOW["-PROG-"].update(progress_percent)
         now = datetime.datetime.now()
         delta_ms = (now - TIME_LAST_UPDATE).seconds * 1000 + (
-            now - TIME_LAST_UPDATE
+                now - TIME_LAST_UPDATE
         ).microseconds // 1000
         if delta_ms >= 200:
             DL_PROGRESS_WINDOW["PROGINFOS2"].update(
-                f"{get_text(GuiField.ff_speed)}: {speed}"
+                f"{get_text(GuiField.ff_speed)} : {speed}"
             )
             TIME_LAST_UPDATE = now
     return

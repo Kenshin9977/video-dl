@@ -14,6 +14,7 @@ class GuiField(enum.Enum):
     incorrect_timestamp = enum.auto()
     link = enum.auto()
     is_playlist = enum.auto()
+    playlist_items = enum.auto()
     download = enum.auto()
     destination = enum.auto()
     start = enum.auto()
@@ -39,6 +40,9 @@ class GuiField(enum.Enum):
     ff_starting = enum.auto()
     ff_speed = enum.auto()
     cancel_button = enum.auto()
+
+    # Error messages
+    error_invalid_start_end_playlist = enum.auto()
 
 
 def _get_language() -> Language:
@@ -80,6 +84,11 @@ def get_text(field: GuiField) -> str:
             Language.english: "Playlist",
             Language.french: "Playlist",
             Language.german: "Wiedergabeliste",
+        },
+        GuiField.playlist_items: {
+            Language.english: "list",
+            Language.french: "Liste",
+            Language.german: "Liste",
         },
         GuiField.download: {
             Language.english: "Download",
@@ -180,13 +189,18 @@ def get_text(field: GuiField) -> str:
             # Add a space at the end of the message if
             # the language requires one before a colon
             Language.english: "Speed",
-            Language.french: "Vitesse ",
+            Language.french: "Vitesse",
             Language.german: "Geschwindigkeit",
         },
         GuiField.cancel_button: {
             Language.english: "Cancel",
             Language.french: "Annuler",
             Language.german: "",
+        },
+        GuiField.error_invalid_start_end_playlist: {
+            Language.english: "Start playlist value CANNOT be greater than end playlist value",
+            Language.french: "La valeur début de la playlist ne peut pas être supérieur à la valeur fin",
+            Language.german: "Der Startwert der Playlist kann nicht größer sein als der Endwert",
         },
     }
     return ui_text[field][_current_language]

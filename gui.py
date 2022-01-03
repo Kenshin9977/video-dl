@@ -46,6 +46,31 @@ def _video_dl() -> None:
                 key="IsPlaylist",
             )
         ],
+        [
+            Sg.Text(get_text(GuiField.playlist_items), size=(0, 0)),
+            Sg.Input(
+                size=(24, 1),
+                disabled=True,
+                disabled_readonly_background_color="gray",
+                key="PlaylistItems"
+            )
+        ],
+        [
+            Sg.Text(get_text(GuiField.start), size=(0, 0)),
+            Sg.Input(
+                size=(4, 1),
+                disabled=True,
+                disabled_readonly_background_color="gray",
+                key="BeginPlaylistIndex"
+            ),
+            Sg.Text(get_text(GuiField.end), size=(0, 0)),
+            Sg.Input(
+                size=(4, 1),
+                disabled=True,
+                disabled_readonly_background_color="gray",
+                key="EndPlaylistIndex"
+            )
+        ],
         [Sg.Text(get_text(GuiField.destination), key="TextDestination")],
         [Sg.Input(download_path, key="path"), Sg.FolderBrowse(button_text="...")],
         [
@@ -221,6 +246,8 @@ def _video_dl() -> None:
             _audio_only_checkbox(values, window)
         elif event == "Lang":
             _change_language(values, window)
+        elif event == "IsPlaylist":
+            _update_playlist_index_state(values["IsPlaylist"], window)
         elif event == "dl":
             if values["Start"] and values["End"] and _check_timecode(values, window):
                 window["error"].update(
@@ -235,10 +262,10 @@ def _video_dl() -> None:
                 # noinspection PyBroadException
                 try:
                     video_dl(values)
-                except ValueError:
+                except ValueError as e:
                     logging.error(traceback.format_exc())
                     window["error"].update(
-                        get_text(GuiField.dl_cancel), visible=True, text_color="yellow"
+                        f"{get_text(GuiField.dl_cancel)}\n{e}", visible=True, text_color="yellow"
                     )
                 except FileExistsError:
                     window["error"].update(
@@ -293,11 +320,11 @@ def _fill_timecode(values: Dict, window: Sg.Window) -> None:
             window[value].update("00")
             values[value] = "00"
         if (
-            value != "sH"
-            and value != "eH"
-            and len(values[value]) > 0
-            and values[value] != " "
-            and int(values[value]) > 59
+                value != "sH"
+                and value != "eH"
+                and len(values[value]) > 0
+                and values[value] != " "
+                and int(values[value]) > 59
         ):
             window[value].update("0" + values[value][-1])
             values[value] = "0" + values[value][-1]
@@ -344,6 +371,19 @@ def _change_language(values: Dict, window: Sg.Window) -> None:
     _update_text_lang(window)
 
 
+def _update_playlist_index_state(value: bool, window: Sg.Window):
+    """
+    Update the current playlist index form state
+
+    Keyword arguments:
+        value -- The value (True to activate form, False to deactivate it)
+        window -- The window
+    """
+    window["BeginPlaylistIndex"].update(disabled=not value)
+    window["EndPlaylistIndex"].update(disabled=not value)
+    window["PlaylistItems"].update(disabled=not value)
+
+
 def _update_text_lang(window: Sg.Window) -> None:
     """
     Update the text of each element on the layout.
@@ -365,7 +405,6 @@ def _update_text_lang(window: Sg.Window) -> None:
 if __name__ == "__main__":
     Updater().update_app()
     _video_dl()
-
 
 # Tweak timecode switching to the next number when entering 2 digit in a row in the same box
 # Handle playlist and playlist index, output links that generated errors

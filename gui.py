@@ -400,7 +400,7 @@ def _update_playlist_index_state(checked: bool, playlist_items: str, window: Sg.
 
 
 def _update_playlist_index_input_state(checked: bool, window: Sg.Window) -> None:
-    window["PlaylistItems"].update(disabled=not checked)
+    window["PlaylistItems"].update(value="" if checked else default_playlist_items_value, disabled=not checked)
 
 
 def _update_text_lang(window: Sg.Window) -> None:

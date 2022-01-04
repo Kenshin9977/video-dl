@@ -39,6 +39,7 @@ def video_dl(values: Dict) -> None:
         trim_start,
         trim_end,
         values["PlaylistItems"],
+        values["PlaylistItemsCheckbox"]
     )
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -74,7 +75,8 @@ def _gen_query(
         playlist: bool,
         start: str,
         end: str,
-        playlist_items: str
+        playlist_items: str,
+        playlist_items_selected: bool
 ) -> Dict[str, Any]:
     global DL_PROGRESS_WINDOW
     layout = [
@@ -95,12 +97,16 @@ def _gen_query(
         "noplaylist": not playlist,
         "overwrites": True,
         "trim_file_name": 250,
-        "playlist_items": playlist_items if playlist and playlist_items != "" else "1",
         "outtmpl": os.path.join(f"{path}", "%(title).100s - %(uploader)s.%(ext)s"),
         "progress_hooks": [download_progress_bar],
         "compat_opts": ["no-direct-merge"],
         # 'verbose': True,
     }
+
+    if playlist and playlist_items_selected:
+        options["playlist_items"] = playlist_items
+    elif not playlist:
+        options["playlist_items"] = "1"
 
     video_format = ""
     acodecs = ["aac", "mp3"] if audio_only else ["aac", "mp3", "mp4a"]

@@ -83,9 +83,9 @@ def get_text(field: GuiField) -> str:
             Language.german: "Wiedergabeliste",
         },
         GuiField.playlist_items: {
-            Language.english: "list",
-            Language.french: "Liste",
-            Language.german: "Liste",
+            Language.english: "Indices",
+            Language.french: "Index",
+            Language.german: "Indizes",
         },
         GuiField.download: {
             Language.english: "Download",

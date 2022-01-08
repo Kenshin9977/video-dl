@@ -14,6 +14,7 @@ class GuiField(enum.Enum):
     incorrect_timestamp = enum.auto()
     link = enum.auto()
     is_playlist = enum.auto()
+    playlist_items = enum.auto()
     download = enum.auto()
     destination = enum.auto()
     start = enum.auto()
@@ -80,6 +81,11 @@ def get_text(field: GuiField) -> str:
             Language.english: "Playlist",
             Language.french: "Playlist",
             Language.german: "Wiedergabeliste",
+        },
+        GuiField.playlist_items: {
+            Language.english: "Indices",
+            Language.french: "Index",
+            Language.german: "Indizes",
         },
         GuiField.download: {
             Language.english: "Download",
@@ -180,7 +186,7 @@ def get_text(field: GuiField) -> str:
             # Add a space at the end of the message if
             # the language requires one before a colon
             Language.english: "Speed",
-            Language.french: "Vitesse ",
+            Language.french: "Vitesse",
             Language.german: "Geschwindigkeit",
         },
         GuiField.cancel_button: {

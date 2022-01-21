@@ -2,7 +2,7 @@
 
 The purpose of this script is to simplify the usage of [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 <p align="center">
-<img src="https://i.imgur.com/HP9yvMm.png">
+<img src="https://i.imgur.com/zMNIocC.png">
 </p>
 
 

@@ -13,3 +13,14 @@ downloads/*
 /versions.json
 /video-dl.exe.spec
 /video-dlvideo-dl.exe.spec
+/avcodec-59.dll
+/avdevice-59.dll
+/avfilter-8.dll
+/avformat-59.dll
+/avutil-57.dll
+/ffprobe.exe
+/ffmpeg.exe
+/poetry.lock
+/pyproject.toml
+/swresample-4.dll
+/swscale-6.dll

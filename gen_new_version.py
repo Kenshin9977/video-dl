@@ -11,7 +11,7 @@ from util import compute_sha256, compute_signature
 from zipfile import ZipFile
 
 APP_NAME = "video-dl"
-APP_VERSION = "0.6.0"
+APP_VERSION = "0.7.0"
 PLATFORM = system()
 ASSETS = {"Windows": ["ffmpeg.exe", "ffprobe.exe"]}
 log = logging.getLogger(__name__)

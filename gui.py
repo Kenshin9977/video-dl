@@ -274,6 +274,7 @@ def _video_dl() -> None:
                         visible=True,
                         text_color="red",
                     )
+                    DL_PROGRESS_WINDOW.close()
                 except Exception as e:
                     logging.error(traceback.format_exc())
                     window["error"].update(
@@ -428,7 +429,6 @@ if __name__ == "__main__":
     _video_dl()
 
 # Tweak timecode switching to the next number when entering 2 digit in a row in the same box
-# Handle playlist and playlist index, output links that generated errors
-# Handle multiple links, output links that generated errors
 # Allow to updates assets (ffmpeg and ffmprobe)
+# Write tests
 # Sign updates

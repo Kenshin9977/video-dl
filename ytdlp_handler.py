@@ -1,4 +1,6 @@
+import copy
 import datetime
+from platform import system
 
 import PySimpleGUI as Sg
 import yt_dlp
@@ -42,10 +44,14 @@ def video_dl(values: Dict) -> None:
         values["PlaylistItemsCheckbox"]
     )
 
+    # ydl_opts_infos = copy.deepcopy(ydl_opts)
+    # try:
+    #     ydl_opts_infos.pop('external_downloader')
+    # except KeyError as e:
+    #     pass
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(values["url"])
-
-    DL_PROGRESS_WINDOW.close()
+        DL_PROGRESS_WINDOW.close()
 
     if "_type" in infos_ydl.keys() and infos_ydl["_type"] == "playlist":
         for video_index, infos_ydl_entry in enumerate(infos_ydl["entries"]):
@@ -99,8 +105,8 @@ def _gen_query(
         "trim_file_name": 250,
         "outtmpl": os.path.join(f"{path}", "%(title).100s - %(uploader)s.%(ext)s"),
         "progress_hooks": [download_progress_bar],
-        "compat_opts": ["no-direct-merge"],
-        # 'verbose': True,
+        # "compat_opts": ["no-direct-merge"],
+        'verbose': True,
     }
 
     if playlist and playlist_items_selected:
@@ -155,6 +161,15 @@ def _gen_query(
 
 def download_progress_bar(d):
     global CANCELED, DL_PROGRESS_WINDOW, TIME_LAST_UPDATE
+    event, _ = DL_PROGRESS_WINDOW.read(timeout=20)
+    if d["status"] == 'finished':
+        DL_PROGRESS_WINDOW.close()
+    elif event == Sg.WIN_CLOSED:
+        DL_PROGRESS_WINDOW.close()
+        raise FileExistsError
+    elif event == get_text(GuiField.cancel_button):
+        DL_PROGRESS_WINDOW.close()
+        raise ValueError
     speed = (
         "-"
         if "speed" not in d.keys() or d["speed"] is None
@@ -170,32 +185,24 @@ def download_progress_bar(d):
         if "total_bytes" in d.keys()
         else Quantity(d["total_bytes_estimate"], "B")
     )
-    event, _ = DL_PROGRESS_WINDOW.read(timeout=20)
-    if event == Sg.WIN_CLOSED:
-        DL_PROGRESS_WINDOW.close()
-        raise FileExistsError
-    elif d["status"] == "downloading":
-        if event == get_text(GuiField.cancel_button):
-            DL_PROGRESS_WINDOW.close()
-            raise ValueError
-        progress_percent = (
-            "-" if downloaded == "-" or total == 0 else int(downloaded / total * 100)
+    progress_percent = (
+        "-" if downloaded == "-" or total == 0 else int(downloaded / total * 100)
+    )
+
+    if not d["info_dict"]["playlist_index"] or d["info_dict"]["n_entries"] == 1:
+        percent_str = f"{progress_percent}%"
+    else:
+        percent_str = f"{progress_percent}% ({d['info_dict']['playlist_index']}/{d['info_dict']['n_entries']})"
+
+    DL_PROGRESS_WINDOW["PROGINFOS1"].update(percent_str)
+    DL_PROGRESS_WINDOW["-PROG-"].update(progress_percent)
+    now = datetime.datetime.now()
+    delta_ms = (now - TIME_LAST_UPDATE).seconds * 1000 + (
+            now - TIME_LAST_UPDATE
+    ).microseconds // 1000
+    if delta_ms >= 200:
+        DL_PROGRESS_WINDOW["PROGINFOS2"].update(
+            f"{get_text(GuiField.ff_speed)} : {speed}"
         )
-
-        if not d["info_dict"]["playlist_index"] or d["info_dict"]["n_entries"] == 1:
-            percent_str = f"{progress_percent}%"
-        else:
-            percent_str = f"{progress_percent}% ({d['info_dict']['playlist_index']}/{d['info_dict']['n_entries']})"
-
-        DL_PROGRESS_WINDOW["PROGINFOS1"].update(percent_str)
-        DL_PROGRESS_WINDOW["-PROG-"].update(progress_percent)
-        now = datetime.datetime.now()
-        delta_ms = (now - TIME_LAST_UPDATE).seconds * 1000 + (
-                now - TIME_LAST_UPDATE
-        ).microseconds // 1000
-        if delta_ms >= 200:
-            DL_PROGRESS_WINDOW["PROGINFOS2"].update(
-                f"{get_text(GuiField.ff_speed)} : {speed}"
-            )
-            TIME_LAST_UPDATE = now
+        TIME_LAST_UPDATE = now
     return

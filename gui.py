@@ -2,11 +2,11 @@ import logging
 import traceback
 import platform
 import PySimpleGUI as Sg
+
 from typing import Dict
 from hwaccel_handler import _get_encoders_list
 from updater import Updater
 from gen_new_version import APP_VERSION
-
 from lang import (
     GuiField,
     get_available_languages_name,
@@ -26,6 +26,66 @@ default_playlist_items_value = "1,2,4-10,12"
 def _video_dl() -> None:
     download_path = _get_download_path()
     Sg.theme("DarkGrey13")
+    layout = _gen_layout(download_path)
+    window = Sg.Window("Video-dl", layout=layout, icon=icon_base64)
+
+    while True:
+        event, values = window.Read()
+        if event in (Sg.WIN_CLOSED, "Exit"):
+            break
+        window["error"].update(visible=False)
+        _fill_timecode(values, window)
+        if event == "Start" or event == "End":
+            _trim_checkbox(values, window, event)
+        # elif event == "Subtitles":
+        #     _subtitles_checkbox(values, window)
+        elif event == "AudioOnly":
+            _audio_only_checkbox(values, window)
+        elif event == "Lang":
+            _change_language(values, window)
+        elif event == "IsPlaylist":
+            _update_playlist_index_state(values["IsPlaylist"], values["PlaylistItems"], window)
+        elif event == "PlaylistItemsCheckbox":
+            _update_playlist_index_input_state(values["PlaylistItemsCheckbox"], window)
+        elif event == "dl":
+            if values["Start"] and values["End"] and _check_timecode(values):
+                window["error"].update(
+                    get_text(GuiField.incorrect_timestamp),
+                    visible=True,
+                    text_color="yellow",
+                )
+            elif values["path"] == "":
+                window["error"].update(get_text(GuiField.missing_output), visible=True)
+            else:
+                window["error"].update(visible=False)
+                # noinspection PyBroadException
+                try:
+                    video_dl(values)
+                except ValueError:
+                    logging.error(traceback.format_exc())
+                    window["error"].update(f"{get_text(GuiField.dl_cancel)}", visible=True, text_color="yellow")
+                except FileExistsError:
+                    window["error"].update(get_text(GuiField.dl_finish), visible=True, text_color="green")
+                except utils.DownloadError as e:
+                    logging.error(traceback.format_exc())
+                    window["error"].update(
+                        get_text(GuiField.dl_unsupported_url) + str(e),
+                        visible=True,
+                        text_color="red",
+                    )
+                    DL_PROGRESS_WINDOW.close()
+                except Exception as e:
+                    logging.error(traceback.format_exc())
+                    window["error"].update(
+                        f"{get_text(GuiField.dl_error)}\n{str(e)}\n{traceback.format_exc()}",
+                        visible=True,
+                        text_color="red",
+                    )
+                else:
+                    window["error"].update(get_text(GuiField.dl_finish), visible=True, text_color="green")
+
+
+def _gen_layout(download_path: str) -> list:
     layout = [
         [
             Sg.Combo(
@@ -62,8 +122,8 @@ def _video_dl() -> None:
                 size=(24, 1),
                 disabled=True,
                 disabled_readonly_background_color="gray",
-                key="PlaylistItems"
-            )
+                key="PlaylistItems",
+            ),
         ],
         [Sg.Text(get_text(GuiField.destination), key="TextDestination")],
         [Sg.Input(download_path, key="path"), Sg.FolderBrowse(button_text="...")],
@@ -118,7 +178,7 @@ def _video_dl() -> None:
                 disabled_readonly_background_color="gray",
                 key="eH",
                 enable_events=True,
-                default_text="99",
+                default_text="00",
             ),
             Sg.Text(":", size=(1, 1), pad=(0, 0)),
             Sg.Input(
@@ -127,7 +187,7 @@ def _video_dl() -> None:
                 disabled_readonly_background_color="gray",
                 key="eM",
                 enable_events=True,
-                default_text="59",
+                default_text="00",
             ),
             Sg.Text(":", size=(1, 1), pad=(0, 0)),
             Sg.Input(
@@ -136,7 +196,7 @@ def _video_dl() -> None:
                 disabled_readonly_background_color="gray",
                 key="eS",
                 enable_events=True,
-                default_text="59",
+                default_text="00",
             ),
         ],
         [
@@ -224,68 +284,7 @@ def _video_dl() -> None:
             Sg.Text(key="error", text_color="red", visible=False),
         ],
     ]
-    window = Sg.Window("Video-dl", layout=layout, icon=icon_base64)
-
-    while True:
-        event, values = window.Read()
-        if event in (Sg.WIN_CLOSED, "Exit"):
-            break
-        window["error"].update(visible=False)
-        _fill_timecode(values, window)
-        if event == "Start" or event == "End":
-            _trim_checkbox(values, window, event)
-        # elif event == "Subtitles":
-        #     _subtitles_checkbox(values, window)
-        elif event == "AudioOnly":
-            _audio_only_checkbox(values, window)
-        elif event == "Lang":
-            _change_language(values, window)
-        elif event == "IsPlaylist":
-            _update_playlist_index_state(values["IsPlaylist"], values["PlaylistItems"], window)
-        elif event == "PlaylistItemsCheckbox":
-            _update_playlist_index_input_state(values["PlaylistItemsCheckbox"], window)
-        elif event == "dl":
-            if values["Start"] and values["End"] and _check_timecode(values, window):
-                window["error"].update(
-                    get_text(GuiField.incorrect_timestamp),
-                    visible=True,
-                    text_color="yellow",
-                )
-            elif values["path"] == "":
-                window["error"].update(get_text(GuiField.missing_output), visible=True)
-            else:
-                window["error"].update(visible=False)
-                # noinspection PyBroadException
-                try:
-                    video_dl(values)
-                except ValueError:
-                    logging.error(traceback.format_exc())
-                    window["error"].update(
-                        f"{get_text(GuiField.dl_cancel)}", visible=True, text_color="yellow"
-                    )
-                except FileExistsError:
-                    window["error"].update(
-                        get_text(GuiField.dl_finish), visible=True, text_color="green"
-                    )
-                except utils.DownloadError as e:
-                    logging.error(traceback.format_exc())
-                    window["error"].update(
-                        get_text(GuiField.dl_unsupported_url) + str(e),
-                        visible=True,
-                        text_color="red",
-                    )
-                    DL_PROGRESS_WINDOW.close()
-                except Exception as e:
-                    logging.error(traceback.format_exc())
-                    window["error"].update(
-                        f"{get_text(GuiField.dl_error)}\n{str(e)}\n{traceback.format_exc()}",
-                        visible=True,
-                        text_color="red",
-                    )
-                else:
-                    window["error"].update(
-                        get_text(GuiField.dl_finish), visible=True, text_color="green"
-                    )
+    return layout
 
 
 # def _subtitles_checkbox(values: Dict, window: Sg.Window) -> None:
@@ -317,17 +316,17 @@ def _fill_timecode(values: Dict, window: Sg.Window) -> None:
             window[value].update("00")
             values[value] = "00"
         if (
-                value != "sH"
-                and value != "eH"
-                and len(values[value]) > 0
-                and values[value] != " "
-                and int(values[value]) > 59
+            value != "sH"
+            and value != "eH"
+            and len(values[value]) > 0
+            and values[value] != " "
+            and int(values[value]) > 59
         ):
             window[value].update("0" + values[value][-1])
             values[value] = "0" + values[value][-1]
 
 
-def _check_timecode(values: Dict, window: Sg.Window) -> bool:
+def _check_timecode(values: Dict) -> bool:
     sH, sM, sS = int(values["sH"]), int(values["sM"]), int(values["sS"])
     eH, eM, eS = int(values["eH"]), int(values["eM"]), int(values["eS"])
     return sH > eH or (sH == eH and sM > eM) or (sH == eH and sM == eM and sS > eS)
@@ -340,9 +339,9 @@ def _trim_checkbox(values: Dict, window: Sg.Window, index: str) -> None:
         window["sM"].update(disabled=disabled, value="00")
         window["sS"].update(disabled=disabled, value="00")
     elif index == "End":
-        window["eH"].update(disabled=disabled, value="99")
-        window["eM"].update(disabled=disabled, value="59")
-        window["eS"].update(disabled=disabled, value="59")
+        window["eH"].update(disabled=disabled)
+        window["eM"].update(disabled=disabled)
+        window["eS"].update(disabled=disabled)
 
 
 def _get_download_path() -> str:
@@ -390,9 +389,9 @@ def _update_playlist_index_state(checked: bool, playlist_items: str, window: Sg.
         window["sH"].update(disabled=True, value="00")
         window["sM"].update(disabled=True, value="00")
         window["sS"].update(disabled=True, value="00")
-        window["eH"].update(disabled=True, value="99")
-        window["eM"].update(disabled=True, value="59")
-        window["eS"].update(disabled=True, value="59")
+        window["eH"].update(disabled=True, value="00")
+        window["eM"].update(disabled=True, value="00")
+        window["eS"].update(disabled=True, value="00")
     elif not checked:
         window["PlaylistItems"].update(disabled=True)
         window["PlaylistItemsCheckbox"].update(value=False, disabled=True)

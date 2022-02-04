@@ -1,8 +1,7 @@
-import copy
 import datetime
-from platform import system
 
 import PySimpleGUI as Sg
+import quantiphy
 import yt_dlp
 import os
 
@@ -10,6 +9,7 @@ from typing import Any, Dict
 from quantiphy import Quantity
 from ffmpeg_handler import post_process_dl
 from yt_dlp.postprocessor.ffmpeg import EXT_TO_OUT_FORMATS
+from yt_dlp.utils import traverse_obj
 
 from lang import (
     GuiField,
@@ -29,8 +29,8 @@ def video_dl(values: Dict) -> None:
     global CANCELED, DL_PROGRESS_WINDOW
     CANCELED = False
 
-    trim_start = f"{values['sH']}:{values['sM']}:{values['sS']}"
-    trim_end = f"{values['eH']}:{values['eM']}:{values['eS']}"
+    trim_start = None if not values['Start'] else f"{values['sH']}:{values['sM']}:{values['sS']}"
+    trim_end = None if not values['End'] else f"{values['eH']}:{values['eM']}:{values['eS']}"
     ydl_opts = _gen_query(
         values["MaxHeight"][:-1],
         values["Browser"],
@@ -44,11 +44,6 @@ def video_dl(values: Dict) -> None:
         values["PlaylistItemsCheckbox"]
     )
 
-    # ydl_opts_infos = copy.deepcopy(ydl_opts)
-    # try:
-    #     ydl_opts_infos.pop('external_downloader')
-    # except KeyError as e:
-    #     pass
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(values["url"])
         DL_PROGRESS_WINDOW.close()
@@ -106,7 +101,7 @@ def _gen_query(
         "outtmpl": os.path.join(f"{path}", "%(title).100s - %(uploader)s.%(ext)s"),
         "progress_hooks": [download_progress_bar],
         # "compat_opts": ["no-direct-merge"],
-        'verbose': True,
+        # 'verbose': True,
     }
 
     if playlist and playlist_items_selected:
@@ -143,10 +138,11 @@ def _gen_query(
     if subtitles:
         options["subtitleslangs"] = ["all"]
         options["writesubtitles"] = True
-    if start != "00:00:00" or end != "99:59:59":
+    if start or end:
         options["external_downloader"] = "ffmpeg"
         options["concurrent_fragments"] = 20
-        if start == "00:00:00":
+        # options['external_downloader_args']['ffmpeg_i'].extend(['-stats_period', '0.05'])
+        if end:
             options["external_downloader_args"] = {
                 "ffmpeg_i": ["-ss", start, "-to", end]
             }
@@ -162,37 +158,38 @@ def _gen_query(
 def download_progress_bar(d):
     global CANCELED, DL_PROGRESS_WINDOW, TIME_LAST_UPDATE
     event, _ = DL_PROGRESS_WINDOW.read(timeout=20)
-    if d["status"] == 'finished':
+    if d.get("status") == 'finished':
         DL_PROGRESS_WINDOW.close()
-    elif event == Sg.WIN_CLOSED:
-        DL_PROGRESS_WINDOW.close()
-        raise FileExistsError
     elif event == get_text(GuiField.cancel_button):
         DL_PROGRESS_WINDOW.close()
         raise ValueError
-    speed = (
-        "-"
-        if "speed" not in d.keys() or d["speed"] is None
-        else Quantity(d["speed"], "B/s").render(prec=2)
-    )
-    downloaded = (
-        "-"
-        if "downloaded_bytes" not in d.keys() or d["downloaded_bytes"] is None
-        else Quantity(d["downloaded_bytes"], "B")
-    )
-    total = (
-        Quantity(d["total_bytes"], "B")
-        if "total_bytes" in d.keys()
-        else Quantity(d["total_bytes_estimate"], "B")
-    )
-    progress_percent = (
-        "-" if downloaded == "-" or total == 0 else int(downloaded / total * 100)
-    )
-
-    if not d["info_dict"]["playlist_index"] or d["info_dict"]["n_entries"] == 1:
+    try:
+        speed = Quantity(d.get("speed"), "B/s").render(prec=2)
+    except quantiphy.InvalidNumber:
+        speed = '-'
+    try:
+        downloaded = Quantity(d.get("downloaded_bytes"), "B")
+    except quantiphy.InvalidNumber:
+        downloaded = '-'
+    try:
+        total = Quantity(d.get("total_bytes"), "B")
+    except quantiphy.InvalidNumber:
+        try:
+            total = Quantity(d.get("total_bytes_estimate"), "B")
+        except quantiphy.InvalidNumber:
+            total = 0
+    try:
+        progress_percent = int(downloaded / total * 100)
+        if progress_percent >= 100:
+            progress_percent = 99
+    except (ZeroDivisionError, TypeError):
+        progress_percent = '-'
+    playlist_index = traverse_obj(d, ('info_dict', 'playlist_index'))
+    n_entries = traverse_obj(d, ('info_dict', 'n_entries'))
+    if not playlist_index or n_entries == 1:
         percent_str = f"{progress_percent}%"
     else:
-        percent_str = f"{progress_percent}% ({d['info_dict']['playlist_index']}/{d['info_dict']['n_entries']})"
+        percent_str = f"{progress_percent}% ({playlist_index}/{n_entries})"
 
     DL_PROGRESS_WINDOW["PROGINFOS1"].update(percent_str)
     DL_PROGRESS_WINDOW["-PROG-"].update(progress_percent)
@@ -200,7 +197,7 @@ def download_progress_bar(d):
     delta_ms = (now - TIME_LAST_UPDATE).seconds * 1000 + (
             now - TIME_LAST_UPDATE
     ).microseconds // 1000
-    if delta_ms >= 200:
+    if delta_ms >= 500:
         DL_PROGRESS_WINDOW["PROGINFOS2"].update(
             f"{get_text(GuiField.ff_speed)} : {speed}"
         )

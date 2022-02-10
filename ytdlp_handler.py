@@ -142,7 +142,11 @@ def _gen_query(
         options["external_downloader"] = "ffmpeg"
         options["concurrent_fragments"] = 20
         # options['external_downloader_args']['ffmpeg_i'].extend(['-stats_period', '0.05'])
-        if end:
+        if not start and end:
+            options["external_downloader_args"] = {
+                "ffmpeg_i": ["-ss", "00:00:00", "-to", end]
+            }
+        elif start and end:
             options["external_downloader_args"] = {
                 "ffmpeg_i": ["-ss", start, "-to", end]
             }

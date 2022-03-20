@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import os
 import re
 import ffmpeg
 import PySimpleGUI as Sg
+
 
 from typing import List
 from subprocess import Popen, PIPE, STDOUT, run

@@ -1,13 +1,14 @@
-import datetime
+from __future__ import annotations
 
+import datetime
 import PySimpleGUI as Sg
 import quantiphy
-import yt_dlp
 import os
 
 from typing import Any, Dict
 from quantiphy import Quantity
 from ffmpeg_handler import post_process_dl
+from yt_dlp import YoutubeDL
 from yt_dlp.postprocessor.ffmpeg import EXT_TO_OUT_FORMATS
 from yt_dlp.utils import traverse_obj
 
@@ -44,7 +45,7 @@ def video_dl(values: Dict) -> None:
         values["PlaylistItemsCheckbox"]
     )
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+    with YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(values["url"])
         DL_PROGRESS_WINDOW.close()
 

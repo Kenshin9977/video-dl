@@ -1,12 +1,14 @@
+from __future__ import annotations
+
 import logging
 import traceback
 import platform
 import PySimpleGUI as Sg
 
-from typing import Dict
-from hwaccel_handler import _get_encoders_list
-from updater import Updater
+import ytdlp_handler
+
 from gen_new_version import APP_VERSION
+from hwaccel_handler import _get_encoders_list
 from lang import (
     GuiField,
     get_available_languages_name,
@@ -14,7 +16,8 @@ from lang import (
     get_text,
     set_current_language,
 )
-from ytdlp_handler import *
+from typing import Dict
+from updater import Updater
 from yt_dlp import utils
 
 gpus_possible_encoders = _get_encoders_list()
@@ -60,7 +63,7 @@ def _video_dl() -> None:
                 window["error"].update(visible=False)
                 # noinspection PyBroadException
                 try:
-                    video_dl(values)
+                    ytdlp_handler.video_dl(values)
                 except ValueError:
                     logging.error(traceback.format_exc())
                     window["error"].update(f"{get_text(GuiField.dl_cancel)}", visible=True, text_color="yellow")
@@ -73,7 +76,7 @@ def _video_dl() -> None:
                         visible=True,
                         text_color="red",
                     )
-                    DL_PROGRESS_WINDOW.close()
+                    ytdlp_handler.DL_PROGRESS_WINDOW.close()
                 except Exception as e:
                     logging.error(traceback.format_exc())
                     window["error"].update(

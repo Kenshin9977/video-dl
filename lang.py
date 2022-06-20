@@ -129,7 +129,7 @@ def get_text(field: GuiField) -> str:
             Language.german: "Codec für video",
         },
         GuiField.acodec: {
-            Language.english: "Audio codec",
+            Language.english: "Audio only codec",
             Language.french: "Codec audio",
             Language.german: "Codec für audio",
         },

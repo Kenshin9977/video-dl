@@ -139,8 +139,8 @@ def _gen_query(
         options["postprocessors"] = [
             {
                 "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "320",
+                "preferredcodec": None,
+                "preferredquality": None,
             }
         ]
     if subtitles:

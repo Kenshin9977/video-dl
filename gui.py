@@ -276,6 +276,16 @@ def _gen_layout(download_path: str) -> list:
         ],
         [
             Sg.Combo(
+                ["acc", "mp3", "flac","opus","vorbis","alac","wav"],
+                default_value="mp3",
+                readonly=True,
+                key="TargetACodec",
+                size=(8, 1),
+            ),
+            Sg.Text(get_text(GuiField.acodec), key="TextACodec"),
+        ],
+        [
+            Sg.Combo(
                 ["60", "30"],
                 default_value="60",
                 readonly=True,

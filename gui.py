@@ -254,7 +254,7 @@ def _gen_layout(download_path: str) -> list:
         ],
         [
             Sg.Combo(
-                ["acc", "mp3", "flac","opus","vorbis","alac","wav"],
+                ["aac","best","mp3", "flac","opus","vorbis","alac","wav"],
                 default_value="mp3",
                 readonly=True,
                 key="TargetACodec",

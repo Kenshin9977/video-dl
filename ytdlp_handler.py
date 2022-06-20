@@ -36,6 +36,7 @@ def video_dl(values: Dict) -> None:
         values["MaxHeight"][:-1],
         values["Browser"],
         values["AudioOnly"],
+        values["TargetACodec"],
         values["path"],
         values["Subtitles"],
         values["IsPlaylist"],
@@ -72,6 +73,7 @@ def _gen_query(
         h: int,
         browser: str,
         audio_only: bool,
+        TargetACodec: str,
         path: str,
         subtitles: bool,
         playlist: bool,
@@ -132,8 +134,8 @@ def _gen_query(
         options["postprocessors"] = [
             {
                 "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "320",
+                "preferredcodec": TargetACodec,
+                "preferredquality": None,
             }
         ]
     if subtitles:

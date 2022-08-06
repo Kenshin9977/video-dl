@@ -11,6 +11,7 @@ from yt_dlp import utils
 
 import ytdlp_handler
 from hwaccel_handler import _get_encoders_list
+from icon_base64 import ICON_BASE64
 from lang import (GuiField, get_available_languages_name,
                   get_current_language_name, get_text, set_current_language)
 from updater.gen_new_version import APP_VERSION
@@ -18,8 +19,6 @@ from updater.updater import Updater
 
 env = Env()
 gpus_possible_encoders = _get_encoders_list()
-icon_base64 = env.str("ICON")
-
 default_playlist_items_value = "1,2,4-10,12"
 
 
@@ -27,7 +26,7 @@ def _video_dl() -> None:
     download_path = _get_download_path()
     Sg.theme("DarkGrey13")
     layout = _gen_layout(download_path)
-    window = Sg.Window("Video-dl", layout=layout, icon=icon_base64)
+    window = Sg.Window("Video-dl", layout=layout, icon=ICON_BASE64)
 
     while True:
         event, values = window.Read()

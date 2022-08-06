@@ -383,8 +383,8 @@ def _get_download_path() -> str:
             r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
         )
         downloads_guid = "{374DE290-123F-4565-9164-39C4925E467B}"
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, sub_key) as key:
-            location = winreg.QueryValueEx(key, downloads_guid)[0]
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, sub_key) as key:  # type: ignore  # noqa
+            location = winreg.QueryValueEx(key, downloads_guid)[0]  # type: ignore  # noqa
         return location
     else:
         return ""

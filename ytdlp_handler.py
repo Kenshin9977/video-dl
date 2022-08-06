@@ -80,7 +80,7 @@ def _gen_query(
     h: int,
     browser: str,
     audio_only: bool,
-    TargetACodec: str,
+    target_acodec: str,
     path: str,
     subtitles: bool,
     playlist: bool,
@@ -141,7 +141,7 @@ def _gen_query(
         options["postprocessors"] = [
             {
                 "key": "FFmpegExtractAudio",
-                "preferredcodec": TargetACodec,
+                "preferredcodec": target_acodec,
                 "preferredquality": None,
             }
         ]

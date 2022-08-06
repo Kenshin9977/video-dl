@@ -24,3 +24,7 @@ downloads/*
 /pyproject.toml
 /swresample-4.dll
 /swscale-6.dll
+/venv/*
+settings.json
+launch.json
+.env

@@ -28,3 +28,7 @@ downloads/*
 settings.json
 launch.json
 .env
+venv/*
+.vscode/*
+.DS_Store
+*.spec

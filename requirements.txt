@@ -36,6 +36,8 @@ macholib==1.16
     # via pyinstaller
 mutagen==1.45.1
     # via yt-dlp
+pillow==9.2.0
+    # via -r requirements.in
 pycparser==2.21
     # via cffi
 pycryptodomex==3.12.0

@@ -6,3 +6,4 @@ yt-dlp
 pyinstaller
 pynacl
 requests
+pillow

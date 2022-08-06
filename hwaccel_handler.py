@@ -1,5 +1,6 @@
-from GPUtil import getGPUs
 from re import match
+
+from GPUtil import getGPUs
 
 
 def _get_encoders_list() -> dict:

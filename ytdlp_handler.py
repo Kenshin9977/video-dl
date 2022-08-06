@@ -1,21 +1,18 @@
 from __future__ import annotations
 
 import datetime
+import os
+from typing import Any, Dict
+
 import PySimpleGUI as Sg
 import quantiphy
-import os
-
-from typing import Any, Dict
 from quantiphy import Quantity
-from ffmpeg_handler import post_process_dl
 from yt_dlp import YoutubeDL
 from yt_dlp.postprocessor.ffmpeg import EXT_TO_OUT_FORMATS
 from yt_dlp.utils import traverse_obj
 
-from lang import (
-    GuiField,
-    get_text,
-)
+from ffmpeg_handler import post_process_dl
+from lang import GuiField, get_text
 
 EXT_TO_OUT_FORMATS["vtt"] = "webvtt"
 

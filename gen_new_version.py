@@ -1,14 +1,15 @@
 import json
 import logging
 import os
+from os.path import exists, getsize, join
+from platform import system
+from re import match
+from zipfile import ZipFile
+
 import PyInstaller.__main__
 
 from bs3 import Bs3client
-from os.path import getsize, join, exists
-from platform import system
-from re import match
 from util import compute_sha256
-from zipfile import ZipFile
 
 APP_NAME = "video-dl"
 APP_VERSION = "0.7.4"

@@ -1,8 +1,8 @@
 import logging
-
 from hashlib import sha256
-from nacl.signing import SigningKey
 from os import environ as env
+
+from nacl.signing import SigningKey
 
 log = logging.getLogger(__name__)
 

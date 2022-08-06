@@ -2,17 +2,14 @@ from __future__ import annotations
 
 import os
 import re
+from subprocess import PIPE, STDOUT, Popen, run
+from typing import List
+
 import ffmpeg
 import PySimpleGUI as Sg
 
-
-from typing import List
-from subprocess import Popen, PIPE, STDOUT, run
 from gui import gpus_possible_encoders
-from lang import (
-    GuiField,
-    get_text,
-)
+from lang import GuiField, get_text
 
 
 def post_process_dl(full_name: str, target_codec: str) -> None:

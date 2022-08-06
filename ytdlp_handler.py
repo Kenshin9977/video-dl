@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import PySimpleGUI as Sg
 import quantiphy
@@ -82,8 +82,8 @@ def _gen_query(
     path: str,
     subtitles: bool,
     playlist: bool,
-    start: str,
-    end: str,
+    start: Optional[str],
+    end: Optional[str],
     playlist_items: str,
     playlist_items_selected: bool,
 ) -> Dict[str, Any]:

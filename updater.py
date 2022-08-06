@@ -1,22 +1,18 @@
 import io
-import logging
 import json
+import logging
 import sys
-
-from requests import get
-from gen_new_version import (
-    APP_VERSION,
-    APP_NAME,
-    VERSIONS_ARCHIVE_NAME,
-    VERSIONS_JSON_NAME,
-    gen_archive_name,
-    get_name_for_platform,
-)
-from os import remove, path
+from os import path, remove
 from platform import system
 from subprocess import Popen
-from util import compute_sha256
 from zipfile import ZipFile
+
+from requests import get
+
+from gen_new_version import (APP_NAME, APP_VERSION, VERSIONS_ARCHIVE_NAME,
+                             VERSIONS_JSON_NAME, gen_archive_name,
+                             get_name_for_platform)
+from util import compute_sha256
 
 log = logging.getLogger(__name__)
 
@@ -54,7 +50,8 @@ class Updater:
     def _get_versions_json(self) -> None:
         self._clean_versions_files()
         r = get(
-            f"http://video-dl-binaries.s3.amazonaws.com/{self.versions_archive_name}"
+            "http://video-dl-binaries.s3.amazonaws.com/"
+            f"{self.versions_archive_name}"
         )
         if r.status_code != 200:
             log.info(f"{self.versions_archive_name} doesn't exists")
@@ -78,7 +75,9 @@ class Updater:
             log.info("No versions files were found")
 
     def _download_and_replace(self) -> None:
-        latest_archive_name = f"{APP_NAME}-{self.platform}-{self.latest_version}.zip"
+        latest_archive_name = (
+            f"{APP_NAME}-{self.platform}-{self.latest_version}.zip"
+        )
         log.info("Downloading...")
         self._download_latest_version(latest_archive_name)
         log.info("Checking archive integrity...")
@@ -93,7 +92,9 @@ class Updater:
 
     @staticmethod
     def _download_latest_version(latest_archive_name) -> None:
-        r = get(f"http://video-dl-binaries.s3.amazonaws.com/{latest_archive_name}")
+        r = get(
+            f"http://video-dl-binaries.s3.amazonaws.com/{latest_archive_name}"
+        )
         if r.status_code != 200:
             log.error("Couldn't retrieve the latest version")
         with open(latest_archive_name, "wb") as f:
@@ -110,7 +111,8 @@ class Updater:
         bat_name = "updater.bat"
         with ZipFile(latest_archive_name, "r") as zip_ref:
             zip_ref.extractall(tmp_folder)
-        # Batch waits 5s, move the update, runs it, deletes the archive and deletes itself
+        # Batch waits 5s, move the update, runs it, deletes the archive and
+        # deletes itself
         batch_script = f"""
         @echo off
         chcp 65001 >nul 2>&1
@@ -129,7 +131,9 @@ class Updater:
         sys.exit(0)
 
     def _archive_ok(self, latest_archive_name) -> bool:
-        latest_version = self.versions_dict[APP_NAME][self.platform]["latest_version"]
+        latest_version = self.versions_dict[APP_NAME][self.platform][
+            "latest_version"
+        ]
         bin_infos = self.versions_dict[APP_NAME][self.platform][latest_version]
         try:
             archive_name_json = bin_infos["archive_name"]
@@ -139,21 +143,24 @@ class Updater:
             archive_actual_hash = compute_sha256(latest_archive_name)
             if archive_name_json != latest_archive_name:
                 log.info(
-                    f"Mismatch archive name {archive_name_json} != {latest_archive_name}"
+                    f"Mismatch archive name {archive_name_json} != "
+                    f"{latest_archive_name}"
                 )
                 return False
             elif archive_size_json != archive_actual_size:
                 log.info(
-                    f"Mismatch archive name {archive_size_json} != {archive_actual_size}"
+                    f"Mismatch archive name {archive_size_json} != "
+                    f"{archive_actual_size}"
                 )
                 return False
             elif archive_hash_json != archive_actual_hash:
                 log.info(
-                    f"Mismatch archive hash {archive_hash_json} != {archive_actual_hash}"
+                    f"Mismatch archive hash {archive_hash_json} != "
+                    f"{archive_actual_hash}"
                 )
                 return False
             else:
-                log.info(f"Archive is ok")
+                log.info("Archive is ok")
                 return True
         except KeyError as e:
             log.info(f"Key missing in {self.versions_json_name}: {e}")

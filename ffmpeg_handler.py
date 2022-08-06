@@ -23,7 +23,9 @@ def post_process_dl(full_name: str, target_codec: str) -> None:
             audio_codec = file_infos[i]["codec_tag_string"]
         elif file_infos[i]["codec_type"] == "video":
             video_codec = file_infos[i]["codec_tag_string"]
-    fps2compute = ffmpeg.probe(full_name)["streams"][0]["r_frame_rate"].split("/")
+    fps2compute = ffmpeg.probe(full_name)["streams"][0]["r_frame_rate"].split(
+        "/"
+    )
     fps = (
         10
         if len(fps2compute) == 1 or int(fps2compute[1]) == 0
@@ -36,7 +38,9 @@ def post_process_dl(full_name: str, target_codec: str) -> None:
     vcodec_supported = (
         re.match("avc1", video_codec) is not None and target_codec == "x264"
     )
-    _ffmpeg_video(full_name, acodec_supported, vcodec_supported, fps, target_codec)
+    _ffmpeg_video(
+        full_name, acodec_supported, vcodec_supported, fps, target_codec
+    )
 
 
 def _ffmpeg_video(
@@ -51,7 +55,9 @@ def _ffmpeg_video(
     if target_codec == "ProRes":
         new_ext = ".mov"
     recode_vcodec = (
-        _best_encoder(path, fps, target_codec) if not vcodec_supported else "copy"
+        _best_encoder(path, fps, target_codec)
+        if not vcodec_supported
+        else "copy"
     )
     tmp_path = os.path.splitext(path)[0] + ".tmp" + new_ext
     ffmpegCommand = [
@@ -106,19 +112,30 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
     progress_window = Sg.Window(
         action, layout, no_titlebar=True, grab_anywhere=True, keep_on_top=True
     )
-    progress_pattern = re.compile(r"(frame|fps|size|time|bitrate|speed)\s*=\s*(\S+)")
+    progress_pattern = re.compile(
+        r"(frame|fps|size|time|bitrate|speed)\s*=\s*(\S+)"
+    )
     p = Popen(cmd, stderr=PIPE, universal_newlines=True, encoding="utf8")
 
     while p.poll() is None:
-        output = p.stderr.readline().rstrip(os.linesep) if p.stderr is not None else ""
+        output = (
+            p.stderr.readline().rstrip(os.linesep)
+            if p.stderr is not None
+            else ""
+        )
         print(output)
         items = {key: value for key, value in progress_pattern.findall(output)}
         if "time" in items.keys() and "speed" in items.keys():
             event, _ = progress_window.read(timeout=10)
-            if event == get_text(GuiField.cancel_button) or event == Sg.WIN_CLOSED:
+            if (
+                event == get_text(GuiField.cancel_button)
+                or event == Sg.WIN_CLOSED
+            ):
                 progress_window.close()
                 raise ValueError
-            progress_percent = _get_progress_percent(items["time"], total_duration)
+            progress_percent = _get_progress_percent(
+                items["time"], total_duration
+            )
             progress_window["PROGINFOS1"].update(f"{progress_percent}%")
             progress_window["PROGINFOS2"].update(
                 f"{get_text(GuiField.ff_speed)}: {items['speed']}"
@@ -130,7 +147,10 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
 def _get_progress_percent(timestamp: str, total_duration: int) -> int:
     prog = re.split("[:.]", timestamp)
     progress_seconds = (
-        int(prog[0]) * 3600 + int(prog[1]) * 60 + int(prog[2]) + int(prog[0]) / 100
+        int(prog[0]) * 3600
+        + int(prog[1]) * 60
+        + int(prog[2])
+        + int(prog[0]) / 100
     )
     return int(progress_seconds / total_duration * 100)
 

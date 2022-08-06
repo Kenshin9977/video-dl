@@ -7,7 +7,7 @@ from bs3 import Bs3client
 from os.path import getsize, join, exists
 from platform import system
 from re import match
-from util import compute_sha256, compute_signature
+from util import compute_sha256
 from zipfile import ZipFile
 
 APP_NAME = "video-dl"
@@ -73,7 +73,9 @@ class GenUpdate:
 
     def _get_versions_json(self) -> dict:
         self._clean_versions_files()
-        if not self.s3client.download(self.versions_archive_name, can_fail=True):
+        if not self.s3client.download(
+            self.versions_archive_name, can_fail=True
+        ):
             log.info(f"{self.versions_json_name} doesn't exists")
             return dict()
         with ZipFile(self.versions_archive_name, "r") as zip_ref:
@@ -94,10 +96,12 @@ class GenUpdate:
 
     def _check_version_number_validity(self, latest_version) -> bool:
         lv_re = match(
-            r"(?P<major>\d+)\.(?P<minor>\d+)\." r"(?P<patch>\d+)", latest_version
+            r"(?P<major>\d+)\.(?P<minor>\d+)\." r"(?P<patch>\d+)",
+            latest_version,
         )
         cv_re = match(
-            r"(?P<major>\d+)\.(?P<minor>\d+)\." r"(?P<patch>\d+)", self.app_version
+            r"(?P<major>\d+)\.(?P<minor>\d+)\." r"(?P<patch>\d+)",
+            self.app_version,
         )
         if not cv_re or not lv_re:
             log.error("No versions infos found")
@@ -138,7 +142,7 @@ class GenUpdate:
             if not self._check_version_number_validity(latest_version):
                 log.error("Version number isn't valid")
                 raise ValueError
-        except KeyError as e:
+        except KeyError:
             log.info("No latest_version key found")
         dict_versions.update(
             {

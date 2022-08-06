@@ -5,7 +5,12 @@ from re import match
 def _get_encoders_list() -> dict:
     encoders_dict = dict()
     encoders_dict.update(
-        {"x264": list(), "x265": list(), "ProRes": ["prores_ks"], "AV1": ["libaom-av1"]}
+        {
+            "x264": list(),
+            "x265": list(),
+            "ProRes": ["prores_ks"],
+            "AV1": ["libaom-av1"],
+        }
     )
     tmp_list_x264 = list()
     tmp_list_x265 = list()

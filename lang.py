@@ -47,7 +47,11 @@ def _get_language() -> Language:
     Tries to determine the system language, fallbacks to english.
     """
     # This dictionary maps the language of a locale to its associated enum
-    lang_map = {"en": Language.english, "fr": Language.french, "de": Language.german}
+    lang_map = {
+        "en": Language.english,
+        "fr": Language.french,
+        "de": Language.german,
+    }
 
     locale.setlocale(locale.LC_ALL, "")
     system_language = locale.getdefaultlocale()[0]
@@ -204,7 +208,9 @@ _available_languages = {
     Language.german: "Deutsch",
 }
 
-_language_from_name = {name: lang for lang, name in _available_languages.items()}
+_language_from_name = {
+    name: lang for lang, name in _available_languages.items()
+}
 
 
 def get_available_languages_name() -> List[str]:

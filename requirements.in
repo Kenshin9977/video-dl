@@ -1,0 +1,8 @@
+boto3
+ffmpeg-python
+gputil
+quantiphy
+yt-dlp
+pyinstaller
+pynacl
+requests

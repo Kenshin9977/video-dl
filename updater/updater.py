@@ -12,7 +12,7 @@ from requests import get
 from updater.gen_new_version import (APP_NAME, APP_VERSION,
                                      VERSIONS_ARCHIVE_NAME, VERSIONS_JSON_NAME,
                                      gen_archive_name, get_name_for_platform)
-from updater.util import compute_sha256
+from updater.crypto_util import compute_sha256
 
 log = logging.getLogger(__name__)
 

@@ -1,9 +1,9 @@
+import logging
+from os import path
+
 import boto3
 import botocore.exceptions
-import logging
-
-from os import path
-from os import environs as Env
+from environs import Env
 
 log = logging.getLogger(__name__)
 env = Env()

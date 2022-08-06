@@ -9,10 +9,10 @@ from zipfile import ZipFile
 
 from requests import get
 
-from gen_new_version import (APP_NAME, APP_VERSION, VERSIONS_ARCHIVE_NAME,
-                             VERSIONS_JSON_NAME, gen_archive_name,
-                             get_name_for_platform)
-from util import compute_sha256
+from updater.gen_new_version import (APP_NAME, APP_VERSION,
+                                     VERSIONS_ARCHIVE_NAME, VERSIONS_JSON_NAME,
+                                     gen_archive_name, get_name_for_platform)
+from updater.util import compute_sha256
 
 log = logging.getLogger(__name__)
 

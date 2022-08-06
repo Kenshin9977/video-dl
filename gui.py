@@ -10,11 +10,11 @@ from environs import Env
 from yt_dlp import utils
 
 import ytdlp_handler
-from gen_new_version import APP_VERSION
 from hwaccel_handler import _get_encoders_list
 from lang import (GuiField, get_available_languages_name,
                   get_current_language_name, get_text, set_current_language)
-from updater import Updater
+from updater.gen_new_version import APP_VERSION
+from updater.updater import Updater
 
 env = Env()
 gpus_possible_encoders = _get_encoders_list()

@@ -8,8 +8,8 @@ from zipfile import ZipFile
 
 import PyInstaller.__main__
 
-from bs3 import Bs3client
-from util import compute_sha256
+from updater.bs3 import Bs3client
+from updater.util import compute_sha256
 
 APP_NAME = "video-dl"
 APP_VERSION = "0.7.4"

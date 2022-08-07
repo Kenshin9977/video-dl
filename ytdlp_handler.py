@@ -2,19 +2,16 @@ from __future__ import annotations
 
 import datetime
 import os
-from typing import Any, Dict, Optional
+from typing import Optional
 
 import PySimpleGUI as Sg
 import quantiphy
 from quantiphy import Quantity
 from yt_dlp import YoutubeDL
-from yt_dlp.postprocessor.ffmpeg import EXT_TO_OUT_FORMATS
 from yt_dlp.utils import traverse_obj
 
 from ffmpeg_handler import post_process_dl
 from lang import GuiField, get_text
-
-EXT_TO_OUT_FORMATS["vtt"] = "webvtt"
 
 CANCELED = False
 DL_PROGRESS_WINDOW = Sg.Window(

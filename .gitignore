@@ -32,3 +32,4 @@ venv/*
 .vscode/*
 .DS_Store
 *.spec
+*/__pycache__/*

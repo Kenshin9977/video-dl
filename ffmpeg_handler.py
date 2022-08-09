@@ -12,7 +12,7 @@ from gui import gpus_possible_encoders
 from lang import GuiField, get_text
 
 
-def post_process_dl(full_name: str, target_codec: str) -> None:
+def post_process_dl(full_name: str, target_vcodec: str) -> None:
     file_infos = ffmpeg.probe(full_name)["streams"]
     audio_codec, video_codec = "na", "na"
     for i in range(0, min(2, len(file_infos))):
@@ -33,10 +33,10 @@ def post_process_dl(full_name: str, target_codec: str) -> None:
         len([i for i in acodecs_list if re.match(f"{i}", audio_codec)]) > 0
     )
     vcodec_supported = (
-        re.match("avc1", video_codec) is not None and target_codec == "x264"
+        re.match("avc1", video_codec) is not None and target_vcodec == "x264"
     )
     _ffmpeg_video(
-        full_name, acodec_supported, vcodec_supported, fps, target_codec
+        full_name, acodec_supported, vcodec_supported, fps, target_vcodec
     )
 
 

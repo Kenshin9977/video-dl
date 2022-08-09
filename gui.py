@@ -230,6 +230,26 @@ def _gen_layout(download_path: str) -> list:
             )
         ],
         [
+            Sg.Combo(
+                [
+                    "aac",
+                    "best",
+                    "mp3",
+                    "flac",
+                    "opus",
+                    "vorbis",
+                    "alac",
+                    "wav",
+                ],
+                default_value="mp3",
+                readonly=True,
+                key="TargetACodec",
+                size=(8, 1),
+                disabled=True,
+            ),
+            Sg.Text(get_text(GuiField.acodec), key="TextACodec"),
+        ],
+        [
             Sg.Checkbox(
                 get_text(GuiField.subtitles),
                 default=False,
@@ -269,20 +289,10 @@ def _gen_layout(download_path: str) -> list:
                 ["x264", "x265", "ProRes"],
                 default_value="x264",
                 readonly=True,
-                key="TargetCodec",
+                key="TargetVCodec",
                 size=(8, 1),
             ),
             Sg.Text(get_text(GuiField.vcodec), key="TextVCodec"),
-        ],
-        [
-            Sg.Combo(
-                ["aac","best","mp3", "flac","opus","vorbis","alac","wav"],
-                default_value="mp3",
-                readonly=True,
-                key="TargetACodec",
-                size=(8, 1),
-            ),
-            Sg.Text(get_text(GuiField.acodec), key="TextACodec"),
         ],
         [
             Sg.Combo(
@@ -333,7 +343,8 @@ def _audio_only_checkbox(values: Dict, window: Sg.Window) -> None:
     audio_checkbox = values["AudioOnly"]
     window["MaxHeight"].update(disabled=audio_checkbox)
     window["MaxFPS"].update(disabled=audio_checkbox)
-    window["TargetCodec"].update(disabled=audio_checkbox)
+    window["TargetVCodec"].update(disabled=audio_checkbox)
+    window["TargetACodec"].update(disabled=not audio_checkbox)
 
 
 def _fill_timecode(values: Dict, window: Sg.Window) -> None:

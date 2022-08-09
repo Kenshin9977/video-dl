@@ -20,72 +20,36 @@ DL_PROGRESS_WINDOW = Sg.Window(
 TIME_LAST_UPDATE = datetime.datetime.now()
 
 
-def video_dl(values: Dict) -> None:
+def video_dl(opts: dict) -> None:
     global CANCELED, DL_PROGRESS_WINDOW
     CANCELED = False
 
-    trim_start = (
-        None
-        if not values["Start"]
-        else f"{values['sH']}:{values['sM']}:{values['sS']}"
-    )
-    trim_end = (
-        None
-        if not values["End"]
-        else f"{values['eH']}:{values['eM']}:{values['eS']}"
-    )
-    ydl_opts = _gen_query(
-        values["MaxHeight"][:-1],
-        values["Browser"],
-        values["AudioOnly"],
-        values["TargetACodec"],
-        values["path"],
-        values["Subtitles"],
-        values["IsPlaylist"],
-        trim_start,
-        trim_end,
-        values["PlaylistItems"],
-        values["PlaylistItemsCheckbox"],
-    )
-
+    ydl_opts = _gen_ydl_opts(opts)
     with YoutubeDL(ydl_opts) as ydl:
-        infos_ydl = ydl.extract_info(values["url"])
+        infos_ydl = ydl.extract_info(opts["url"])
         DL_PROGRESS_WINDOW.close()
+        if infos_ydl.get("_type") == "playlist":
+            for infos_ydl_entry in infos_ydl["entries"]:
+                _post_download(opts, ydl, infos_ydl_entry)
+        else:
+            _post_download(opts, ydl, infos_ydl)
 
-    if "_type" in infos_ydl.keys() and infos_ydl["_type"] == "playlist":
-        for video_index, infos_ydl_entry in enumerate(infos_ydl["entries"]):
-            _post_download(values, ydl, infos_ydl_entry)
-    else:
-        _post_download(values, ydl, infos_ydl)
 
-
-def _post_download(values: Dict, ydl, infos_ydl):
+def _post_download(opts: dict, ydl, infos_ydl) -> None:
     """
     Execute all needed processes after a youtube video download :
     - Execute not AudioOnly process
     """
 
-    ext = "mp3" if values["AudioOnly"] else infos_ydl["ext"]
+    ext = opts["TargetACodec"] if opts["AudioOnly"] else infos_ydl["ext"]
     full_path = (
         os.path.splitext(ydl.prepare_filename(infos_ydl))[0] + "." + ext
     )
-    if not values["AudioOnly"]:
-        post_process_dl(full_path, values["TargetCodec"])
+    if not opts["AudioOnly"]:
+        post_process_dl(full_path, opts["TargetVCodec"])
 
 
-def _gen_query(
-    h: int,
-    browser: str,
-    audio_only: bool,
-    target_acodec: str,
-    path: str,
-    subtitles: bool,
-    playlist: bool,
-    start: Optional[str],
-    end: Optional[str],
-    playlist_items: str,
-    playlist_items_selected: bool,
-) -> Dict[str, Any]:
+def _create_progress_bar() -> None:
     global DL_PROGRESS_WINDOW
     layout = [
         [Sg.Text(get_text(GuiField.download))],
@@ -101,7 +65,45 @@ def _gen_query(
         grab_anywhere=True,
         keep_on_top=True,
     )
-    options = {
+
+
+def _gen_ydl_opts(opts: dict) -> dict:
+    _create_progress_bar()
+
+    trim_start = (
+        f"{opts['sH']}:{opts['sM']}:{opts['sS']}" if opts["Start"] else None
+    )
+    trim_end = (
+        f"{opts['eH']}:{opts['eM']}:{opts['eS']}" if opts["End"] else None
+    )
+    ydl_opts = {}
+    ydl_opts.update(
+        _gen_file_opts(
+            opts["path"],
+            opts["IsPlaylist"],
+            opts["PlaylistItems"],
+            opts["PlaylistItemsCheckbox"],
+        )
+    )
+    ydl_opts.update(
+        _gen_av_opts(
+            opts["MaxHeight"][:-1], opts["AudioOnly"], opts["TargetACodec"]
+        )
+    )
+    ydl_opts.update(_gen_ffmpeg_opts(trim_start, trim_end))
+    ydl_opts.update(_gen_subtitles_opts(opts["Subtitles"]))
+    ydl_opts.update(_gen_browser_opts(opts["Browser"]))
+
+    return ydl_opts
+
+
+def _gen_file_opts(
+    path: str,
+    playlist: bool,
+    playlist_items: str,
+    playlist_items_selected: bool,
+) -> dict:
+    opts = {
         "noplaylist": not playlist,
         "overwrites": True,
         "trim_file_name": 250,
@@ -109,64 +111,78 @@ def _gen_query(
             f"{path}", "%(title).100s - %(uploader)s.%(ext)s"
         ),
         "progress_hooks": [download_progress_bar],
-        # "compat_opts": ["no-direct-merge"],
-        # 'verbose': True,
+        "playlist_items": playlist_items if playlist_items_selected else 1,
+        "compat_opts": ["no-direct-merge"],
+        'verbose': True,
     }
+    return opts
 
-    if playlist and playlist_items_selected:
-        options["playlist_items"] = playlist_items
-    elif not playlist:
-        options["playlist_items"] = "1"
 
-    video_format = ""
-    acodecs = ["aac", "mp3"] if audio_only else ["aac", "mp3", "mp4a"]
-    for acodec in acodecs:
-        video_format += (
-            f"bestvideo[vcodec*=avc1][height={h}]+bestaudio[acodec*={acodec}]/"
-        )
-    video_format += f"bestvideo[height={h}]+bestaudio/"
-    for acodec in acodecs:
-        video_format += f"bestvideo[vcodec*=avc1][height<=?{h}]+bestaudio[acodec*={acodec}]/"  # noqa
-    video_format += f"bestvideo[vcodec*=avc1][height<=?{h}]+bestaudio/"
-    for acodec in ["aac", "mp3", "mp4a"]:
-        video_format += f"bestvideo[height<=?{h}]+bestaudio[acodec={acodec}]/"
-    video_format += f"bestvideo[height<=?{h}]+bestaudio/best"
-    audio_format = "bestaudio[acodec*=mp3]/bestaudio/best"
-    options["format"] = audio_format if audio_only else video_format
+def _gen_av_opts(h: int, audio_only: bool, target_acodec: str) -> dict:
+    opts = {}
     if audio_only:
-        options["extract_audio"] = True
-        options["postprocessors"] = [
+        format_opt = f"ba[acodec*={target_acodec}]/ba/ba*"
+        # Either the target audio codec, the best without video or the best one
+        opts.update(
             {
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": target_acodec,
-                "preferredquality": None,
+                "extract_audio": True,
+                "postprocessors": [
+                    {
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": target_acodec,
+                        "preferredquality": None,
+                    }
+                ],
             }
-        ]
-    if subtitles:
-        options["subtitleslangs"] = ["all"]
-        options["writesubtitles"] = True
+        )
+    else:
+        vcodec_re_str = "vcodec~='avc1|h264'"
+        # Either the target vcodec or the most common and easiest to convert
+        acodec_re_str = "acodec~='(aac|mp3|mp4a)'"
+        # Audio codecs compatible with mp4 container
+        format_opt = f"((bv[{vcodec_re_str}]/bv)+(ba[{acodec_re_str}]/ba))/b"
+        opts.update({"format_sort": {"res": h}, "merge-output-format": "mp4"})
+    opts.update({"format": format_opt})
+    return opts
+
+
+def _gen_ffmpeg_opts(start: Optional[str], end: Optional[str]) -> dict:
+    opts = {}
     if start or end:
-        options["external_downloader"] = "ffmpeg"
-        if not start and end:
-            options["external_downloader_args"] = {
-                "ffmpeg_i": ["-ss", "00:00:00", "-to", end]
+        opts.update(
+            {
+                "external_downloader": "ffmpeg",
+                "external_downloader_args": {
+                    "ffmpeg_i": [
+                        "-ss",
+                        start or "00:00:00",
+                        "-to",
+                        end or "99:99:99",
+                    ]
+                },
             }
-        elif start and end:
-            options["external_downloader_args"] = {
-                "ffmpeg_i": ["-ss", start, "-to", end]
-            }
-        else:
-            options["external_downloader_args"] = {"ffmpeg_i": ["-ss", start]}
-    elif not audio_only:
-        options["merge-output-format"] = "mp4"
+        )
+    return opts
+
+
+def _gen_subtitles_opts(subtitles: bool) -> dict:
+    opts = {}
+    if subtitles:
+        opts.update({"subtitleslangs": ["all"], "writesubtitles": True})
+    return opts
+
+
+def _gen_browser_opts(browser: str) -> dict:
+    opts = {}
     if browser != "None":
-        options["cookiesfrombrowser"] = [browser.lower()]
-    return options
+        opts["cookiesfrombrowser"] = [browser.lower()]
+    return opts
 
 
 def download_progress_bar(d):
     global CANCELED, DL_PROGRESS_WINDOW, TIME_LAST_UPDATE
     event, _ = DL_PROGRESS_WINDOW.read(timeout=20)
+
     if d.get("status") == "finished":
         DL_PROGRESS_WINDOW.close()
     elif event == get_text(GuiField.cancel_button):
@@ -193,6 +209,7 @@ def download_progress_bar(d):
             progress_percent = 99
     except (ZeroDivisionError, TypeError):
         progress_percent = "-"
+
     playlist_index = traverse_obj(d, ("info_dict", "playlist_index"))
     n_entries = traverse_obj(d, ("info_dict", "n_entries"))
     if not playlist_index or n_entries == 1:

@@ -492,8 +492,6 @@ if __name__ == "__main__":
     Updater().update_app()
     _video_dl()
 
-# Tweak timecode switching to the next number when entering 2 digit in a row
-# in the same box
 # Allow to updates assets (ffmpeg and ffmprobe)
 # Write tests
 # Sign updates

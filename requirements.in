@@ -7,3 +7,4 @@ pyinstaller
 pynacl
 requests
 pillow
+environs

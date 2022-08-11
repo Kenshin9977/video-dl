@@ -14,27 +14,21 @@ from lang import GuiField, get_text
 
 def post_process_dl(full_name: str, target_vcodec: str) -> None:
     file_infos = ffmpeg.probe(full_name)["streams"]
-    audio_codec, video_codec = "na", "na"
+    acodec, vcodec = "na", "na"
     for i in range(0, min(2, len(file_infos))):
         if file_infos[i]["codec_type"] == "audio":
-            audio_codec = file_infos[i]["codec_tag_string"]
+            acodec = file_infos[i]["codec_tag_string"]
         elif file_infos[i]["codec_type"] == "video":
-            video_codec = file_infos[i]["codec_tag_string"]
-    fps2compute = ffmpeg.probe(full_name)["streams"][0]["r_frame_rate"].split(
-        "/"
-    )
+            vcodec = file_infos[i]["codec_tag_string"]
+    fps_str_split = list(map(int, file_infos[0]["r_frame_rate"].split("/")))
     fps = (
         10
-        if len(fps2compute) == 1 or int(fps2compute[1]) == 0
-        else int(fps2compute[0]) // int(fps2compute[1])
+        if len(fps_str_split) == 1 or fps_str_split[1] == 0
+        else fps_str_split[0] // fps_str_split[1]
     )
     acodecs_list = ["aac", "mp3", "mp4a"]
-    acodec_supported = (
-        len([i for i in acodecs_list if re.match(f"{i}", audio_codec)]) > 0
-    )
-    vcodec_supported = (
-        re.match("avc1", video_codec) is not None and target_vcodec == "x264"
-    )
+    acodec_supported = any(re.match(f"{c}", acodec) for c in acodecs_list)
+    vcodec_supported = re.match("avc1", vcodec) and target_vcodec == "x264"
     _ffmpeg_video(
         full_name, acodec_supported, vcodec_supported, fps, target_vcodec
     )
@@ -47,11 +41,11 @@ def _ffmpeg_video(
     fps: int,
     target_codec: str,
 ) -> None:
-    recode_acodec = "aac" if not acodec_supported else "copy"
+    target_acodec = "aac" if not acodec_supported else "copy"
     new_ext = ".mp4"
     if target_codec == "ProRes":
         new_ext = ".mov"
-    recode_vcodec = (
+    target_vcodec = (
         _best_encoder(path, fps, target_codec)
         if not vcodec_supported
         else "copy"
@@ -63,9 +57,9 @@ def _ffmpeg_video(
         "-i",
         path,
         "-c:a",
-        recode_acodec,
+        target_acodec,
         "-c:v",
-        recode_vcodec,
+        target_vcodec,
     ]
     if target_codec == "ProRes":
         ffmpegCommand.extend(["-profile:v", "0"])

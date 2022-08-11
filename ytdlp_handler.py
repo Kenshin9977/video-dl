@@ -129,8 +129,7 @@ def _gen_av_opts(h: int, audio_only: bool, target_acodec: str) -> dict:
                 "postprocessors": [
                     {
                         "key": "FFmpegExtractAudio",
-                        "preferredcodec": target_acodec,
-                        "preferredquality": None,
+                        "preferredcodec": target_acodec
                     }
                 ],
             }
@@ -138,7 +137,7 @@ def _gen_av_opts(h: int, audio_only: bool, target_acodec: str) -> dict:
     else:
         vcodec_re_str = "vcodec~='avc1|h264'"
         # Either the target vcodec or the most common and easiest to convert
-        acodec_re_str = "acodec~='(aac|mp3|mp4a)'"
+        acodec_re_str = "acodec~='aac|mp3|mp4a'"
         # Audio codecs compatible with mp4 container
         format_opt = f"((bv[{vcodec_re_str}]/bv)+(ba[{acodec_re_str}]/ba))/b"
         opts.update({"format_sort": {"res": h}, "merge-output-format": "mp4"})

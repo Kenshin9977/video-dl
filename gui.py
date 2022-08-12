@@ -411,7 +411,7 @@ def _get_download_path() -> str:
             location = winreg.QueryValueEx(key, downloads_guid)[0]  # type: ignore  # noqa
         return location
     else:
-        return ""
+        return "~/Downloads"
 
 
 def _change_language(values: Dict, window: Sg.Window) -> None:

@@ -121,7 +121,9 @@ def _gen_file_opts(
 def _gen_av_opts(h: int, audio_only: bool, target_acodec: str) -> dict:
     opts = {}
     if audio_only:
-        format_opt = f"ba[acodec*={target_acodec}]/ba/ba*"
+        format_opt = f"ba/ba*"
+        if target_acodec != "best":
+            format_opt = f"ba[acodec*={target_acodec}]/{format_opt}"
         # Either the target audio codec, the best without video or the best one
         opts.update(
             {

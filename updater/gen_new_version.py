@@ -12,7 +12,7 @@ from updater.bs3 import Bs3client
 from updater.crypto_util import compute_sha256
 
 APP_NAME = "video-dl"
-APP_VERSION = "0.7.4"
+APP_VERSION = "0.8.0"
 PLATFORM = system()
 ASSETS = {"Windows": ["ffmpeg.exe", "ffprobe.exe"]}
 log = logging.getLogger(__name__)

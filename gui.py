@@ -12,8 +12,13 @@ from yt_dlp import utils
 import ytdlp_handler
 from hwaccel_handler import _get_encoders_list
 from icon_base64 import ICON_BASE64
-from lang import (GuiField, get_available_languages_name,
-                  get_current_language_name, get_text, set_current_language)
+from lang import (
+    GuiField,
+    get_available_languages_name,
+    get_current_language_name,
+    get_text,
+    set_current_language,
+)
 from updater.gen_new_version import APP_VERSION
 from updater.updater import Updater
 

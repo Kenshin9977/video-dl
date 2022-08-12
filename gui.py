@@ -104,6 +104,9 @@ def _video_dl() -> None:
 
 
 def _gen_layout(download_path: str) -> list:
+    width_start = len(get_text(GuiField.start))
+    width_end = len(get_text(GuiField.end))
+    width_start_end = max(width_start, width_end) + 2
     layout = [
         [
             Sg.Combo(
@@ -155,7 +158,7 @@ def _gen_layout(download_path: str) -> list:
                 checkbox_color="black",
                 enable_events=True,
                 key="Start",
-                size=(6, 1),
+                size=(width_start_end, 1),
             ),
             Sg.Input(
                 size=(4, 1),
@@ -191,7 +194,7 @@ def _gen_layout(download_path: str) -> list:
                 checkbox_color="black",
                 enable_events=True,
                 key="End",
-                size=(6, 1),
+                size=(width_start_end, 1),
             ),
             Sg.Input(
                 size=(4, 1),

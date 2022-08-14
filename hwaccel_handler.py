@@ -61,7 +61,7 @@ def fastest_encoder(path: str, target_vcodec: str) -> str:
     output_path = f"{file_name_ext[0]}.tmp{new_ext}"
     vcodecs = ENCODERS[target_vcodec].values()
     for vcodec in vcodecs:
-        if vcodec is None:
+        if not vcodec:
             continue
         try:
             ffmpeg.input(path).output(

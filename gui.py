@@ -1,34 +1,30 @@
 from __future__ import annotations
 
 import logging
+import os
 import platform
 import traceback
-from typing import Dict
 
 import PySimpleGUI as Sg
 from environs import Env
 from yt_dlp import utils
 
 import ytdlp_handler
-from hwaccel_handler import _get_encoders_list
 from icon_base64 import ICON_BASE64
-from lang import (
-    GuiField,
-    get_available_languages_name,
-    get_current_language_name,
-    get_text,
-    set_current_language,
-)
+from lang import (GuiField, get_available_languages_name,
+                  get_current_language_name, get_text, set_current_language)
 from updater.gen_new_version import APP_VERSION
 from updater.updater import Updater
 
 env = Env()
-gpus_possible_encoders = _get_encoders_list()
 default_playlist_items_value = "1,2,4-10,12"
 
 
 def _video_dl() -> None:
-    download_path = _get_download_path()
+    """
+    Start the GUI and run the app.
+    """
+    download_path = _get_default_download_path()
     Sg.theme("DarkGrey13")
     layout = _gen_layout(download_path)
     window = Sg.Window("Video-dl", layout=layout, icon=ICON_BASE64)
@@ -108,7 +104,16 @@ def _video_dl() -> None:
                     )
 
 
-def _gen_layout(download_path: str) -> list:
+def _gen_layout(default_download_path: str) -> list:
+    """
+    Generate the GUI's layout.
+
+    Args:
+        default_download_path (str): The default path to download to
+
+    Returns:
+        list: The GUI's layout
+    """
     width_start = len(get_text(GuiField.start))
     width_end = len(get_text(GuiField.end))
     width_start_end = max(width_start, width_end) + 2
@@ -153,7 +158,7 @@ def _gen_layout(download_path: str) -> list:
         ],
         [Sg.Text(get_text(GuiField.destination), key="TextDestination")],
         [
-            Sg.Input(download_path, key="path"),
+            Sg.Input(default_download_path, key="path"),
             Sg.FolderBrowse(button_text="..."),
         ],
         [
@@ -240,14 +245,14 @@ def _gen_layout(download_path: str) -> list:
         [
             Sg.Combo(
                 [
-                    "aac",
-                    "best",
-                    "mp3",
-                    "flac",
-                    "opus",
-                    "vorbis",
-                    "alac",
-                    "wav",
+                    "AAC",
+                    "ALAC",
+                    "BEST",
+                    "FLAC",
+                    "OPUS",
+                    "MP3",
+                    "VORBIS",
+                    "WAV",
                 ],
                 default_value="mp3",
                 readonly=True,
@@ -342,12 +347,19 @@ def _gen_layout(download_path: str) -> list:
     return layout
 
 
-# def _subtitles_checkbox(values: Dict, window: Sg.Window) -> None:
+# def _subtitles_checkbox(values: dict, window: Sg.Window) -> None:
 #     audio_checkbox = not values["Subtitles"]
 #     window["SubtitlesLanguage"].update(disabled=audio_checkbox)
 
 
-def _audio_only_checkbox(values: Dict, window: Sg.Window) -> None:
+def _audio_only_checkbox(values: dict, window: Sg.Window) -> None:
+    """
+    Handles the GUI depending of the audio_only's checkbox state.
+
+    Args:
+        values (dict): Values entered in the GUI
+        window (Sg.Window): GUI's window
+    """
     audio_checkbox = values["AudioOnly"]
     window["MaxHeight"].update(disabled=audio_checkbox)
     window["MaxFPS"].update(disabled=audio_checkbox)
@@ -355,7 +367,14 @@ def _audio_only_checkbox(values: Dict, window: Sg.Window) -> None:
     window["TargetACodec"].update(disabled=not audio_checkbox)
 
 
-def _fill_timecode(values: Dict, window: Sg.Window) -> None:
+def _fill_timecode(values: dict, window: Sg.Window) -> None:
+    """
+    Handles the start and end's content.
+
+    Args:
+        values (dict): Values entered in the GUI
+        window (Sg.Window): GUI's window
+    """
     values2check = ["sH", "sM", "sS", "eH", "eM", "eS"]
     for value in values2check:
         for char in values[value]:
@@ -382,7 +401,16 @@ def _fill_timecode(values: Dict, window: Sg.Window) -> None:
             values[value] = "0" + values[value][-1]
 
 
-def _check_timecode(values: Dict) -> bool:
+def _check_timecode(values: dict) -> bool:
+    """
+    Check the validity of the start and end's content.
+
+    Args:
+        values (dict): Values entered in the GUI
+
+    Returns:
+        bool: Whether or not the values entered are correct
+    """
     sH, sM, sS = int(values["sH"]), int(values["sM"]), int(values["sS"])
     eH, eM, eS = int(values["eH"]), int(values["eM"]), int(values["eS"])
     return (
@@ -392,19 +420,34 @@ def _check_timecode(values: Dict) -> bool:
     )
 
 
-def _trim_checkbox(values: Dict, window: Sg.Window, index: str) -> None:
-    disabled = not values[index]
-    if index == "Start":
+def _trim_checkbox(values: dict, window: Sg.Window, start_or_end: str) -> None:
+    """
+    Handles the start and end timecode availability depending of the start and
+    end checkbox.
+
+    Args:
+        values (dict): Values entered in the GUI
+        window (Sg.Window): GUI's window
+        start_or_end (str): The value of the line to update
+    """
+    disabled = not values[start_or_end]
+    if start_or_end == "Start":
         window["sH"].update(disabled=disabled, value="00")
         window["sM"].update(disabled=disabled, value="00")
         window["sS"].update(disabled=disabled, value="00")
-    elif index == "End":
+    elif start_or_end == "End":
         window["eH"].update(disabled=disabled)
         window["eM"].update(disabled=disabled)
         window["eS"].update(disabled=disabled)
 
 
-def _get_download_path() -> str:
+def _get_default_download_path() -> str:
+    """
+    Get the default download folder path.
+
+    Returns:
+        str: Default download folder path
+    """
     if platform.system() == "Windows":
         import winreg
 
@@ -415,13 +458,20 @@ def _get_download_path() -> str:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, sub_key) as key:  # type: ignore  # noqa
             location = winreg.QueryValueEx(key, downloads_guid)[0]  # type: ignore  # noqa
         return location
+    download_path = os.path.join(os.path.expanduser("~"), "Downloads")
+    if os.path.isdir(download_path):
+        return download_path
     else:
-        return "~/Downloads"
+        return ""
 
 
-def _change_language(values: Dict, window: Sg.Window) -> None:
+def _change_language(values: dict, window: Sg.Window) -> None:
     """
     Updates current language and update the window's text fields.
+
+    Args:
+        values (dict): Values selected in the GUI
+        window (Sg.Window): GUI's window
     """
     set_current_language(values["Lang"])
     _update_text_lang(window)
@@ -431,12 +481,12 @@ def _update_playlist_index_state(
     checked: bool, playlist_items: str, window: Sg.Window
 ) -> None:
     """
-    Update the current playlist index form state
+    Update the GUI depending of the playlist option checkbox state.
 
-    Keyword arguments:
-        checked -- The value (True to activate form, False to deactivate it)
-        playlist_items -- The playlist items value
-        window -- The window
+    Args:
+        checked (bool): Whether the playlist option is checked or not
+        playlist_items (str): The playlist items listed
+        window (Sg.Window): GUI's window 
     """
 
     window["PlaylistItemsCheckbox"].update(disabled=not checked)
@@ -468,6 +518,13 @@ def _update_playlist_index_state(
 def _update_playlist_index_input_state(
     checked: bool, window: Sg.Window
 ) -> None:
+    """
+    Update playlist index state depending of the playlist checkbox state.
+
+    Args:
+        checked (bool): Whether or not Playlist is checked
+        window (Sg.Window): GUI's window
+    """
     window["PlaylistItems"].update(
         value="" if checked else default_playlist_items_value,
         disabled=not checked,
@@ -477,8 +534,10 @@ def _update_playlist_index_input_state(
 def _update_text_lang(window: Sg.Window) -> None:
     """
     Update the text of each element on the layout.
-
     Note: Checkboxes elements need "text=" to be specified.
+
+    Args:
+        window (Sg.Window): GUI's window
     """
     window["TextLink"].update(get_text(GuiField.link))
     window["IsPlaylist"].update(text=get_text(GuiField.is_playlist))

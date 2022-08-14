@@ -33,3 +33,4 @@ venv/*
 .DS_Store
 *.spec
 */__pycache__/*
+.cspell/*

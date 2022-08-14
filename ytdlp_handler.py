@@ -41,7 +41,8 @@ def _post_download(opts: dict, ydl, infos_ydl) -> None:
     - Execute not AudioOnly process
     """
 
-    ext = opts["TargetACodec"] if opts["AudioOnly"] else infos_ydl["ext"]
+    target_acodec = opts["TargetACodec"].lower()
+    ext = target_acodec if opts["AudioOnly"] else infos_ydl["ext"]
     full_path = (
         os.path.splitext(ydl.prepare_filename(infos_ydl))[0] + "." + ext
     )
@@ -85,11 +86,9 @@ def _gen_ydl_opts(opts: dict) -> dict:
             opts["PlaylistItemsCheckbox"],
         )
     )
-    ydl_opts.update(
-        _gen_av_opts(
-            opts["MaxHeight"][:-1], opts["AudioOnly"], opts["TargetACodec"]
-        )
-    )
+    max_height = opts["MaxHeight"][:-1]
+    target_acodec = opts["TargetACodec"]
+    ydl_opts.update(_gen_av_opts(max_height, opts["AudioOnly"], target_acodec))
     ydl_opts.update(_gen_ffmpeg_opts(trim_start, trim_end))
     ydl_opts.update(_gen_subtitles_opts(opts["Subtitles"]))
     ydl_opts.update(_gen_browser_opts(opts["Browser"]))

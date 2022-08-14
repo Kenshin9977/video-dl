@@ -1,10 +1,12 @@
 boto3
+black
+environs
 ffmpeg-python
+flake8
 gputil
-quantiphy
-yt-dlp
+pillow
 pyinstaller
 pynacl
+quantiphy
 requests
-pillow
-environs
+yt-dlp

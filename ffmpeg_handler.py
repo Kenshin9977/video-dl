@@ -52,9 +52,9 @@ def _ffmpeg_video(
 
     Args:
         path (str): Downloaded file's path
-        acodec_nle_friendly (bool): Whether or not the audio codec is nle 
+        acodec_nle_friendly (bool): Whether or not the audio codec is nle
             friendly
-        vcodec_nle_friendly (bool): Whether or not the audio codec is nle 
+        vcodec_nle_friendly (bool): Whether or not the audio codec is nle
             friendly
         target_vcodec (str): The video codec to convert to (if necessary)
 
@@ -119,15 +119,10 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
             continue
         items = {key: value for key, value in progress_match}
         event, _ = progress_window.read(timeout=10)
-        if (
-            event == get_text(GuiField.cancel_button)
-            or event == Sg.WIN_CLOSED
-        ):
+        if event == get_text(GuiField.cancel_button) or event == Sg.WIN_CLOSED:
             progress_window.close()
             raise ValueError
-        progress_percent = _get_progress_percent(
-            items["time"], total_duration
-        )
+        progress_percent = _get_progress_percent(items["time"], total_duration)
         progress_window["PROGINFOS1"].update(f"{progress_percent}%")
         progress_window["PROGINFOS2"].update(
             f"{get_text(GuiField.ff_speed)}: {items['speed']}"
@@ -162,8 +157,8 @@ def _get_accurate_file_duration(filepath: str) -> int:
     )
     return int(float(result.stdout))
 
+
 def _create_progress_window(action: str) -> Sg.Window:
-    
     layout = [
         [Sg.Text(action)],
         [Sg.ProgressBar(100, orientation="h", size=(20, 20), key="-PROG-")],
@@ -175,6 +170,7 @@ def _create_progress_window(action: str) -> Sg.Window:
     return Sg.Window(
         action, layout, no_titlebar=True, grab_anywhere=True, keep_on_top=True
     )
+
 
 def _get_progress_percent(timestamp: str, total_duration: int) -> int:
     """

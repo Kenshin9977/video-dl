@@ -11,8 +11,13 @@ from yt_dlp import utils
 
 import ytdlp_handler
 from icon_base64 import ICON_BASE64
-from lang import (GuiField, get_available_languages_name,
-                  get_current_language_name, get_text, set_current_language)
+from lang import (
+    GuiField,
+    get_available_languages_name,
+    get_current_language_name,
+    get_text,
+    set_current_language,
+)
 from updater.gen_new_version import APP_VERSION
 from updater.updater import Updater
 
@@ -486,7 +491,7 @@ def _update_playlist_index_state(
     Args:
         checked (bool): Whether the playlist option is checked or not
         playlist_items (str): The playlist items listed
-        window (Sg.Window): GUI's window 
+        window (Sg.Window): GUI's window
     """
 
     window["PlaylistItemsCheckbox"].update(disabled=not checked)

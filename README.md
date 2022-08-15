@@ -2,7 +2,7 @@
 
 The purpose of this script is to simplify the usage of [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 <p align="center">
-<img src="https://i.imgur.com/zMNIocC.png">
+<img src="https://imgur.com/M3d6JMi.png">
 </p>
 
 
@@ -35,14 +35,15 @@ I plan to compile binaries for both OSX and Linux. In the meantime you can compi
 
 * Works with every website yt-dlp [supports](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
 * Allows you to choose the max framerate and resolutions in which you want the videos in the selected resolution. It will try to find it but will get a lower value if this resolution/framerate isn't available.
-* Allows you to only download the audio of a video, automatically converts the audio to MP3 320 kbps to ensure compatibility.
+* Allows you to only download the audio of a video.
+* Allows you to choose among the most common audio codecs if you only want the audio.
 * Let you choose the start and end time of the video you want to download. It only downloads the part you selected but the download is slower since it's handled by ffmpeg and not av2conv.
 * Allows you to get cookies from your browser in order to access restricted videos on Youtube only accessible if you log in.
 * Saves videos with the name of the video followed by the author's name.
-* Only remuxes videos if it is encoded in h264 (faster than recode and lossless) in order to ensure compatibility with every NLE software.
-* Recodes the video in h264 if it is encoded with something else in order to ensure compatibility.
-* Detects if a GPU capable of h264/h265 encoding is visible by the system and if there is, use it to encode the video rather than the CPU which is slower.
-* Can download subtitles
+* Remuxes videos if the downloaded files' codec is the same than the targeted video codec (faster than recode and lossless) in order to ensure compatibility with every NLE software.
+* Recodes the video in the targeted codec if it is encoded with something else.
+* Detects if an encoder capable of h264/h265/ProRes encoding is visible by the system and if there is, use it to encode the video rather than the CPU which is slower.
+* Can download subtitles.
 
 ## Usage
 

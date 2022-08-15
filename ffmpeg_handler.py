@@ -2,17 +2,26 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from subprocess import PIPE, STDOUT, Popen, run
 from typing import List
 
 import ffmpeg
 import PySimpleGUI as Sg
 
-from gui import gpus_possible_encoders
+from hwaccel_handler import fastest_encoder
 from lang import GuiField, get_text
 
 
 def post_process_dl(full_name: str, target_vcodec: str) -> None:
+    """
+    Remux to ensure compatibility with NLEs or reencode to the target video
+    codec the downloaded file through ffmpeg.
+
+    Args:
+        full_name (str): Full path of the file downloaded
+        target_vcodec (str): Videoc codec to encode to if necessary
+    """
     file_infos = ffmpeg.probe(full_name)["streams"]
     acodec, vcodec = "na", "na"
     for i in range(0, min(2, len(file_infos))):
@@ -20,63 +29,123 @@ def post_process_dl(full_name: str, target_vcodec: str) -> None:
             acodec = file_infos[i]["codec_tag_string"]
         elif file_infos[i]["codec_type"] == "video":
             vcodec = file_infos[i]["codec_tag_string"]
-    fps_str_split = list(map(int, file_infos[0]["r_frame_rate"].split("/")))
-    fps = (
-        10
-        if len(fps_str_split) == 1 or fps_str_split[1] == 0
-        else fps_str_split[0] // fps_str_split[1]
+    common_acodecs = ["aac", "mp3", "mp4a"]
+    # Audio codecs NLE friendly
+    acodec_nle_friendly = any(re.match(f"{c}", acodec) for c in common_acodecs)
+    vcodec_nle_friendly = bool(
+        re.match("avc1", vcodec) and target_vcodec == "x264"
     )
-    acodecs_list = ["aac", "mp3", "mp4a"]
-    acodec_supported = any(re.match(f"{c}", acodec) for c in acodecs_list)
-    vcodec_supported = re.match("avc1", vcodec) and target_vcodec == "x264"
     _ffmpeg_video(
-        full_name, acodec_supported, vcodec_supported, fps, target_vcodec
+        full_name, acodec_nle_friendly, vcodec_nle_friendly, target_vcodec
     )
 
 
 def _ffmpeg_video(
     path: str,
-    acodec_supported: bool,
-    vcodec_supported: bool,
-    fps: int,
-    target_codec: str,
+    acodec_nle_friendly: bool,
+    vcodec_nle_friendly: bool,
+    target_vcodec: str,
 ) -> None:
-    target_acodec = "aac" if not acodec_supported else "copy"
-    new_ext = ".mp4"
-    if target_codec == "ProRes":
-        new_ext = ".mov"
-    target_vcodec = (
-        _best_encoder(path, fps, target_codec)
-        if not vcodec_supported
-        else "copy"
+    """
+    Generate the ffmpeg command arguments and run it if the checkbox AudioOnly
+    is unchecked.
+
+    Args:
+        path (str): Downloaded file's path
+        acodec_nle_friendly (bool): Whether or not the audio codec is nle 
+            friendly
+        vcodec_nle_friendly (bool): Whether or not the audio codec is nle 
+            friendly
+        target_vcodec (str): The video codec to convert to (if necessary)
+
+    Raises:
+        ffmpeg.Error: If the resulted file doesn't exist because ffmpeg failed
+    """
+    ffmpeg_acodec = "aac" if not acodec_nle_friendly else "copy"
+    new_ext = ".mov" if target_vcodec == "ProRes" else ".mp4"
+    ffmpeg_vcodec = (
+        "copy" if vcodec_nle_friendly else fastest_encoder(path, target_vcodec)
     )
-    tmp_path = os.path.splitext(path)[0] + ".tmp" + new_ext
+    tmp_path = f"{os.path.splitext(path)[0]}.tmp{new_ext}"
     ffmpegCommand = [
         "ffmpeg",
         "-hide_banner",
         "-i",
         path,
         "-c:a",
-        target_acodec,
+        ffmpeg_acodec,
         "-c:v",
-        target_vcodec,
+        ffmpeg_vcodec,
     ]
-    if target_codec == "ProRes":
-        ffmpegCommand.extend(["-profile:v", "0"])
+    if target_vcodec == "ProRes":
+        ffmpegCommand.extend(["-profile:v", "0", "-qscale:v", "4"])
     ffmpegCommand.extend(["-y", tmp_path])
     action = (
         get_text(GuiField.ff_remux)
-        if acodec_supported and vcodec_supported
+        if acodec_nle_friendly and vcodec_nle_friendly
         else get_text(GuiField.ff_reencode)
     )
     _progress_ffmpeg(ffmpegCommand, action, path)
     if not os.path.isfile(tmp_path):
-        raise ffmpeg.Error
+        raise ffmpeg.Error(ffmpegCommand, sys.stdout, sys.stderr)
     os.remove(path)
     os.rename(src=tmp_path, dst=os.path.splitext(path)[0] + new_ext)
 
 
 def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
+    """
+    Run the actual ffmpeg command and track its progress.
+
+    Args:
+        cmd (List[str]): Command's arguments
+        action (str): Remuxing or reecoding
+        filepath (str): Downloaded file's path
+
+    Raises:
+        ValueError: If the user cancel the download
+    """
+    total_duration = _get_accurate_file_duration(filepath)
+    progress_window = _create_progress_window(action)
+    progress_pattern = re.compile(
+        r"(frame|fps|size|time|bitrate|speed)\s*=\s*(\S+)"
+    )
+    p = Popen(cmd, stderr=PIPE, universal_newlines=True, encoding="utf8")
+
+    while p.poll() is None:
+        output = p.stderr.readline().rstrip(os.linesep) if p.stderr else ""
+        print(output)
+        progress_match = progress_pattern.findall(output)
+        if not progress_match:
+            continue
+        items = {key: value for key, value in progress_match}
+        event, _ = progress_window.read(timeout=10)
+        if (
+            event == get_text(GuiField.cancel_button)
+            or event == Sg.WIN_CLOSED
+        ):
+            progress_window.close()
+            raise ValueError
+        progress_percent = _get_progress_percent(
+            items["time"], total_duration
+        )
+        progress_window["PROGINFOS1"].update(f"{progress_percent}%")
+        progress_window["PROGINFOS2"].update(
+            f"{get_text(GuiField.ff_speed)}: {items['speed']}"
+        )
+        progress_window["-PROG-"].update(progress_percent)
+    progress_window.close()
+
+
+def _get_accurate_file_duration(filepath: str) -> int:
+    """
+    Get the real file (video or audio) duration using ffprobe.
+
+    Args:
+        filepath (str): File's path
+
+    Returns
+        int: File's duration in seconds
+    """
     result = run(
         [
             "ffprobe",
@@ -91,7 +160,10 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
         stdout=PIPE,
         stderr=STDOUT,
     )
-    total_duration = int(float(result.stdout))
+    return int(float(result.stdout))
+
+def _create_progress_window(action: str) -> Sg.Window:
+    
     layout = [
         [Sg.Text(action)],
         [Sg.ProgressBar(100, orientation="h", size=(20, 20), key="-PROG-")],
@@ -100,70 +172,25 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
         [Sg.Cancel(button_text=get_text(GuiField.cancel_button))],
     ]
 
-    progress_window = Sg.Window(
+    return Sg.Window(
         action, layout, no_titlebar=True, grab_anywhere=True, keep_on_top=True
     )
-    progress_pattern = re.compile(
-        r"(frame|fps|size|time|bitrate|speed)\s*=\s*(\S+)"
-    )
-    p = Popen(cmd, stderr=PIPE, universal_newlines=True, encoding="utf8")
-
-    while p.poll() is None:
-        output = (
-            p.stderr.readline().rstrip(os.linesep)
-            if p.stderr is not None
-            else ""
-        )
-        print(output)
-        items = {key: value for key, value in progress_pattern.findall(output)}
-        if "time" in items.keys() and "speed" in items.keys():
-            event, _ = progress_window.read(timeout=10)
-            if (
-                event == get_text(GuiField.cancel_button)
-                or event == Sg.WIN_CLOSED
-            ):
-                progress_window.close()
-                raise ValueError
-            progress_percent = _get_progress_percent(
-                items["time"], total_duration
-            )
-            progress_window["PROGINFOS1"].update(f"{progress_percent}%")
-            progress_window["PROGINFOS2"].update(
-                f"{get_text(GuiField.ff_speed)}: {items['speed']}"
-            )
-            progress_window["-PROG-"].update(progress_percent)
-    progress_window.close()
-
 
 def _get_progress_percent(timestamp: str, total_duration: int) -> int:
-    prog = re.split("[:.]", timestamp)
-    progress_seconds = (
-        int(prog[0]) * 3600
-        + int(prog[1]) * 60
-        + int(prog[2])
-        + int(prog[0]) / 100
+    """
+    Compute ffmpeg progress percentage. Using timestamp and not frame count as
+    this value is slow to get through ffprobe.
+
+    Args:
+        timestamp (str): Converted file timestamp
+        total_duration (int): Total duration of the file
+
+    Returns:
+        int: _description_
+    """
+    prog = [float(str_time) for str_time in timestamp.split(":")]
+    timestamps_factors = [3600, 60, 1, 0.01]
+    progress_seconds = sum(
+        [factor * time for factor, time in zip(prog, timestamps_factors)]
     )
     return int(progress_seconds / total_duration * 100)
-
-
-def _best_encoder(path: str, fps: int, target_codec: str) -> str:
-    file_name_ext = os.path.splitext(path)
-    new_ext = ".mp4"
-    if target_codec == "ProRes":
-        new_ext = ".mov"
-    output_path = f"{file_name_ext[0]}.tmp{new_ext}"
-    end = format(1 / fps, ".3f")
-    vcodecs = gpus_possible_encoders[target_codec]
-    for encoder in vcodecs:
-        try:
-            ffmpeg.input(path, ss="00:00:00.00", to=end).output(
-                output_path, vcodec=encoder
-            ).run(overwrite_output=True)
-        except ffmpeg.Error:
-            continue
-        else:
-            return encoder
-        finally:
-            if os.path.isfile(output_path):
-                os.remove(path=output_path)
-    raise ffmpeg.Error

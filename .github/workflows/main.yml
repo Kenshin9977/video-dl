@@ -1,2 +1,0 @@
-- name: Flake8 action
-  uses: suo/flake8-github-action@v1

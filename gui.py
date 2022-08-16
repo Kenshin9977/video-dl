@@ -25,7 +25,7 @@ env = Env()
 default_playlist_items_value = "1,2,4-10,12"
 
 
-def _video_dl() -> None:
+def _video_dl_gui() -> None:
     """
     Start the GUI and run the app.
     """
@@ -562,10 +562,10 @@ def _update_text_lang(window: Sg.Window) -> None:
 
 if __name__ == "__main__":
     Updater().update_app()
-    _video_dl()
+    _video_dl_gui()
 
-# Allow to updates assets (ffmpeg and ffmprobe)
-# Write tests
-# Sign updates
-# Look for vcodec/acodec target using filters with ydl
-# Fix playlist error
+
+# TODO: Allow to update assets (ffmpeg and ffmprobe)
+# TODO: Write tests
+# TODO: Sign updates
+# TODO: Fix playlist error

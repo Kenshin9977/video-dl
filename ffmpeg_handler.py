@@ -159,6 +159,15 @@ def _get_accurate_file_duration(filepath: str) -> int:
 
 
 def _create_progress_window(action: str) -> Sg.Window:
+    """
+    Create the post process' progress window.
+
+    Args:
+        action (str): Either 'Remuxing' or 'Reencoding'
+
+    Returns:
+        Sg.Window: The progress GUI's window
+    """
     layout = [
         [Sg.Text(action)],
         [Sg.ProgressBar(100, orientation="h", size=(20, 20), key="-PROG-")],

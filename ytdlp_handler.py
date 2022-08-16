@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import datetime
 import os
+from datetime import datetime
 from typing import Optional
 
 import PySimpleGUI as Sg
@@ -17,10 +17,16 @@ CANCELED = False
 DL_PROGRESS_WINDOW = Sg.Window(
     get_text(GuiField.download), no_titlebar=True, grab_anywhere=True
 )
-TIME_LAST_UPDATE = datetime.datetime.now()
+TIME_LAST_UPDATE = datetime.now()
 
 
 def video_dl(opts: dict) -> None:
+    """
+    Download and process the media if necessary using the user inputs.
+
+    Args:
+        opts (dict): Options entered by the user
+    """
     global CANCELED, DL_PROGRESS_WINDOW
     CANCELED = False
 
@@ -28,29 +34,33 @@ def video_dl(opts: dict) -> None:
     with YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(opts["url"])
         DL_PROGRESS_WINDOW.close()
-        if infos_ydl.get("_type") == "playlist":
-            for infos_ydl_entry in infos_ydl["entries"]:
-                _post_download(opts, ydl, infos_ydl_entry)
-        else:
-            _post_download(opts, ydl, infos_ydl)
+        if not opts["AudioOnly"]:
+            if infos_ydl.get("_type") == "playlist":
+                for infos_ydl_entry in infos_ydl["entries"]:
+                    _post_download(opts, ydl, infos_ydl_entry)
+            else:
+                _post_download(opts, ydl, infos_ydl)
 
 
-def _post_download(opts: dict, ydl, infos_ydl) -> None:
+def _post_download(opts: dict, ydl: YoutubeDL, infos_ydl: dict) -> None:
     """
-    Execute all needed processes after a youtube video download :
-    - Execute not AudioOnly process
+    Execute all needed processes after a youtube video download
+
+    Args:
+        opts (dict): Options entered by the user
+        ydl (YoutubeDL): YoutubeDL instance
+        infos_ydl (dict): Video's infos fetched by yt-dlp
     """
-
-    target_acodec = opts["TargetACodec"].lower()
-    ext = target_acodec if opts["AudioOnly"] else infos_ydl["ext"]
-    full_path = (
-        os.path.splitext(ydl.prepare_filename(infos_ydl))[0] + "." + ext
-    )
-    if not opts["AudioOnly"]:
-        post_process_dl(full_path, opts["TargetVCodec"])
+    ext = infos_ydl["ext"]
+    media_filename_formated = ydl.prepare_filename(infos_ydl)
+    full_path = f"{os.path.splitext(media_filename_formated)[0]}.{ext}"
+    post_process_dl(full_path, opts["TargetVCodec"])
 
 
-def _create_progress_bar() -> None:
+def _create_dl_progress_bar() -> None:
+    """
+    Create download progress bar.
+    """
     global DL_PROGRESS_WINDOW
     layout = [
         [Sg.Text(get_text(GuiField.download))],
@@ -69,7 +79,16 @@ def _create_progress_bar() -> None:
 
 
 def _gen_ydl_opts(opts: dict) -> dict:
-    _create_progress_bar()
+    """
+    Generate yt-dlp options' dictionnary.
+
+    Args:
+        opts (dict): Options selected in the GUI
+
+    Returns:
+        dict: yt-dlp options
+    """
+    _create_dl_progress_bar()
 
     trim_start = (
         f"{opts['sH']}:{opts['sM']}:{opts['sS']}" if opts["Start"] else None
@@ -102,6 +121,18 @@ def _gen_file_opts(
     playlist_items: str,
     playlist_items_selected: bool,
 ) -> dict:
+    """
+    Generate yt-dlp file's options 
+
+    Args:
+        path (str): Path to download to
+        playlist (bool): Whether or not Playlist is checked
+        playlist_items (str): The indices to fetch from the playlist
+        playlist_items_selected (bool): Whether or not indices is checked
+
+    Returns:
+        dict: yt-dlp file's options
+    """
     opts = {
         "noplaylist": not playlist,
         "overwrites": True,
@@ -118,12 +149,25 @@ def _gen_file_opts(
 
 
 def _gen_av_opts(h: int, audio_only: bool, target_acodec: str) -> dict:
+    """
+    Generate yt-dlp options for the audio and the video both for their search
+    filters, their downloader and their post process.
+
+    Args:
+        h (int): Resolution of the video to look for
+        audio_only (bool): Whether or not Audio only is checked
+        target_acodec (str): The video codec target
+
+    Returns:
+        dict: yt-dlp filters, downloader and post process options
+    """
     opts = {}
     if audio_only:
         format_opt = "ba/ba*"
         if target_acodec != "best":
             format_opt = f"ba[acodec*={target_acodec}]/{format_opt}"
-        # Either the target audio codec, the best without video or the best one
+        # Either the target audio codec, the best without video so the download
+        # is faster or the best one even if there is a video with it
         opts.update(
             {
                 "extract_audio": True,
@@ -138,15 +182,31 @@ def _gen_av_opts(h: int, audio_only: bool, target_acodec: str) -> dict:
     else:
         vcodec_re_str = "vcodec~='avc1|h264'"
         # Either the target vcodec or the most common and easiest to convert
+        # (h264)
         acodec_re_str = "acodec~='aac|mp3|mp4a'"
-        # Audio codecs compatible with mp4 container
+        # Audio codecs compatible with mp4 containers
         format_opt = f"((bv[{vcodec_re_str}]/bv)+(ba[{acodec_re_str}]/ba))/b"
+        # The best video preferably with the target codec merged with the best
+        # audio without video preferably with a codec compatible with mp4
+        # containers or the overall best
         opts.update({"format_sort": {"res": h}, "merge-output-format": "mp4"})
+        # In order looks for the exact resolution, lower if not found, higher
+        # if not found
     opts.update({"format": format_opt})
     return opts
 
 
 def _gen_ffmpeg_opts(start: Optional[str], end: Optional[str]) -> dict:
+    """
+    Generate the dictionnary for yt-dlp ffmpeg options
+
+    Args:
+        start (Optional[str]): Start timestamp
+        end (Optional[str]): End timestamp
+
+    Returns:
+        dict: yt-dlp ffmpeg options
+    """
     opts = {}
     if start or end:
         opts.update(
@@ -166,6 +226,15 @@ def _gen_ffmpeg_opts(start: Optional[str], end: Optional[str]) -> dict:
 
 
 def _gen_subtitles_opts(subtitles: bool) -> dict:
+    """
+    Generate the dictionnary for yt-dlp subtitles options
+
+    Args:
+        subtitles (bool): Whether or not the subtitles option is checked
+
+    Returns:
+        dict: yt-dlp options
+    """
     opts = {}
     if subtitles:
         opts.update({"subtitleslangs": ["all"], "writesubtitles": True})
@@ -173,13 +242,31 @@ def _gen_subtitles_opts(subtitles: bool) -> dict:
 
 
 def _gen_browser_opts(browser: str) -> dict:
+    """
+    Generate the dictionnary for yt-dlp cookies option
+
+    Args:
+        browser (str): Browser selected from the GUI
+
+    Returns:
+        dict: yt-dlp cookies option
+    """
     opts = {}
     if browser != "None":
         opts["cookiesfrombrowser"] = [browser.lower()]
     return opts
 
 
-def download_progress_bar(d):
+def download_progress_bar(d: dict) -> None:
+    """
+    Handles the download's progress bar
+
+    Args:
+        d (dict): yt-dlp download progress' infos
+
+    Raises:
+        ValueError: If the user cancel the download
+    """
     global CANCELED, DL_PROGRESS_WINDOW, TIME_LAST_UPDATE
     event, _ = DL_PROGRESS_WINDOW.read(timeout=20)
 
@@ -207,6 +294,7 @@ def download_progress_bar(d):
         progress_percent = int(downloaded / total * 100)
         if progress_percent >= 100:
             progress_percent = 99
+        # Necessary for when the total size is inaccurate
     except (ZeroDivisionError, TypeError):
         progress_percent = "-"
 
@@ -219,13 +307,11 @@ def download_progress_bar(d):
 
     DL_PROGRESS_WINDOW["PROGINFOS1"].update(percent_str)
     DL_PROGRESS_WINDOW["-PROG-"].update(progress_percent)
-    now = datetime.datetime.now()
-    delta_ms = (now - TIME_LAST_UPDATE).seconds * 1000 + (
-        now - TIME_LAST_UPDATE
-    ).microseconds // 1000
+    time_elapsed = datetime.now() - TIME_LAST_UPDATE
+    delta_ms = time_elapsed.seconds * 1000 + time_elapsed.microseconds // 1000
     if delta_ms >= 500:
         DL_PROGRESS_WINDOW["PROGINFOS2"].update(
             f"{get_text(GuiField.ff_speed)} : {speed}"
         )
-        TIME_LAST_UPDATE = now
+        TIME_LAST_UPDATE = datetime.now()
     return

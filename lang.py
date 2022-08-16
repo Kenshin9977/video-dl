@@ -158,9 +158,9 @@ def get_text(field: GuiField) -> str:
             Language.german: "Herunterladen abgebrochen.",
         },
         GuiField.dl_unsupported_url: {
-            Language.english: "Unsupported URL.",
-            Language.french: "URL non supportée.",
-            Language.german: "URL nicht unterstützt.",
+            Language.english: "Error.",
+            Language.french: "Erreur.",
+            Language.german: "Software-Fehler.",
         },
         GuiField.dl_error: {
             Language.english: "An error has occurred.",

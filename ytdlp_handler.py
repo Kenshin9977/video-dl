@@ -101,7 +101,7 @@ def _gen_ydl_opts(opts: dict) -> dict:
         _gen_file_opts(
             opts["path"],
             opts["IsPlaylist"],
-            opts["PlaylistItems"],
+            str(opts["PlaylistItems"]),
             opts["PlaylistItemsCheckbox"],
         )
     )
@@ -122,7 +122,7 @@ def _gen_file_opts(
     playlist_items_selected: bool,
 ) -> dict:
     """
-    Generate yt-dlp file's options 
+    Generate yt-dlp file's options
 
     Args:
         path (str): Path to download to
@@ -269,9 +269,15 @@ def download_progress_bar(d: dict) -> None:
     """
     global CANCELED, DL_PROGRESS_WINDOW, TIME_LAST_UPDATE
     event, _ = DL_PROGRESS_WINDOW.read(timeout=20)
+    dl_status = d.get("status")
+    n_current_entry = traverse_obj(d, ("info_dict", "playlist_autonumber"))
+    n_entries = traverse_obj(d, ("info_dict", "n_entries"))
 
-    if d.get("status") == "finished":
-        DL_PROGRESS_WINDOW.close()
+    if dl_status == "finished":
+        if n_current_entry is not None and n_current_entry == n_entries:
+            DL_PROGRESS_WINDOW.close()
+        elif n_current_entry is None:
+            DL_PROGRESS_WINDOW.close()
     elif event == get_text(GuiField.cancel_button):
         DL_PROGRESS_WINDOW.close()
         raise ValueError
@@ -298,12 +304,12 @@ def download_progress_bar(d: dict) -> None:
     except (ZeroDivisionError, TypeError):
         progress_percent = "-"
 
-    playlist_index = traverse_obj(d, ("info_dict", "playlist_index"))
+    n_current_entry = traverse_obj(d, ("info_dict", "playlist_autonumber"))
     n_entries = traverse_obj(d, ("info_dict", "n_entries"))
-    if not playlist_index or n_entries == 1:
+    if n_current_entry is None or n_entries == 1:
         percent_str = f"{progress_percent}%"
     else:
-        percent_str = f"{progress_percent}% ({playlist_index}/{n_entries})"
+        percent_str = f"{progress_percent}% ({n_current_entry}/{n_entries})"
 
     DL_PROGRESS_WINDOW["PROGINFOS1"].update(percent_str)
     DL_PROGRESS_WINDOW["-PROG-"].update(progress_percent)

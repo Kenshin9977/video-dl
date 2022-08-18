@@ -10,6 +10,7 @@ from environs import Env
 from yt_dlp import utils
 
 import ytdlp_handler
+from gen_new_version import APP_VERSION
 from icon_base64 import ICON_BASE64
 from lang import (
     GuiField,
@@ -566,7 +567,8 @@ if __name__ == "__main__":
     _video_dl_gui()
 
 
-# TODO: Allow to update assets (ffmpeg and ffmprobe)
 # TODO: Write tests
 # TODO: Sign updates
-# TODO: Fix playlist error
+# TODO: Handle MacOS and Linux updater
+# TODO: Autoinstall ffmpeg if missing os MacOS and Linux
+# TODO: Investigate pyinstaller crosscompilation to generate new versions

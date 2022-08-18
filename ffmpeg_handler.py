@@ -202,4 +202,5 @@ def _get_progress_percent(timestamp: str, total_duration: int) -> int:
     progress_seconds = sum(
         [factor * time for factor, time in zip(prog, timestamps_factors)]
     )
-    return int(progress_seconds / total_duration * 100)
+    progress_percent = int(progress_seconds / total_duration * 100)
+    return 99 if progress_percent > 100 else progress_percent

@@ -3,14 +3,16 @@ from __future__ import annotations
 import os
 import re
 import sys
-from subprocess import PIPE, STDOUT, Popen, run
+from subprocess import PIPE, STDOUT, run
 from typing import List
 
 import ffmpeg
 import PySimpleGUI as Sg
 
+from gui import FF_PATH
 from hwaccel_handler import fastest_encoder
 from lang import GuiField, get_text
+from sys_utils import popen
 
 
 def post_process_dl(full_name: str, target_vcodec: str) -> None:
@@ -22,7 +24,7 @@ def post_process_dl(full_name: str, target_vcodec: str) -> None:
         full_name (str): Full path of the file downloaded
         target_vcodec (str): Videoc codec to encode to if necessary
     """
-    file_infos = ffmpeg.probe(full_name)["streams"]
+    file_infos = ffmpeg.probe(full_name, cmd=FF_PATH.get("ffprobe"))["streams"]
     acodec, vcodec = "na", "na"
     for i in range(0, min(2, len(file_infos))):
         if file_infos[i]["codec_type"] == "audio":
@@ -68,7 +70,7 @@ def _ffmpeg_video(
     )
     tmp_path = f"{os.path.splitext(path)[0]}.tmp{new_ext}"
     ffmpegCommand = [
-        "ffmpeg",
+        FF_PATH.get("ffmpeg"),
         "-hide_banner",
         "-i",
         path,
@@ -109,7 +111,7 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
     progress_pattern = re.compile(
         r"(frame|fps|size|time|bitrate|speed)\s*=\s*(\S+)"
     )
-    p = Popen(cmd, stderr=PIPE, universal_newlines=True, encoding="utf8")
+    p = popen(cmd)
 
     while p.poll() is None:
         output = p.stderr.readline().rstrip(os.linesep) if p.stderr else ""
@@ -143,7 +145,7 @@ def _get_accurate_file_duration(filepath: str) -> int:
     """
     result = run(
         [
-            "ffprobe",
+            FF_PATH.get("ffprobe"),
             "-v",
             "error",
             "-show_entries",
@@ -151,6 +153,8 @@ def _get_accurate_file_duration(filepath: str) -> int:
             "-of",
             "default=noprint_wrappers=1:nokey=1",
             filepath,
+            "-loglevel",
+            "quiet",
         ],
         stdout=PIPE,
         stderr=STDOUT,

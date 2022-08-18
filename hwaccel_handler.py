@@ -1,6 +1,8 @@
 import os
+import subprocess
 
-import ffmpeg
+from gui import FF_PATH
+from sys_utils import check_cmd_output
 
 ENCODERS = {
     "x264": {
@@ -64,14 +66,26 @@ def fastest_encoder(path: str, target_vcodec: str) -> str:
         if not vcodec:
             continue
         try:
-            ffmpeg.input(path).output(
-                output_path, vframes=1, vcodec=vcodec
-            ).run(overwrite_output=True)
-        except ffmpeg.Error:
+            stdout = check_cmd_output(
+                [
+                    FF_PATH.get("ffmpeg"),
+                    "-hide_banner",
+                    "-i",
+                    path,
+                    "-frames:v",
+                    "1",
+                    "-c:v",
+                    vcodec,
+                    output_path,
+                    "-y",
+                    "-loglevel",
+                    "error",
+                ]
+            )
+        except subprocess.CalledProcessError:
             continue
-        else:
-            return vcodec
         finally:
             if os.path.isfile(output_path):
                 os.remove(path=output_path)
-    raise ffmpeg.Error
+        return vcodec
+    raise Exception

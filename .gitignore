@@ -34,3 +34,5 @@ venv/*
 *.spec
 */__pycache__/*
 .cspell/*
+*.dll
+*.exe

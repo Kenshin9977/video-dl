@@ -7,11 +7,17 @@ from platform import system
 from subprocess import Popen
 from zipfile import ZipFile
 
+from gen_new_version import (
+    APP_NAME,
+    APP_VERSION,
+    VERSIONS_ARCHIVE_NAME,
+    VERSIONS_JSON_NAME,
+    gen_archive_name,
+    get_name_for_platform,
+)
 from requests import get
+from yt_dlp.utils import traverse_obj
 
-from updater.gen_new_version import (APP_NAME, APP_VERSION,
-                                     VERSIONS_ARCHIVE_NAME, VERSIONS_JSON_NAME,
-                                     gen_archive_name, get_name_for_platform)
 from updater.crypto_util import compute_sha256
 
 log = logging.getLogger(__name__)
@@ -36,16 +42,22 @@ class Updater:
 
     def _new_version_available(self) -> bool:
         self._get_versions_json()
-        if self.versions_dict is None:
-            log.info("No versions file found")
-            return False
-        if self.platform in self.versions_dict[APP_NAME]:
-            self.latest_version = self.versions_dict[APP_NAME][self.platform][
-                "latest_version"
-            ]
-        else:
+        self.latest_version = traverse_obj(
+            self.versions_dict, (APP_NAME, self.platform, "latest_version")
+        )
+        if not self.latest_version:
             self.latest_version = APP_VERSION
-        return self.latest_version != APP_VERSION
+            return False
+        bs3_version_parsed = [int(n) for n in self.latest_version.split(".")]
+        bin_version_parsed = [int(n) for n in self.latest_version.split(".")]
+        new_version_available = False
+        if bs3_version_parsed[0] > bin_version_parsed[0]:
+            new_version_available = True
+        elif bs3_version_parsed[1] > bin_version_parsed[1]:
+            new_version_available = True
+        elif bs3_version_parsed[2] > bin_version_parsed[2]:
+            new_version_available = True
+        return new_version_available
 
     def _get_versions_json(self) -> None:
         self._clean_versions_files()
@@ -127,7 +139,7 @@ class Updater:
         """
         with io.open(bat_name, "w", encoding="utf-8") as bat:
             bat.write(batch_script)
-        Popen(f'"{bat_name}"')
+        Popen(f'"{bat_name}"', shell=False)
         sys.exit(0)
 
     def _archive_ok(self, latest_archive_name) -> bool:
@@ -166,3 +178,26 @@ class Updater:
             log.info(f"Key missing in {self.versions_json_name}: {e}")
             return False
         # match signature
+
+
+# def _create_progress_window(action: str) -> Sg.Window:
+#     """
+#     Create the post process' progress window.
+
+#     Args:
+#         action (str): Either 'Remuxing' or 'Reencoding'
+
+#     Returns:
+#         Sg.Window: The progress GUI's window
+#     """
+#     layout = [
+#         [Sg.Text(action)],
+#         [Sg.ProgressBar(100, orientation="h", size=(20, 20), key="-PROG-")],
+#         [Sg.Text(get_text(GuiField.ff_starting), key="PROGINFOS1")],
+#         [Sg.Text("", key="PROGINFOS2")],
+#         [Sg.Cancel(button_text=get_text(GuiField.cancel_button))],
+#     ]
+
+#     return Sg.Window(
+#        action, layout, no_titlebar=True, grab_anywhere=True, keep_on_top=True
+#     )

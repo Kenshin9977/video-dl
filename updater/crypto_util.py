@@ -19,15 +19,15 @@ def compute_sha256(filepath):
 
 
 # def compute_signature(filepath):
-    # try:
-    #     skey = env["SKEY"]
-    # except KeyError:
-    #     log.error("SKEY needs to be set as env variable")
-    #     raise KeyError
-    # with open(filepath, "rb") as f:
+# try:
+#     skey = env["SKEY"]
+# except KeyError:
+#     log.error("SKEY needs to be set as env variable")
+#     raise KeyError
+# with open(filepath, "rb") as f:
 #        byte_file = f.read()
 #        skey = SigningKey.generate()
 #        signed = skey.sign(byte_file)
-    #     signature = skey.verify_key
-    #     signature_bytes = signature.encode()
-    # return signature_bytes
+#     signature = skey.verify_key
+#     signature_bytes = signature.encode()
+# return signature_bytes

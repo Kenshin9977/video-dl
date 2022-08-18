@@ -2,7 +2,7 @@
 
 The purpose of this script is to simplify the usage of [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 <p align="center">
-<img src="https://imgur.com/M3d6JMi.png">
+<img src="https://imgur.com/M3d6JMi.png" width=400>
 </p>
 
 
@@ -58,10 +58,10 @@ You need to install:
 * ffprobe
 
 You can use pyinstaller to create a binary file. On Windows I'm using the following command line: 
-`pyinstaller -wF --icon=icon.ico --name=Video-dl.exe video-dl/gui.py`
+`pyinstaller -wF --icon=icon.ico --name=video-dl.exe --add-binary "dependencies/avcodec-59.dll;." --add-binary "dependencies/avdevice-59.dll;." --add-binary "dependencies/avfilter-8.dll;." --add-binary "dependencies/avformat-59.dll;." --add-binary "dependencies/avutil-57.dll;." --add-data "dependencies/ffmpeg.exe;." --add-data "dependencies/ffprobe.exe;." --add-binary "dependencies/postproc-56.dll;." --add-binary "dependencies/swresample-4.dll;." --add-binary "dependencies/swscale-6.dll;." gui.py`
 
 ## Software used
 
 * [yt-dlp](https://github.com/yt-dlp/yt-dlp)
-* [ffmpeg](https://github.com/FFmpeg/FFmpeg)
+* [ffmpeg](https://github.com/yt-dlp/FFmpeg-Builds)
 * [PySimpleGUI](https://pysimplegui.readthedocs.io/en/latest/)

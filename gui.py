@@ -18,11 +18,12 @@ from lang import (
     get_text,
     set_current_language,
 )
-from updater.gen_new_version import APP_VERSION
+from sys_utils import get_ff_components_path
 from updater.updater import Updater
 
 env = Env()
 default_playlist_items_value = "1,2,4-10,12"
+FF_PATH = get_ff_components_path()
 
 
 def _video_dl_gui() -> None:

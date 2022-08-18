@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from datetime import datetime
 from typing import Optional
@@ -11,8 +12,10 @@ from yt_dlp import YoutubeDL
 from yt_dlp.utils import traverse_obj
 
 from ffmpeg_handler import post_process_dl
+from gui import FF_PATH
 from lang import GuiField, get_text
 
+log = logging.getLogger(__name__)
 CANCELED = False
 DL_PROGRESS_WINDOW = Sg.Window(
     get_text(GuiField.download), no_titlebar=True, grab_anywhere=True
@@ -142,9 +145,11 @@ def _gen_file_opts(
         ),
         "progress_hooks": [download_progress_bar],
         "playlist_items": playlist_items if playlist_items_selected else 1,
-        "compat_opts": ["no-direct-merge"],
-        "verbose": True,
     }
+
+    if FF_PATH.get("ffmpeg") != "ffmpeg":
+        opts["ffmpeg_location"] = FF_PATH.get("ffmpeg")
+
     return opts
 
 

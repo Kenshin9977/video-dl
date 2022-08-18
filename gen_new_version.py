@@ -11,11 +11,11 @@ import PyInstaller.__main__
 from updater.bs3 import Bs3client
 from updater.crypto_util import compute_sha256
 
+log = logging.getLogger(__name__)
 APP_NAME = "video-dl"
-APP_VERSION = "0.8.0"
+APP_VERSION = "0.8.1"
 PLATFORM = system()
 ASSETS = {"Windows": ["ffmpeg.exe", "ffprobe.exe"]}
-log = logging.getLogger(__name__)
 VERSIONS_ARCHIVE_NAME = "versions.zip"
 VERSIONS_JSON_NAME = "versions.json"
 
@@ -92,7 +92,32 @@ class GenUpdate:
     def _gen_binary(self) -> None:
         log.info("Generating the binary file")
         PyInstaller.__main__.run(
-            ["-F", "--icon=icon.ico", f"--name={self.bin_name}", "gui.py"]
+            [
+                "-wF",
+                "--icon=icon.ico",
+                f"--name={self.bin_name}",
+                "--add-binary",
+                "dependencies/avcodec-59.dll;.",
+                "--add-binary",
+                "dependencies/avdevice-59.dll;.",
+                "--add-binary",
+                "dependencies/avfilter-8.dll;.",
+                "--add-binary",
+                "dependencies/avformat-59.dll;.",
+                "--add-binary",
+                "dependencies/avutil-57.dll;.",
+                "--add-data",
+                "dependencies/ffmpeg.exe;.",
+                "--add-data",
+                "dependencies/ffprobe.exe;.",
+                "--add-binary",
+                "dependencies/postproc-56.dll;.",
+                "--add-binary",
+                "dependencies/swresample-4.dll;.",
+                "--add-binary",
+                "dependencies/swscale-6.dll;.",
+                "gui.py",
+            ]
         )
 
     def _check_version_number_validity(self, latest_version) -> bool:

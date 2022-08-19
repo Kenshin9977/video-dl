@@ -34,7 +34,7 @@ ENCODERS = {
         "NVENC": None,
         "AMF": None,
         "Apple": None,
-        "CPU": "liboam-av1",
+        "CPU": "libsvtav1",
     },
 }
 

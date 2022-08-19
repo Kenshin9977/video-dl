@@ -17,8 +17,8 @@ from components_handlers.ffmpeg_handler import post_process_dl
 
 log = logging.getLogger(__name__)
 LAST_SPEED = "-"
-DL_PROG_WIN = create_progress_bar(get_text(GuiField.download), False)
-PP_PROG_WIN = create_progress_bar(get_text(GuiField.process), False)
+DL_PROG_WIN = None
+PP_PROG_WIN = None
 TIME_LAST_UPDATE = datetime.now()
 
 
@@ -29,11 +29,14 @@ def video_dl(opts: dict) -> None:
     Args:
         opts (dict): Options entered by the user
     """
-    global DL_PROG_WIN
+    global DL_PROG_WIN, PP_PROG_WIN
     ydl_opts = _gen_ydl_opts(opts)
+    DL_PROG_WIN = create_progress_bar(get_text(GuiField.download), False)
+    PP_PROG_WIN = create_progress_bar(get_text(GuiField.process), False)
     with YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(opts["url"])
         DL_PROG_WIN.close()
+        PP_PROG_WIN.close()
         if not opts["AudioOnly"]:
             if infos_ydl.get("_type") == "playlist":
                 for infos_ydl_entry in infos_ydl["entries"]:

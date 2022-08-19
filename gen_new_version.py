@@ -13,7 +13,7 @@ from utils.crypto_util import compute_sha256
 
 log = logging.getLogger(__name__)
 APP_NAME = "video-dl"
-APP_VERSION = "0.9.0"
+APP_VERSION = "0.9.2"
 PLATFORM = system()
 ASSETS = {"Windows": ["ffmpeg.exe", "ffprobe.exe"]}
 VERSIONS_ARCHIVE_NAME = "versions.zip"

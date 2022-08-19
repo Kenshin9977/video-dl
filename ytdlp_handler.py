@@ -5,21 +5,19 @@ import os
 from datetime import datetime
 from typing import Optional
 
-import PySimpleGUI as Sg
 import quantiphy
 from quantiphy import Quantity
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import traverse_obj
 
 from ffmpeg_handler import post_process_dl
-from gui import FF_PATH
+from gui import FF_PATH, create_progress_bar
 from lang import GuiField, get_text
 
 log = logging.getLogger(__name__)
-CANCELED = False
-DL_PROGRESS_WINDOW = Sg.Window(
-    get_text(GuiField.download), no_titlebar=True, grab_anywhere=True
-)
+LAST_SPEED = "-"
+DL_PROG_WIN = create_progress_bar(get_text(GuiField.download))
+PP_PROG_WIN = create_progress_bar(get_text(GuiField.process))
 TIME_LAST_UPDATE = datetime.now()
 
 
@@ -30,13 +28,11 @@ def video_dl(opts: dict) -> None:
     Args:
         opts (dict): Options entered by the user
     """
-    global CANCELED, DL_PROGRESS_WINDOW
-    CANCELED = False
-
+    global DL_PROG_WIN
     ydl_opts = _gen_ydl_opts(opts)
     with YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(opts["url"])
-        DL_PROGRESS_WINDOW.close()
+        DL_PROG_WIN.close()
         if not opts["AudioOnly"]:
             if infos_ydl.get("_type") == "playlist":
                 for infos_ydl_entry in infos_ydl["entries"]:
@@ -122,6 +118,7 @@ def _gen_file_opts(
             f"{path}", "%(title).100s - %(uploader)s.%(ext)s"
         ),
         "progress_hooks": [download_progress_bar],
+        "postprocessor_hooks": [postprocess_progress_bar],
         "playlist_items": playlist_items if playlist_items_selected else 1,
     }
 
@@ -250,19 +247,19 @@ def download_progress_bar(d: dict) -> None:
     Raises:
         ValueError: If the user cancel the download
     """
-    global CANCELED, DL_PROGRESS_WINDOW, TIME_LAST_UPDATE
-    event, _ = DL_PROGRESS_WINDOW.read(timeout=20)
+    global DL_PROG_WIN, TIME_LAST_UPDATE, LAST_SPEED
+    event, _ = DL_PROG_WIN.read(timeout=20)
     dl_status = d.get("status")
     n_current_entry = traverse_obj(d, ("info_dict", "playlist_autonumber"))
     n_entries = traverse_obj(d, ("info_dict", "n_entries"))
 
     if dl_status == "finished":
         if n_current_entry is not None and n_current_entry == n_entries:
-            DL_PROGRESS_WINDOW.close()
+            DL_PROG_WIN.close()
         elif n_current_entry is None:
-            DL_PROGRESS_WINDOW.close()
+            DL_PROG_WIN.close()
     elif event == get_text(GuiField.cancel_button):
-        DL_PROGRESS_WINDOW.close()
+        DL_PROG_WIN.close()
         raise ValueError
     try:
         speed = Quantity(d.get("speed"), "B/s").render(prec=2)
@@ -281,9 +278,9 @@ def download_progress_bar(d: dict) -> None:
             total = 0
     try:
         progress_percent = int(downloaded / total * 100)
+        # Necessary for when the total size is inaccurate
         if progress_percent >= 100:
             progress_percent = 99
-        # Necessary for when the total size is inaccurate
     except (ZeroDivisionError, TypeError):
         progress_percent = "-"
 
@@ -294,13 +291,64 @@ def download_progress_bar(d: dict) -> None:
     else:
         percent_str = f"{progress_percent}% ({n_current_entry}/{n_entries})"
 
-    DL_PROGRESS_WINDOW["PROGINFOS1"].update(percent_str)
-    DL_PROGRESS_WINDOW["-PROG-"].update(progress_percent)
+    DL_PROG_WIN["PROGINFOS1"].update(percent_str)
+    DL_PROG_WIN["-PROG-"].update(progress_percent)
     time_elapsed = datetime.now() - TIME_LAST_UPDATE
     delta_ms = time_elapsed.seconds * 1000 + time_elapsed.microseconds // 1000
     if delta_ms >= 500:
-        DL_PROGRESS_WINDOW["PROGINFOS2"].update(
+        DL_PROG_WIN["PROGINFOS2"].update(
             f"{get_text(GuiField.ff_speed)} : {speed}"
         )
+        LAST_SPEED = speed
         TIME_LAST_UPDATE = datetime.now()
-    return
+    else:
+        DL_PROG_WIN["PROGINFOS2"].update(
+            f"{get_text(GuiField.ff_speed)} : {LAST_SPEED}"
+        )
+
+
+def postprocess_progress_bar(d):
+    global PP_PROG_WIN
+    event, _ = PP_PROG_WIN.read(timeout=20)
+    pp_status = d.get("status", "")
+    n_current_entry = traverse_obj(d, ("info_dict", "playlist_autonumber"))
+    n_entries = traverse_obj(d, ("info_dict", "n_entries"))
+
+    if pp_status == "finished":
+        if n_current_entry is not None and n_current_entry == n_entries:
+            PP_PROG_WIN.close()
+        elif n_current_entry is None:
+            PP_PROG_WIN.close()
+    elif event == get_text(GuiField.cancel_button):
+        PP_PROG_WIN.close()
+        raise ValueError
+    try:
+        speed = Quantity(d.get("speed"), "B/s").render(prec=2)
+    except quantiphy.InvalidNumber:
+        speed = "-"
+    try:
+        downloaded = Quantity(d.get("processed_bytes"), "B")
+    except quantiphy.InvalidNumber:
+        downloaded = "-"
+    try:
+        total = Quantity(d.get("total_bytes"), "B")
+    except quantiphy.InvalidNumber:
+        total = 0
+    try:
+        progress_percent = int(downloaded / total * 100)
+        # Necessary for when the total size is inaccurate
+        if progress_percent >= 100:
+            progress_percent = 99
+    except (ZeroDivisionError, TypeError):
+        progress_percent = "-"
+
+    n_current_entry = traverse_obj(d, ("info_dict", "playlist_autonumber"))
+    n_entries = traverse_obj(d, ("info_dict", "n_entries"))
+    if n_current_entry is None or n_entries == 1:
+        percent_str = f"{progress_percent}%"
+    else:
+        percent_str = f"{progress_percent}% ({n_current_entry}/{n_entries})"
+
+    PP_PROG_WIN["PROGINFOS1"].update(percent_str)
+    PP_PROG_WIN["-PROG-"].update(progress_percent)
+    DL_PROG_WIN["PROGINFOS2"].update(f"{get_text(GuiField.ff_speed)}: {speed}")

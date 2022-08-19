@@ -16,6 +16,7 @@ class GuiField(enum.Enum):
     is_playlist = enum.auto()
     playlist_items = enum.auto()
     download = enum.auto()
+    process = enum.auto()
     destination = enum.auto()
     start = enum.auto()
     end = enum.auto()
@@ -30,7 +31,7 @@ class GuiField(enum.Enum):
 
     # Main window status
     dl_cancel = enum.auto()
-    dl_unsupported_url = enum.auto()
+    error = enum.auto()
     dl_error = enum.auto()
     dl_finish = enum.auto()
     missing_output = enum.auto()
@@ -97,6 +98,11 @@ def get_text(field: GuiField) -> str:
             Language.french: "Téléchargement",
             Language.german: "Herunterladen",
         },
+        GuiField.process: {
+            Language.english: "Processing",
+            Language.french: "Traitement",
+            Language.german: "Echtzeitverarbeitung",
+        },
         GuiField.destination: {
             Language.english: "Destination folder",
             Language.french: "Dossier de destination",
@@ -157,10 +163,10 @@ def get_text(field: GuiField) -> str:
             Language.french: "Téléchargement annulé.",
             Language.german: "Herunterladen abgebrochen.",
         },
-        GuiField.dl_unsupported_url: {
-            Language.english: "Error.",
-            Language.french: "Erreur.",
-            Language.german: "Software-Fehler.",
+        GuiField.error: {
+            Language.english: "Error: ",
+            Language.french: "Erreur : ",
+            Language.german: "Software-Fehler: ",
         },
         GuiField.dl_error: {
             Language.english: "An error has occurred.",
@@ -196,7 +202,7 @@ def get_text(field: GuiField) -> str:
             # Add a space at the end of the message if
             # the language requires one before a colon
             Language.english: "Speed",
-            Language.french: "Vitesse",
+            Language.french: "Vitesse ",
             Language.german: "Geschwindigkeit",
         },
         GuiField.cancel_button: {

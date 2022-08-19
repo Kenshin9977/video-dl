@@ -90,11 +90,11 @@ def _video_dl_gui() -> None:
                 except utils.DownloadError as e:
                     logging.error(traceback.format_exc())
                     window["error"].update(
-                        get_text(GuiField.dl_unsupported_url) + str(e),
+                        get_text(GuiField.error) + str(e),
                         visible=True,
                         text_color="red",
                     )
-                    ytdlp_handler.DL_PROGRESS_WINDOW.close()
+                    ytdlp_handler.DL_PROG_WIN.close()
                 except Exception as e:
                     logging.error(traceback.format_exc())
                     window["error"].update(

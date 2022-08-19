@@ -8,9 +8,14 @@ from platform import system
 from subprocess import Popen
 from zipfile import ZipFile
 
-from gen_new_version import (APP_NAME, APP_VERSION, VERSIONS_ARCHIVE_NAME,
-                             VERSIONS_JSON_NAME, gen_archive_name,
-                             get_name_for_platform)
+from gen_new_version import (
+    APP_NAME,
+    APP_VERSION,
+    VERSIONS_ARCHIVE_NAME,
+    VERSIONS_JSON_NAME,
+    gen_archive_name,
+    get_name_for_platform,
+)
 from lang import GuiField, get_text
 from quantiphy import Quantity
 from requests import get
@@ -43,6 +48,9 @@ class Updater:
         self.size_last_update = 0
 
     def update_app(self) -> None:
+        """
+        Check if a new version of the app is available. Download it if there is
+        """
         if not self._new_version_is_available():
             log.info("No newer version found")
             return
@@ -50,6 +58,12 @@ class Updater:
         self._download_and_replace()
 
     def _new_version_is_available(self) -> bool:
+        """
+        Check if a new version is available.
+
+        Returns:
+            bool: Whether or not a new version is available
+        """
         bs3_version_parsed = [int(n) for n in self.latest_version.split(".")]
         bin_version_parsed = [int(n) for n in APP_VERSION.split(".")]
         if bs3_version_parsed[0] < bin_version_parsed[0]:
@@ -59,6 +73,12 @@ class Updater:
         return bs3_version_parsed[2] >= bin_version_parsed[2]
 
     def _get_versions_json(self) -> dict:
+        """
+        Fetch the versions.json and load it into a dictionnary.
+
+        Returns:
+            dict: versions.json loaded
+        """
         self._clean_versions_files()
         versions_dict = None
         r = get(
@@ -80,6 +100,9 @@ class Updater:
         return versions_dict
 
     def _clean_versions_files(self) -> None:
+        """
+        Remove version's files
+        """
         try:
             log.info("Removing existing versions files")
             remove(self.versions_json_name)
@@ -88,6 +111,12 @@ class Updater:
             log.info("No versions files were found")
 
     def _download_and_replace(self) -> None:
+        """
+        Download the latest version and replace the current one.
+
+        Raises:
+            AssertionError: If the archive of the latest version isn't there
+        """
         latest_archive_name = (
             f"{APP_NAME}-{self.platform}-{self.latest_version}.zip"
         )
@@ -107,7 +136,16 @@ class Updater:
         log.info("Restarting...")
         self._replace_with_latest(latest_archive_name)
 
-    def _download_latest_version(self, latest_archive_name) -> None:
+    def _download_latest_version(self, latest_archive_name: str) -> None:
+        """
+        Download the latest version
+
+        Args:
+            latest_archive_name (str): The name of the latest version's archive
+
+        Raises:
+            ValueError: If the download is canceled
+        """
         uri = "http://video-dl-binaries.s3.amazonaws.com/"
         url = f"{uri}{latest_archive_name}"
         with get(url, stream=True) as r:
@@ -122,13 +160,26 @@ class Updater:
             if r.status_code != 200:
                 log.error("Couldn't retrieve the latest version")
 
-    def _replace_with_latest(self, latest_archive_name) -> None:
+    def _replace_with_latest(self, latest_archive_name: str) -> None:
+        """
+        Replace the current version with the latest one.
+
+        Args:
+            latest_archive_name (str): Latest version archive's name
+        """
         if self.platform == "Windows":
             self._replace_on_windows(latest_archive_name)
         else:
-            print("The updater doesn't currently handle this platform")
+            log.info("The updater doesn't currently handle this platform")
 
-    def _replace_on_windows(self, latest_archive_name):
+    def _replace_on_windows(self, latest_archive_name: str) -> None:
+        """
+        Replace the current version with the latest one on Windows using a
+        .bat file.
+
+        Args:
+            latest_archive_name (str): Latest version archive's name
+        """
         tmp_folder = "tmp"
         bat_name = "updater.bat"
         with ZipFile(latest_archive_name, "r") as zip_ref:
@@ -152,7 +203,16 @@ class Updater:
         Popen(f'"{bat_name}"', shell=False)
         sys.exit(0)
 
-    def _archive_ok(self, latest_archive_name) -> bool:
+    def _archive_ok(self, latest_archive_name: str) -> bool:
+        """
+        Check the archive's size and SHA256.
+
+        Args:
+            latest_archive_name (str): Latest version archive's name
+
+        Returns:
+            bool: Whether or not the archive size and SHA256 match
+        """
         latest_version = self.versions_dict[APP_NAME][self.platform][
             "latest_version"
         ]
@@ -189,7 +249,16 @@ class Updater:
             return False
         # match signature
 
-    def update_progress_bar(self, chunks_downloaded, total_size):
+    def update_progress_bar(
+        self, chunks_downloaded: int, total_size: int
+    ) -> None:
+        """
+        Handle the update's progress bar.
+
+        Args:
+            chunks_downloaded (int): Number of chunk downloaded
+            total_size (int): File's total size of to download
+        """
         event = None
         downloaded_bytes = chunks_downloaded * 8192
         cancel_button_str = get_text(GuiField.cancel_button)

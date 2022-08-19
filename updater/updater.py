@@ -15,10 +15,11 @@ from gen_new_version import (
     gen_archive_name,
     get_name_for_platform,
 )
+from lang import GuiField, get_text
 from requests import get
+from utils.crypto_util import compute_sha256
+from utils.gui_utils import create_progress_bar
 from yt_dlp.utils import traverse_obj
-
-from updater.crypto_util import compute_sha256
 
 log = logging.getLogger(__name__)
 
@@ -178,26 +179,3 @@ class Updater:
             log.info(f"Key missing in {self.versions_json_name}: {e}")
             return False
         # match signature
-
-
-# def _create_progress_window(action: str) -> Sg.Window:
-#     """
-#     Create the post process' progress window.
-
-#     Args:
-#         action (str): Either 'Remuxing' or 'Reencoding'
-
-#     Returns:
-#         Sg.Window: The progress GUI's window
-#     """
-#     layout = [
-#         [Sg.Text(action)],
-#         [Sg.ProgressBar(100, orientation="h", size=(20, 20), key="-PROG-")],
-#         [Sg.Text(get_text(GuiField.ff_starting), key="PROGINFOS1")],
-#         [Sg.Text("", key="PROGINFOS2")],
-#         [Sg.Cancel(button_text=get_text(GuiField.cancel_button))],
-#     ]
-
-#     return Sg.Window(
-#        action, layout, no_titlebar=True, grab_anywhere=True, keep_on_top=True
-#     )

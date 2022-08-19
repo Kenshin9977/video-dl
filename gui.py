@@ -9,7 +9,7 @@ import PySimpleGUI as Sg
 from environs import Env
 from yt_dlp import utils
 
-import ytdlp_handler
+from components_handlers import ytdlp_handler
 from gen_new_version import APP_VERSION
 from icon_base64 import ICON_BASE64
 from lang import (
@@ -19,12 +19,9 @@ from lang import (
     get_text,
     set_current_language,
 )
-from sys_utils import get_ff_components_path
-from updater.updater import Updater
 
 env = Env()
 default_playlist_items_value = "1,2,4-10,12"
-FF_PATH = get_ff_components_path()
 
 
 def _video_dl_gui() -> None:
@@ -560,38 +557,3 @@ def _update_text_lang(window: Sg.Window) -> None:
     window["TextCookies"].update(get_text(GuiField.cookies))
     window["dl"].update(get_text(GuiField.dl_button))
     return
-
-
-def create_progress_bar(action: str) -> Sg.Window:
-    """
-    Create a progress bar.
-
-    Args:
-        action (str): Action string displayed on the progress bar
-
-    Returns:
-        Sg.Window: The GUI object used for the progress bar
-    """
-    Sg.theme("DarkGrey13")
-    layout = [
-        [Sg.Text(action)],
-        [Sg.ProgressBar(100, orientation="h", size=(20, 20), key="-PROG-")],
-        [Sg.Text(get_text(GuiField.ff_starting), key="PROGINFOS1")],
-        [Sg.Text("", key="PROGINFOS2")],
-        [Sg.Cancel(button_text=get_text(GuiField.cancel_button))],
-    ]
-    return Sg.Window(
-        action, layout, no_titlebar=True, grab_anywhere=True, modal=True
-    )
-
-
-if __name__ == "__main__":
-    Updater().update_app()
-    _video_dl_gui()
-
-
-# TODO: Write tests
-# TODO: Sign updates
-# TODO: Handle MacOS and Linux updater
-# TODO: Autoinstall ffmpeg if missing os MacOS and Linux
-# TODO: Investigate pyinstaller crosscompilation to generate new versions

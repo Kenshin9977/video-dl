@@ -8,11 +8,11 @@ from typing import List
 
 import ffmpeg
 import PySimpleGUI as Sg
-
-from gui import FF_PATH
-from hwaccel_handler import fastest_encoder
 from lang import GuiField, get_text
-from sys_utils import popen
+from sys_vars import FF_PATH
+from utils.sys_utils import popen
+
+from components_handlers.hwaccel_handler import fastest_encoder
 
 
 def post_process_dl(full_name: str, target_vcodec: str) -> None:

@@ -6,13 +6,14 @@ from datetime import datetime
 from typing import Optional
 
 import quantiphy
+from lang import GuiField, get_text
 from quantiphy import Quantity
+from sys_vars import FF_PATH
+from utils.gui_utils import create_progress_bar
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import traverse_obj
 
-from ffmpeg_handler import post_process_dl
-from gui import FF_PATH, create_progress_bar
-from lang import GuiField, get_text
+from components_handlers.ffmpeg_handler import post_process_dl
 
 log = logging.getLogger(__name__)
 LAST_SPEED = "-"

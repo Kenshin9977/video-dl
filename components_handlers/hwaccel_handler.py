@@ -1,8 +1,8 @@
 import os
 import subprocess
 
-from gui import FF_PATH
-from sys_utils import check_cmd_output
+from sys_vars import FF_PATH
+from utils.sys_utils import check_cmd_output
 
 ENCODERS = {
     "x264": {

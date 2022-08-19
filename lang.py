@@ -15,8 +15,6 @@ class GuiField(enum.Enum):
     link = enum.auto()
     is_playlist = enum.auto()
     playlist_items = enum.auto()
-    download = enum.auto()
-    process = enum.auto()
     destination = enum.auto()
     start = enum.auto()
     end = enum.auto()
@@ -37,6 +35,9 @@ class GuiField(enum.Enum):
     missing_output = enum.auto()
 
     # Progress window
+    download = enum.auto()
+    process = enum.auto()
+    update = enum.auto()
     ff_remux = enum.auto()
     ff_reencode = enum.auto()
     ff_starting = enum.auto()
@@ -208,7 +209,12 @@ def get_text(field: GuiField) -> str:
         GuiField.cancel_button: {
             Language.english: "Cancel",
             Language.french: "Annuler",
-            Language.german: "",
+            Language.german: "Abbrechen",
+        },
+        GuiField.update: {
+            Language.english: "Update",
+            Language.french: "Mise à jour",
+            Language.german: "Aktualisierung",
         },
     }
     return ui_text[field][_current_language]

@@ -17,8 +17,8 @@ from components_handlers.ffmpeg_handler import post_process_dl
 
 log = logging.getLogger(__name__)
 LAST_SPEED = "-"
-DL_PROG_WIN = create_progress_bar(get_text(GuiField.download))
-PP_PROG_WIN = create_progress_bar(get_text(GuiField.process))
+DL_PROG_WIN = create_progress_bar(get_text(GuiField.download), False)
+PP_PROG_WIN = create_progress_bar(get_text(GuiField.process), False)
 TIME_LAST_UPDATE = datetime.now()
 
 
@@ -302,10 +302,6 @@ def download_progress_bar(d: dict) -> None:
         )
         LAST_SPEED = speed
         TIME_LAST_UPDATE = datetime.now()
-    else:
-        DL_PROG_WIN["PROGINFOS2"].update(
-            f"{get_text(GuiField.ff_speed)} : {LAST_SPEED}"
-        )
 
 
 def postprocess_progress_bar(d):

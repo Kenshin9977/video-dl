@@ -10,6 +10,7 @@ import ffmpeg
 import PySimpleGUI as Sg
 from lang import GuiField, get_text
 from sys_vars import FF_PATH
+from utils.gui_utils import create_progress_bar
 from utils.sys_utils import popen
 
 from components_handlers.hwaccel_handler import fastest_encoder
@@ -107,7 +108,7 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
         ValueError: If the user cancel the download
     """
     total_duration = _get_accurate_file_duration(filepath)
-    progress_window = _create_progress_window(action)
+    progress_window = create_progress_bar(action, False)
     progress_pattern = re.compile(
         r"(frame|fps|size|time|bitrate|speed)\s*=\s*(\S+)"
     )
@@ -160,27 +161,6 @@ def _get_accurate_file_duration(filepath: str) -> int:
         stderr=STDOUT,
     )
     return int(float(result.stdout))
-
-
-def _create_progress_window(action: str) -> Sg.Window:
-    """
-    Create the post process' progress window.
-
-    Args:
-        action (str): Either 'Remuxing' or 'Reencoding'
-
-    Returns:
-        Sg.Window: The progress GUI's window
-    """
-    layout = [
-        [Sg.Text(action)],
-        [Sg.ProgressBar(100, orientation="h", size=(20, 20), key="-PROG-")],
-        [Sg.Text(get_text(GuiField.ff_starting), key="PROGINFOS1")],
-        [Sg.Text("", key="PROGINFOS2")],
-        [Sg.Cancel(button_text=get_text(GuiField.cancel_button))],
-    ]
-
-    return Sg.Window(action, layout, no_titlebar=True, grab_anywhere=True)
 
 
 def _get_progress_percent(timestamp: str, total_duration: int) -> int:

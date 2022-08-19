@@ -1,14 +1,14 @@
 import PySimpleGUI as Sg
-
 from lang import GuiField, get_text
 
 
-def create_progress_bar(action: str) -> Sg.Window:
+def create_progress_bar(action: str, update: bool) -> Sg.Window:
     """
     Create a progress bar.
 
     Args:
         action (str): Action string displayed on the progress bar
+        update (bool): Whether the window is created to track an update or not
 
     Returns:
         Sg.Window: The GUI object used for the progress bar
@@ -22,5 +22,6 @@ def create_progress_bar(action: str) -> Sg.Window:
         [Sg.Cancel(button_text=get_text(GuiField.cancel_button))],
     ]
     return Sg.Window(
-        action, layout, no_titlebar=True, grab_anywhere=True, modal=True
+        action, layout, no_titlebar=not update, grab_anywhere=not update,
+        modal=not update
     )

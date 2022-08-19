@@ -180,9 +180,7 @@ def _create_progress_window(action: str) -> Sg.Window:
         [Sg.Cancel(button_text=get_text(GuiField.cancel_button))],
     ]
 
-    return Sg.Window(
-        action, layout, no_titlebar=True, grab_anywhere=True, keep_on_top=True
-    )
+    return Sg.Window(action, layout, no_titlebar=True, grab_anywhere=True)
 
 
 def _get_progress_percent(timestamp: str, total_duration: int) -> int:

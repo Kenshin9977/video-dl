@@ -60,27 +60,6 @@ def _post_download(opts: dict, ydl: YoutubeDL, infos_ydl: dict) -> None:
     post_process_dl(full_path, opts["TargetVCodec"])
 
 
-def _create_dl_progress_bar() -> None:
-    """
-    Create download progress bar.
-    """
-    global DL_PROGRESS_WINDOW
-    layout = [
-        [Sg.Text(get_text(GuiField.download))],
-        [Sg.ProgressBar(100, orientation="h", size=(20, 20), key="-PROG-")],
-        [Sg.Text(get_text(GuiField.ff_starting), key="PROGINFOS1")],
-        [Sg.Text("", key="PROGINFOS2")],
-        [Sg.Cancel(button_text=get_text(GuiField.cancel_button))],
-    ]
-    DL_PROGRESS_WINDOW = Sg.Window(
-        get_text(GuiField.download),
-        layout,
-        no_titlebar=True,
-        grab_anywhere=True,
-        keep_on_top=True,
-    )
-
-
 def _gen_ydl_opts(opts: dict) -> dict:
     """
     Generate yt-dlp options' dictionnary.
@@ -91,7 +70,6 @@ def _gen_ydl_opts(opts: dict) -> dict:
     Returns:
         dict: yt-dlp options
     """
-    _create_dl_progress_bar()
 
     trim_start = (
         f"{opts['sH']}:{opts['sM']}:{opts['sS']}" if opts["Start"] else None

@@ -70,7 +70,7 @@ class Updater:
             return False
         elif bs3_version_parsed[1] < bin_version_parsed[1]:
             return False
-        return bs3_version_parsed[2] >= bin_version_parsed[2]
+        return bs3_version_parsed[2] > bin_version_parsed[2]
 
     def _get_versions_json(self) -> dict:
         """

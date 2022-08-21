@@ -4,13 +4,23 @@ import subprocess
 import sys
 from asyncio.windows_utils import Popen
 from pathlib import Path
-from platform import system
+from platform import machine, system
+from re import IGNORECASE, search
 from subprocess import check_output
 
 log = logging.getLogger(__name__)
 
 
-def get_ff_components_path():
+def get_ff_components_path() -> dict:
+    """
+    Get the path of ffmpeg and ffprobe if it exists on the system.
+
+    Raises:
+        FileNotFoundError: If ffmpeg can't be found on the system
+
+    Returns:
+        dict: The path for ffmpeg and ffprobe
+    """
     ext = _get_extension_for_platform()
     ffmpeg_name, ffprobe_name = f"ffmpeg{ext}", f"ffprobe{ext}"
     ff_components = set([ffmpeg_name, ffprobe_name])
@@ -66,7 +76,34 @@ def popen(cmd: list) -> Popen:
     return process
 
 
-def check_cmd_output(cmd):
+def check_cmd_output(cmd: list[str]) -> str:
+    """
+    Check the output of the cmd executed by the system.
+
+    Args:
+        cmd (list[str]): Command line to be executed
+
+    Returns:
+        str: The output of the command line
+    """
     startupinfo = subprocess.STARTUPINFO()
     startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     return check_output(cmd, startupinfo=startupinfo)
+
+
+def get_system_architecture() -> str:
+    """
+    Get the streamlined name of the current system architecture.
+
+    Returns:
+        str: The streamlined name of the current system architecture.
+    """
+    architecture = machine()
+    if search("arm64|aarch64", architecture, IGNORECASE):
+        return "arm64"
+    elif search("arm", architecture, IGNORECASE):
+        return "arm"
+    elif search("86", architecture, IGNORECASE):
+        return "x86"
+    elif search("64", architecture, IGNORECASE):
+        return "x86_64"

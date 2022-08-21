@@ -11,10 +11,11 @@ from zipfile import ZipFile
 from gen_new_version import (
     APP_NAME,
     APP_VERSION,
+    ARCHITECTURE,
     VERSIONS_ARCHIVE_NAME,
     VERSIONS_JSON_NAME,
     gen_archive_name,
-    get_name_for_platform,
+    get_bin_ext_for_platform,
 )
 from lang import GuiField, get_text
 from quantiphy import Quantity
@@ -30,16 +31,18 @@ class Updater:
     def __init__(self):
         self.platform = system()
         self.app_archive_name = gen_archive_name()
-        self.app_bin_name = get_name_for_platform()
+        self.app_bin_name = get_bin_ext_for_platform()
         self.versions_archive_name = VERSIONS_ARCHIVE_NAME
         self.versions_json_name = VERSIONS_JSON_NAME
+
         self.update_prog_win = create_progress_bar(
             get_text(GuiField.update), True
         )
         self.versions_dict = self._get_versions_json()
         self.latest_version = (
             traverse_obj(
-                self.versions_dict, (APP_NAME, self.platform, "latest_version")
+                self.versions_dict,
+                (APP_NAME, self.platform, ARCHITECTURE, "latest_version"),
             )
             or APP_VERSION
         )
@@ -118,7 +121,8 @@ class Updater:
             AssertionError: If the archive of the latest version isn't there
         """
         latest_archive_name = (
-            f"{APP_NAME}-{self.platform}-{self.latest_version}.zip"
+            f"{APP_NAME}-{self.platform}-{ARCHITECTURE}"
+            f"-{self.latest_version}.zip"
         )
         log.info("Downloading...")
         try:
@@ -214,9 +218,11 @@ class Updater:
             bool: Whether or not the archive size and SHA256 match
         """
         latest_version = self.versions_dict[APP_NAME][self.platform][
-            "latest_version"
+            ARCHITECTURE
+        ]["latest_version"]
+        bin_infos = self.versions_dict[APP_NAME][self.platform][ARCHITECTURE][
+            latest_version
         ]
-        bin_infos = self.versions_dict[APP_NAME][self.platform][latest_version]
         try:
             archive_name_json = bin_infos["archive_name"]
             archive_size_json = bin_infos["archive_size"]

@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from os.path import exists, getsize, join
-from platform import system
+from platform import machine, system
 from re import match
 from zipfile import ZipFile
 
@@ -10,14 +10,16 @@ import PyInstaller.__main__
 
 from updater.bs3 import Bs3client
 from utils.crypto_util import compute_sha256
+from utils.sys_utils import get_system_architecture
 
 log = logging.getLogger(__name__)
 APP_NAME = "video-dl"
-APP_VERSION = "0.9.2"
-PLATFORM = system()
+APP_VERSION = "0.10.2"
 ASSETS = {"Windows": ["ffmpeg.exe", "ffprobe.exe"]}
 VERSIONS_ARCHIVE_NAME = "versions.zip"
 VERSIONS_JSON_NAME = "versions.json"
+PLATFORM = system()
+ARCHITECTURE = get_system_architecture()
 
 
 def update():
@@ -26,11 +28,12 @@ def update():
 
 class GenUpdate:
     def __init__(self):
-        self.archive_name = gen_archive_name()
         self.app_name = APP_NAME
         self.app_version = APP_VERSION
-        self.bin_name = get_name_for_platform()
-        self.platform = system()
+        self.platform = PLATFORM
+        self.machine = machine()
+        self.archive_name = gen_archive_name()
+        self.bin_name = get_bin_ext_for_platform()
         self.s3client = Bs3client()
         self.versions_archive_name = VERSIONS_ARCHIVE_NAME
         self.versions_json_name = VERSIONS_JSON_NAME
@@ -163,8 +166,8 @@ class GenUpdate:
         dict_versions = self._get_versions_json()
         try:
             latest_version = dict_versions[self.app_name][self.platform][
-                "latest_version"
-            ]
+                ARCHITECTURE
+            ]["latest_version"]
             if not self._check_version_number_validity(latest_version):
                 log.error("Version number isn't valid")
                 raise ValueError
@@ -174,12 +177,16 @@ class GenUpdate:
             {
                 self.app_name: {
                     self.platform: {
-                        "latest_version": self.app_version,
-                        self.app_version: {
-                            "archive_name": self.archive_name,
-                            "archive_size": getsize(self.archive_name),
-                            "archive_hash": compute_sha256(self.archive_name),
-                        },
+                        ARCHITECTURE: {
+                            "latest_version": self.app_version,
+                            self.app_version: {
+                                "archive_name": self.archive_name,
+                                "archive_size": getsize(self.archive_name),
+                                "archive_hash": compute_sha256(
+                                    self.archive_name
+                                ),
+                            },
+                        }
                     },
                 },
             }
@@ -187,14 +194,13 @@ class GenUpdate:
         return dict_versions
 
 
-def get_name_for_platform() -> str:
+def get_bin_ext_for_platform() -> str:
     ext = None
-    platform = system()
-    if platform == "Windows":
+    if PLATFORM == "Windows":
         ext = ".exe"
-    elif platform == "Linux":
+    elif PLATFORM == "Linux":
         ext = "_amd64.deb"
-    elif platform == "Darwin":
+    elif PLATFORM == "Darwin":
         ext = ".dmg"
     if ext is None:
         log.error("Platform isn't supported")
@@ -209,7 +215,7 @@ def gen_archive_name() -> str:
     if not correct_format:
         log.error("Version number isn't formatted correctly")
         raise ValueError
-    return f"{APP_NAME}-{PLATFORM}-{APP_VERSION}.zip"
+    return f"{APP_NAME}-{PLATFORM}-{ARCHITECTURE}-{APP_VERSION}.zip"
 
 
 if __name__ == "__main__":

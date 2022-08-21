@@ -96,30 +96,7 @@ class GenUpdate:
         log.info("Generating the binary file")
         PyInstaller.__main__.run(
             [
-                "-wF",
-                "--icon=icon.ico",
-                f"--name={self.bin_name}",
-                "--add-binary",
-                "dependencies/avcodec-59.dll;.",
-                "--add-binary",
-                "dependencies/avdevice-59.dll;.",
-                "--add-binary",
-                "dependencies/avfilter-8.dll;.",
-                "--add-binary",
-                "dependencies/avformat-59.dll;.",
-                "--add-binary",
-                "dependencies/avutil-57.dll;.",
-                "--add-data",
-                "dependencies/ffmpeg.exe;.",
-                "--add-data",
-                "dependencies/ffprobe.exe;.",
-                "--add-binary",
-                "dependencies/postproc-56.dll;.",
-                "--add-binary",
-                "dependencies/swresample-4.dll;.",
-                "--add-binary",
-                "dependencies/swscale-6.dll;.",
-                "app.py",
+                f"{PLATFORM}-video-dl.spec"
             ]
         )
 

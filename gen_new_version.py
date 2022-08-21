@@ -47,8 +47,8 @@ class GenUpdate:
         self.s3client.upload(filename=self.versions_archive_name)
 
     def _gen_archives(self) -> None:
-        self._gen_app_archive()
         self._gen_json_archive()
+        self._gen_app_archive()
 
     def _gen_app_archive(self):
         self._gen_binary()

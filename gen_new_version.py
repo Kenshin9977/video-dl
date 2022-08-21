@@ -150,6 +150,7 @@ class GenUpdate:
                 raise ValueError
         except KeyError:
             log.info("No latest_version key found")
+            raise KeyError
         dict_versions.update(
             {
                 self.app_name: {

@@ -22,6 +22,9 @@ def create_progress_bar(action: str, update: bool) -> Sg.Window:
         [Sg.Cancel(button_text=get_text(GuiField.cancel_button))],
     ]
     return Sg.Window(
-        action, layout, no_titlebar=not update, grab_anywhere=not update,
-        modal=not update
+        action,
+        layout,
+        no_titlebar=not update,
+        grab_anywhere=not update,
+        modal=not update,
     )

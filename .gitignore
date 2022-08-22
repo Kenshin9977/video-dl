@@ -33,3 +33,4 @@ venv/*
 .cspell/*
 *.dll
 *.exe
+Video-dl.app/*

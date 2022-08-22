@@ -2,11 +2,16 @@ import logging
 import os
 import subprocess
 import sys
-from asyncio.windows_utils import Popen
 from pathlib import Path
 from platform import machine, system
-from re import IGNORECASE, search
-from subprocess import check_output
+from re import IGNORECASE, match, search
+from subprocess import Popen, check_output
+
+APP_NAME = "video-dl"
+APP_VERSION = "0.10.2"
+PLATFORM = system()
+VERSIONS_ARCHIVE_NAME = "versions.zip"
+VERSIONS_JSON_NAME = "versions.json"
 
 log = logging.getLogger(__name__)
 
@@ -64,7 +69,7 @@ def popen(cmd: list) -> Popen:
     """
     startupinfo = subprocess.STARTUPINFO()
     startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-    process = subprocess.Popen(
+    process = Popen(
         cmd,
         startupinfo=startupinfo,
         stdout=subprocess.PIPE,
@@ -107,3 +112,28 @@ def get_system_architecture() -> str:
         return "x86"
     elif search("64", architecture, IGNORECASE):
         return "x86_64"
+
+
+def get_bin_ext_for_platform() -> str:
+    ext = None
+    if PLATFORM == "Windows":
+        ext = ".exe"
+    elif PLATFORM == "Linux":
+        ext = "_amd64.deb"
+    elif PLATFORM == "Darwin":
+        ext = ".dmg"
+    if ext is None:
+        log.error("Platform isn't supported")
+        raise RuntimeError
+    return f"{APP_NAME}{ext}"
+
+
+def gen_archive_name() -> str:
+    correct_format = match(
+        r"(?P<major>\d+)\.(?P<minor>\d+)\." r"(?P<patch>\d+)", APP_VERSION
+    )
+    if not correct_format:
+        log.error("Version number isn't formatted correctly")
+        raise ValueError
+    architecture = get_system_architecture()
+    return f"{APP_NAME}-{PLATFORM}-{architecture}-{APP_VERSION}.zip"

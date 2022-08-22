@@ -8,18 +8,21 @@ from zipfile import ZipFile
 
 import PyInstaller.__main__
 
+from sys_vars import ARCHITECTURE
 from updater.bs3 import Bs3client
 from utils.crypto_util import compute_sha256
-from utils.sys_utils import get_system_architecture
+from utils.sys_utils import (
+    APP_NAME,
+    APP_VERSION,
+    PLATFORM,
+    VERSIONS_ARCHIVE_NAME,
+    VERSIONS_JSON_NAME,
+    gen_archive_name,
+    get_bin_ext_for_platform,
+)
 
 log = logging.getLogger(__name__)
-APP_NAME = "video-dl"
-APP_VERSION = "0.10.2"
 ASSETS = {"Windows": ["ffmpeg.exe", "ffprobe.exe"]}
-VERSIONS_ARCHIVE_NAME = "versions.zip"
-VERSIONS_JSON_NAME = "versions.json"
-PLATFORM = system()
-ARCHITECTURE = get_system_architecture()
 
 
 def update():
@@ -94,11 +97,7 @@ class GenUpdate:
 
     def _gen_binary(self) -> None:
         log.info("Generating the binary file")
-        PyInstaller.__main__.run(
-            [
-                f"{PLATFORM}-video-dl.spec"
-            ]
-        )
+        PyInstaller.__main__.run([f"{PLATFORM}-video-dl.spec"])
 
     def _check_version_number_validity(self, latest_version) -> bool:
         lv_re = match(
@@ -170,30 +169,6 @@ class GenUpdate:
             }
         )
         return dict_versions
-
-
-def get_bin_ext_for_platform() -> str:
-    ext = None
-    if PLATFORM == "Windows":
-        ext = ".exe"
-    elif PLATFORM == "Linux":
-        ext = "_amd64.deb"
-    elif PLATFORM == "Darwin":
-        ext = ".dmg"
-    if ext is None:
-        log.error("Platform isn't supported")
-        raise RuntimeError
-    return f"{APP_NAME}{ext}"
-
-
-def gen_archive_name() -> str:
-    correct_format = match(
-        r"(?P<major>\d+)\.(?P<minor>\d+)\." r"(?P<patch>\d+)", APP_VERSION
-    )
-    if not correct_format:
-        log.error("Version number isn't formatted correctly")
-        raise ValueError
-    return f"{APP_NAME}-{PLATFORM}-{ARCHITECTURE}-{APP_VERSION}.zip"
 
 
 if __name__ == "__main__":

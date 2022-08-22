@@ -1,3 +1,5 @@
+import platform
+
 from gui import _video_dl_gui
 from updater.updater import Updater
 

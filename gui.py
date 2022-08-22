@@ -10,7 +10,6 @@ from environs import Env
 from yt_dlp import utils
 
 from components_handlers import ytdlp_handler
-from gen_new_version import APP_VERSION
 from icon_base64 import ICON_BASE64
 from lang import (
     GuiField,
@@ -19,6 +18,7 @@ from lang import (
     get_text,
     set_current_language,
 )
+from utils.sys_utils import APP_VERSION
 
 env = Env()
 default_playlist_items_value = "1,2,4-10,12"

@@ -8,20 +8,20 @@ from platform import system
 from subprocess import Popen
 from zipfile import ZipFile
 
-from gen_new_version import (
+from lang import GuiField, get_text
+from quantiphy import Quantity
+from requests import get
+from sys_vars import ARCHITECTURE
+from utils.crypto_util import compute_sha256
+from utils.gui_utils import create_progress_bar
+from utils.sys_utils import (
     APP_NAME,
     APP_VERSION,
-    ARCHITECTURE,
     VERSIONS_ARCHIVE_NAME,
     VERSIONS_JSON_NAME,
     gen_archive_name,
     get_bin_ext_for_platform,
 )
-from lang import GuiField, get_text
-from quantiphy import Quantity
-from requests import get
-from utils.crypto_util import compute_sha256
-from utils.gui_utils import create_progress_bar
 from yt_dlp.utils import traverse_obj
 
 log = logging.getLogger(__name__)

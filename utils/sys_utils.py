@@ -6,6 +6,7 @@ from pathlib import Path
 from platform import machine, system
 from re import IGNORECASE, match, search
 from subprocess import Popen, check_output
+from typing import Any
 
 APP_NAME = "video-dl"
 APP_VERSION = "0.10.2"
@@ -59,7 +60,7 @@ def _get_extension_for_platform() -> str:
 
 def popen(cmd: list) -> Popen:
     """
-    Popen handler for Windows. Avoid opening a console when running commands.
+    Popen handler for OSs. Avoid opening a console when running commands.
 
     Args:
         cmd (list): Commands list
@@ -67,11 +68,9 @@ def popen(cmd: list) -> Popen:
     Returns:
         Popen: Popen object
     """
-    startupinfo = subprocess.STARTUPINFO()
-    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     process = Popen(
         cmd,
-        startupinfo=startupinfo,
+        startupinfo=get_startup_info(),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         stdin=subprocess.PIPE,
@@ -91,9 +90,7 @@ def check_cmd_output(cmd: list[str]) -> str:
     Returns:
         str: The output of the command line
     """
-    startupinfo = subprocess.STARTUPINFO()
-    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-    return check_output(cmd, startupinfo=startupinfo)
+    return check_output(cmd, startupinfo=get_startup_info())
 
 
 def get_system_architecture() -> str:
@@ -137,3 +134,11 @@ def gen_archive_name() -> str:
         raise ValueError
     architecture = get_system_architecture()
     return f"{APP_NAME}-{PLATFORM}-{architecture}-{APP_VERSION}.zip"
+
+
+def get_startup_info() -> Any:
+    startupinfo = None
+    if PLATFORM == "Windows":
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    return startupinfo

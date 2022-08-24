@@ -9,12 +9,15 @@ from setuptools import setup
 
 APP = ["app.py"]
 DATA_FILES = []
-OPTIONS = {"iconfile": "icon.ico"}
+OPTIONS = {
+    "iconfile": "icon.png",
+    "emulate_shell_environment": True
+    }
 
 setup(
     app=APP,
     name="Video-dl",
     data_files=DATA_FILES,
     options={"py2app": OPTIONS},
-    setup_requires=["py2app"],
+    setup_requires=["py2app"]
 )

@@ -57,8 +57,14 @@ You need to install:
 * ffmpeg
 * ffprobe
 
-You can use pyinstaller to create a binary file. On Windows I'm using the following command line: 
-`pyinstaller -wF --icon=icon.ico --name=video-dl.exe --add-binary "dependencies/avcodec-59.dll;." --add-binary "dependencies/avdevice-59.dll;." --add-binary "dependencies/avfilter-8.dll;." --add-binary "dependencies/avformat-59.dll;." --add-binary "dependencies/avutil-57.dll;." --add-data "dependencies/ffmpeg.exe;." --add-data "dependencies/ffprobe.exe;." --add-binary "dependencies/postproc-56.dll;." --add-binary "dependencies/swresample-4.dll;." --add-binary "dependencies/swscale-6.dll;." gui.py`
+### Windows
+Use pyinstaller and the file Windows-video-dl.spec `pyinstaller Windows-video-dl.spec`
+
+### MACOS
+Use py2app and the file MACOS-video-dl.py `python MACOS-video-dl.py py2app`
+
+### Linux
+N/A
 
 ## Software used
 

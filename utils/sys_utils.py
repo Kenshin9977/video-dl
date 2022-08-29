@@ -7,7 +7,6 @@ from pathlib import Path
 from platform import machine, system
 from re import IGNORECASE, match, search
 from subprocess import Popen, check_output
-from turtle import color
 from typing import Any
 
 import PySimpleGUI as Sg

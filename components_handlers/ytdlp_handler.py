@@ -123,8 +123,9 @@ def _gen_file_opts(
         ),
         "progress_hooks": [download_progress_bar],
         "postprocessor_hooks": [postprocess_progress_bar],
-        "playlist_items": playlist_items if playlist_items_selected else 1,
     }
+    if playlist_items_selected:
+        opts["playlist_items"] = playlist_items or 1
 
     if FF_PATH.get("ffmpeg") != "ffmpeg":
         opts["ffmpeg_location"] = FF_PATH.get("ffmpeg")

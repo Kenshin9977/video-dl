@@ -2,11 +2,15 @@ import logging
 import os
 import subprocess
 import sys
+import webbrowser
 from pathlib import Path
 from platform import machine, system
 from re import IGNORECASE, match, search
 from subprocess import Popen, check_output
+from turtle import color
 from typing import Any
+
+import PySimpleGUI as Sg
 
 APP_NAME = "video-dl"
 APP_VERSION = "0.10.2"
@@ -41,7 +45,8 @@ def get_ff_components_path() -> dict:
         if ffmpeg_version_cmd is not None:
             return {"ffmpeg": "ffmpeg", "ffprobe": "ffprobe"}
     except FileNotFoundError:
-        raise FileNotFoundError("ffmpeg is not installed")
+        ffmpeg_missing()
+        raise FileNotFoundError("ffmpeg is missing")
 
 
 def _get_extension_for_platform() -> str:
@@ -142,3 +147,53 @@ def get_startup_info() -> Any:
         startupinfo = subprocess.STARTUPINFO()
         startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     return startupinfo
+
+
+def ffmpeg_missing() -> None:
+    error_message = "Video-dl needs FFmpeg and FFprobe to work. "
+    message = ""
+    url = ""
+    if PLATFORM == "Windows":
+        message = (
+            "On Windows, FFmpeg should be embedded with the app."
+            "This error shouldn't happen. Please open an issue at "
+        )
+        url = "https://github.com/Kenshin9977/video-dl/issues"
+    elif PLATFORM == "Darwin":
+        message = "On MacOS you can follow this guide to install it: "
+        url = "https://macappstore.org/ffmpeg/"
+    elif PLATFORM == "Linux":
+        message = (
+            "On Linux you can install FFmpeg through your package manager "
+            'using the package name "ffmpeg"'
+        )
+
+    Sg.theme("DarkBrown4")
+    layout = [
+        [Sg.Text(error_message, font=("Arial", 16, ""))],
+        [Sg.Text(message, font=("Arial", 16, ""), text_color="white")],
+        [
+            Sg.Text(
+                text=url,
+                enable_events=True,
+                font=("Courier New", 16, "underline"),
+                key=url,
+                text_color="white",
+            )
+        ],
+    ]
+    window = Sg.Window(
+        "FFmpeg is missing",
+        layout,
+        finalize=True,
+        element_justification="center",
+    )
+
+    while True:
+        event, values = window.read()
+        if event == Sg.WINDOW_CLOSED:
+            break
+        elif event.startswith("http"):
+            webbrowser.open(event)
+        print(event, values)
+    window.close()

@@ -116,6 +116,7 @@ def _gen_file_opts(
     """
     opts = {
         "noplaylist": not playlist,
+        "ignoreerrors": "only_download" if playlist else False,
         "overwrites": True,
         "trim_file_name": 250,
         "outtmpl": os.path.join(

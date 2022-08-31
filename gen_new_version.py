@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from os.path import exists, getsize, join
-from platform import machine, system
+from platform import machine
 from re import match
 from zipfile import ZipFile
 

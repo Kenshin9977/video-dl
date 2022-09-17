@@ -13,7 +13,7 @@ OPTIONS = {"iconfile": "icon.png", "emulate_shell_environment": True}
 
 setup(
     app=APP,
-    name="Video-dl",
+    name="video-dl",
     data_files=DATA_FILES,
     options={"py2app": OPTIONS},
     setup_requires=["py2app"],

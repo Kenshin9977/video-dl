@@ -7,6 +7,7 @@ from re import match
 from zipfile import ZipFile
 
 import PyInstaller.__main__
+from mergedeep import merge
 
 from sys_vars import ARCHITECTURE
 from updater.bs3 import Bs3client
@@ -40,6 +41,7 @@ class GenUpdate:
         self.s3client = Bs3client()
         self.versions_archive_name = VERSIONS_ARCHIVE_NAME
         self.versions_json_name = VERSIONS_JSON_NAME
+        self.dict_versions = self._init_latest_dict_versions()
 
     def gen_update(self):
         self._gen_archives()
@@ -50,16 +52,30 @@ class GenUpdate:
         self.s3client.upload(filename=self.versions_archive_name)
 
     def _gen_archives(self) -> None:
-        self._gen_json_archive()
         self._gen_app_archive()
+        self._gen_json_archive()
+
+    def _init_latest_dict_versions(self):
+        dict_versions = self._get_versions_json()
+        try:
+            latest_version = dict_versions[self.app_name][self.platform][
+                ARCHITECTURE
+            ]["latest_version"]
+        except KeyError:
+            latest_version = None
+        if latest_version and not self._check_version_number_validity(
+            latest_version
+        ):
+            log.error("Version number isn't valid")
+            raise ValueError
+        return dict_versions
 
     def _gen_app_archive(self):
         self._gen_binary()
         zipObj = ZipFile(self.archive_name, "w")
         path2bin = join("dist", self.bin_name)
         if not exists(path2bin):
-            log.error("Binary file wasn't found")
-            raise FileNotFoundError
+            raise FileNotFoundError("Binary file wasn't found")
         zipObj.write(path2bin, arcname=self.bin_name)
         zipObj.close()
 
@@ -80,9 +96,7 @@ class GenUpdate:
 
     def _get_versions_json(self) -> dict:
         self._clean_versions_files()
-        if not self.s3client.download(
-            self.versions_archive_name, can_fail=True
-        ):
+        if not self.s3client.download(self.versions_archive_name):
             log.info(f"{self.versions_json_name} doesn't exists")
             return dict()
         with ZipFile(self.versions_archive_name, "r") as zip_ref:
@@ -97,7 +111,10 @@ class GenUpdate:
 
     def _gen_binary(self) -> None:
         log.info("Generating the binary file")
-        PyInstaller.__main__.run([f"{PLATFORM}-video-dl.spec"])
+        if PLATFORM == "Windows" and ARCHITECTURE == "x86_64":
+            PyInstaller.__main__.run([f"{PLATFORM}-video-dl.spec"])
+        elif PLATFORM == "Darwin" and ARCHITECTURE == "arm64":
+            os.system("python MACOS-video-dl.py py2app")
 
     def _check_version_number_validity(self, latest_version) -> bool:
         lv_re = match(
@@ -139,36 +156,22 @@ class GenUpdate:
             log.info("No versions files were found")
 
     def _gen_versions_json(self) -> dict:
-        dict_versions = self._get_versions_json()
-        try:
-            latest_version = dict_versions[self.app_name][self.platform][
-                ARCHITECTURE
-            ]["latest_version"]
-            if not self._check_version_number_validity(latest_version):
-                log.error("Version number isn't valid")
-                raise ValueError
-        except KeyError:
-            log.info("No latest_version key found")
-            raise KeyError
-        dict_versions.update(
-            {
-                self.app_name: {
-                    self.platform: {
-                        ARCHITECTURE: {
-                            "latest_version": self.app_version,
-                            self.app_version: {
-                                "archive_name": self.archive_name,
-                                "archive_size": getsize(self.archive_name),
-                                "archive_hash": compute_sha256(
-                                    self.archive_name
-                                ),
-                            },
-                        }
-                    },
+        new_version_dict = {
+            self.app_name: {
+                self.platform: {
+                    ARCHITECTURE: {
+                        "latest_version": self.app_version,
+                        self.app_version: {
+                            "archive_name": self.archive_name,
+                            "archive_size": getsize(self.archive_name),
+                            "archive_hash": compute_sha256(self.archive_name),
+                        },
+                    }
                 },
-            }
-        )
-        return dict_versions
+            },
+        }
+        self.dict_versions = merge(self.dict_versions, new_version_dict)
+        return self.dict_versions
 
 
 if __name__ == "__main__":

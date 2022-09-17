@@ -26,11 +26,13 @@ class Bs3client:
     def download(self, filename, can_fail=False) -> bool:
         try:
             self.bucket.download_file(filename, path.basename(filename))
-        except botocore.exceptions.ClientError:
+        except botocore.exceptions.ClientError as e:
             log.error(f"Can't find {filename}")
             if can_fail:
                 return False
-            raise FileNotFoundError
+            raise FileNotFoundError(
+                f"File not found. Check the filename and the AWS_ID\n{e}"
+                )
         return True
 
     def upload(self, filename):

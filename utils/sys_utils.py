@@ -122,7 +122,7 @@ def get_bin_ext_for_platform() -> str:
     elif PLATFORM == "Linux":
         ext = "_amd64.deb"
     elif PLATFORM == "Darwin":
-        ext = ".dmg"
+        ext = ".app"
     if ext is None:
         log.error("Platform isn't supported")
         raise RuntimeError

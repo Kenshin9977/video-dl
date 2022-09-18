@@ -27,7 +27,7 @@ def create_progress_bar(action: str, update: bool) -> Sg.Window:
         no_titlebar=not update,
         grab_anywhere=not update,
         modal=not update,
-        keep_on_top=True
+        keep_on_top=True,
     )
     # progress_bar.TKroot.bind('<Configure>', configure)
     # progress_bar.TKroot.bind('<FocusIn>', focus_in)

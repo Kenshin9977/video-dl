@@ -69,9 +69,10 @@ class Updater:
         """
         bs3_version_parsed = [int(n) for n in self.latest_version.split(".")]
         bin_version_parsed = [int(n) for n in APP_VERSION.split(".")]
-        if bs3_version_parsed[0] < bin_version_parsed[0]:
-            return False
-        elif bs3_version_parsed[1] < bin_version_parsed[1]:
+        if (
+            bs3_version_parsed[0] < bin_version_parsed[0]
+            or bs3_version_parsed[1] < bin_version_parsed[1]
+        ):
             return False
         return bs3_version_parsed[2] > bin_version_parsed[2]
 
@@ -83,14 +84,14 @@ class Updater:
             dict: versions.json loaded
         """
         self._clean_versions_files()
-        versions_dict = None
+        versions_dict = {}
         r = get(
             "http://video-dl-binaries.s3.amazonaws.com/"
             f"{self.versions_archive_name}"
         )
         if r.status_code != 200:
             log.info(f"{self.versions_archive_name} doesn't exists")
-            return
+            return versions_dict
         with open(self.versions_archive_name, "wb") as f:
             f.write(r.content)
         with ZipFile(self.versions_archive_name, "r") as zip_ref:

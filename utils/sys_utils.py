@@ -131,7 +131,7 @@ def get_bin_ext_for_platform() -> str:
 
 def gen_archive_name() -> str:
     correct_format = match(
-        r"(?P<major>\d+)\.(?P<minor>\d+)\." r"(?P<patch>\d+)", APP_VERSION
+        r"(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)", APP_VERSION
     )
     if not correct_format:
         log.error("Version number isn't formatted correctly")

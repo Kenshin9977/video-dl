@@ -32,7 +32,7 @@ class Bs3client:
                 return False
             raise FileNotFoundError(
                 f"File not found. Check the filename and the AWS_ID\n{e}"
-                )
+            )
         return True
 
     def upload(self, filename):

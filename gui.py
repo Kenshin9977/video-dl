@@ -56,56 +56,65 @@ def _video_dl_gui() -> None:
                 values["PlaylistItemsCheckbox"], window
             )
         elif event == "dl":
-            if values["Start"] and values["End"] and _check_timecode(values):
-                window["error"].update(
-                    get_text(GuiField.incorrect_timestamp),
-                    visible=True,
-                    text_color="yellow",
-                )
-            elif values["path"] == "":
-                window["error"].update(
-                    get_text(GuiField.missing_output), visible=True
-                )
-            else:
-                window["error"].update(visible=False)
-                # noinspection PyBroadException
-                try:
-                    ytdlp_handler.video_dl(values)
-                except ValueError:
-                    logging.error(traceback.format_exc())
-                    window["error"].update(
-                        f"{get_text(GuiField.dl_cancel)}",
-                        visible=True,
-                        text_color="yellow",
-                    )
-                except FileExistsError:
-                    window["error"].update(
-                        get_text(GuiField.dl_finish),
-                        visible=True,
-                        text_color="green",
-                    )
-                except utils.DownloadError as e:
-                    logging.error(traceback.format_exc())
-                    window["error"].update(
-                        get_text(GuiField.error) + str(e),
-                        visible=True,
-                        text_color="red",
-                    )
-                    ytdlp_handler.DL_PROG_WIN.close()
-                except Exception as e:
-                    logging.error(traceback.format_exc())
-                    window["error"].update(
-                        f"{get_text(GuiField.dl_error)}\n{str(e)}\n"
-                        f"{traceback.format_exc()}",
-                        visible=True,
-                        text_color="red",
-                    )
-                else:
-                    window["error"].update(
-                        get_text(GuiField.dl_finish),
-                        visible=True,
-                        text_color="green",
-                    )
+            _run_video_dl(window, values)
+
+
+def _run_video_dl(window: dict, values: dict) -> None:
+    """
+    Run video_dl backend and handles exceptions
+
+    Args:
+        window (dict): GUI window's dict
+        values (dict): GUI values' dict
+    """
+    if values["Start"] and values["End"] and _check_timecode(values):
+        window["error"].update(
+            get_text(GuiField.incorrect_timestamp),
+            visible=True,
+            text_color="yellow",
+        )
+    elif values["path"] == "":
+        window["error"].update(get_text(GuiField.missing_output), visible=True)
+    else:
+        window["error"].update(visible=False)
+        # noinspection PyBroadException
+        try:
+            ytdlp_handler.video_dl(values)
+        except ValueError:
+            logging.error(traceback.format_exc())
+            window["error"].update(
+                f"{get_text(GuiField.dl_cancel)}",
+                visible=True,
+                text_color="yellow",
+            )
+        except FileExistsError:
+            window["error"].update(
+                get_text(GuiField.dl_finish),
+                visible=True,
+                text_color="green",
+            )
+        except utils.DownloadError as e:
+            logging.error(traceback.format_exc())
+            window["error"].update(
+                get_text(GuiField.error) + str(e),
+                visible=True,
+                text_color="red",
+            )
+            ytdlp_handler.DL_PROG_WIN.close()
+        except Exception as e:
+            logging.error(traceback.format_exc())
+            window["error"].update(
+                f"{get_text(GuiField.dl_error)}\n{str(e)}\n"
+                f"{traceback.format_exc()}",
+                visible=True,
+                text_color="red",
+            )
+        else:
+            window["error"].update(
+                get_text(GuiField.dl_finish),
+                visible=True,
+                text_color="green",
+            )
 
 
 def _gen_layout(default_download_path: str) -> list:
@@ -351,11 +360,6 @@ def _gen_layout(default_download_path: str) -> list:
     return layout
 
 
-# def _subtitles_checkbox(values: dict, window: Sg.Window) -> None:
-#     audio_checkbox = not values["Subtitles"]
-#     window["SubtitlesLanguage"].update(disabled=audio_checkbox)
-
-
 def _audio_only_checkbox(values: dict, window: Sg.Window) -> None:
     """
     Handles the GUI depending of the audio_only's checkbox state.
@@ -415,12 +419,12 @@ def _check_timecode(values: dict) -> bool:
     Returns:
         bool: Whether or not the values entered are correct
     """
-    sH, sM, sS = int(values["sH"]), int(values["sM"]), int(values["sS"])
-    eH, eM, eS = int(values["eH"]), int(values["eM"]), int(values["eS"])
+    sh, sm, ss = int(values["sH"]), int(values["sM"]), int(values["sS"])
+    eh, em, es = int(values["eH"]), int(values["eM"]), int(values["eS"])
     return (
-        sH > eH
-        or (sH == eH and sM > eM)
-        or (sH == eH and sM == eM and sS > eS)
+        sh > eh
+        or (sh == eh and sm > em)
+        or (sh == eh and sm == em and ss > es)
     )
 
 
@@ -556,4 +560,3 @@ def _update_text_lang(window: Sg.Window) -> None:
     window["AudioOnly"].update(text=get_text(GuiField.audio_only))
     window["TextCookies"].update(get_text(GuiField.cookies))
     window["dl"].update(get_text(GuiField.dl_button))
-    return

@@ -66,22 +66,21 @@ class GenUpdate:
         if latest_version and not self._check_version_number_validity(
             latest_version
         ):
-            log.error("Version number isn't valid")
-            raise ValueError
+            raise ValueError("Version number isn't valid")
         return dict_versions
 
     def _gen_app_archive(self):
         self._gen_binary()
-        zipObj = ZipFile(self.archive_name, "w")
+        zip_obj = ZipFile(self.archive_name, "w")
         path2bin = join("dist", self.bin_name)
         if not exists(path2bin):
             raise FileNotFoundError("Binary file wasn't found")
-        zipObj.write(path2bin, arcname=self.bin_name)
-        zipObj.close()
+        zip_obj.write(path2bin, arcname=self.bin_name)
+        zip_obj.close()
 
     def _gen_json_archive(self) -> None:
         versions_dict = self._gen_versions_json()
-        zipObj = ZipFile(self.versions_archive_name, "w")
+        zip_obj = ZipFile(self.versions_archive_name, "w")
         with open(self.versions_json_name, "w") as outfile:
             json.dump(versions_dict, outfile)
         # signature_dict = {"signature": compute_signature(json_versions_path)}
@@ -90,9 +89,9 @@ class GenUpdate:
         if not exists(self.versions_json_name):
             log.error(f"{self.versions_json_name} file wasn't found")
             raise FileNotFoundError
-        zipObj.write(self.versions_json_name)
+        zip_obj.write(self.versions_json_name)
         # zipObj.write("signature.json")
-        zipObj.close()
+        zip_obj.close()
 
     def _get_versions_json(self) -> dict:
         self._clean_versions_files()
@@ -118,11 +117,11 @@ class GenUpdate:
 
     def _check_version_number_validity(self, latest_version) -> bool:
         lv_re = match(
-            r"(?P<major>\d+)\.(?P<minor>\d+)\." r"(?P<patch>\d+)",
+            r"(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)",
             latest_version,
         )
         cv_re = match(
-            r"(?P<major>\d+)\.(?P<minor>\d+)\." r"(?P<patch>\d+)",
+            r"(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)",
             self.app_version,
         )
         if not cv_re or not lv_re:

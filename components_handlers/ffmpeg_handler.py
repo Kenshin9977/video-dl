@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import json
 import os
 import re
-import sys
+import subprocess
 from subprocess import PIPE, STDOUT, run
 from typing import List
 
-import ffmpeg
 import PySimpleGUI as Sg
 from lang import GuiField, get_text
 from sys_vars import FF_PATH
@@ -25,7 +25,7 @@ def post_process_dl(full_name: str, target_vcodec: str) -> None:
         full_name (str): Full path of the file downloaded
         target_vcodec (str): Videoc codec to encode to if necessary
     """
-    file_infos = ffmpeg.probe(full_name, cmd=FF_PATH.get("ffprobe"))["streams"]
+    file_infos = ffprobe(full_name, cmd=FF_PATH.get("ffprobe"))["streams"]
     acodec, vcodec = "na", "na"
     for i in range(0, min(2, len(file_infos))):
         if file_infos[i]["codec_type"] == "audio":
@@ -41,6 +41,30 @@ def post_process_dl(full_name: str, target_vcodec: str) -> None:
     _ffmpeg_video(
         full_name, acodec_nle_friendly, vcodec_nle_friendly, target_vcodec
     )
+
+
+def ffprobe(filename: str, cmd: str = 'ffprobe') -> dict:
+    """
+    Run ffprobe on the specified file and return a JSON representation of the
+    output.
+
+    Args:
+        filename (str): Path of the file to process
+        cmd (str, optional): ffprobe path. Defaults to 'ffprobe'.
+
+    Raises:
+        ValueError: When the command errors out
+
+    Returns:
+        dict: File's infos
+    """
+    args = [cmd, '-show_format', '-show_streams', '-of', 'json', filename]
+
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = p.communicate()
+    if p.returncode != 0:
+        raise ValueError('ffprobe', out, err)
+    return json.loads(out.decode('utf-8'))
 
 
 def _ffmpeg_video(
@@ -90,7 +114,7 @@ def _ffmpeg_video(
     )
     _progress_ffmpeg(ffmpegCommand, action, path)
     if not os.path.isfile(tmp_path):
-        raise ffmpeg.Error(ffmpegCommand, sys.stdout, sys.stderr)
+        raise FileNotFoundError(ffmpegCommand)
     os.remove(path)
     os.rename(src=tmp_path, dst=os.path.splitext(path)[0] + new_ext)
 

@@ -1,7 +1,6 @@
 boto3
 black
 environs
-ffmpeg-python
 flake8
 gputil
 pillow

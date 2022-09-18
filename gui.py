@@ -267,7 +267,7 @@ def _gen_layout(default_download_path: str) -> list:
                     "VORBIS",
                     "WAV",
                 ],
-                default_value="mp3",
+                default_value="MP3",
                 readonly=True,
                 key="TargetACodec",
                 size=(8, 1),

@@ -95,7 +95,7 @@ def _ffmpeg_video(
         "copy" if vcodec_nle_friendly else fastest_encoder(path, target_vcodec)
     )
     tmp_path = f"{os.path.splitext(path)[0]}.tmp{new_ext}"
-    ffmpegCommand = [
+    ffmpeg_command = [
         FF_PATH.get("ffmpeg"),
         "-hide_banner",
         "-i",
@@ -106,16 +106,16 @@ def _ffmpeg_video(
         ffmpeg_vcodec,
     ]
     if target_vcodec == "ProRes":
-        ffmpegCommand.extend(["-profile:v", "0", "-qscale:v", "4"])
-    ffmpegCommand.extend(["-y", tmp_path])
+        ffmpeg_command.extend(["-profile:v", "0", "-qscale:v", "4"])
+    ffmpeg_command.extend(["-y", tmp_path])
     action = (
         get_text(GuiField.ff_remux)
         if acodec_nle_friendly and vcodec_nle_friendly
         else get_text(GuiField.ff_reencode)
     )
-    _progress_ffmpeg(ffmpegCommand, action, path)
+    _progress_ffmpeg(ffmpeg_command, action, path)
     if not os.path.isfile(tmp_path):
-        raise FileNotFoundError(ffmpegCommand)
+        raise FileNotFoundError(ffmpeg_command)
     os.remove(path)
     os.rename(src=tmp_path, dst=os.path.splitext(path)[0] + new_ext)
 

@@ -261,9 +261,7 @@ def download_progress_bar(d: dict) -> None:
     n_entries = traverse_obj(d, ("info_dict", "n_entries"))
 
     if dl_status == "finished":
-        if n_current_entry is not None and n_current_entry == n_entries:
-            DL_PROG_WIN.close()
-        elif n_current_entry is None:
+        if n_current_entry is None or n_current_entry == n_entries:
             DL_PROG_WIN.close()
     elif event == get_text(GuiField.cancel_button):
         DL_PROG_WIN.close()
@@ -318,9 +316,7 @@ def postprocess_progress_bar(d):
     n_entries = traverse_obj(d, ("info_dict", "n_entries"))
 
     if pp_status == "finished":
-        if n_current_entry is not None and n_current_entry == n_entries:
-            PP_PROG_WIN.close()
-        elif n_current_entry is None:
+        if n_current_entry is None or n_current_entry == n_entries:
             PP_PROG_WIN.close()
     elif event == get_text(GuiField.cancel_button):
         PP_PROG_WIN.close()

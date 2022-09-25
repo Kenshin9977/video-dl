@@ -15,7 +15,7 @@ from yt_dlp.utils import traverse_obj
 
 from components_handlers.ffmpeg_handler import post_process_dl
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger()
 LAST_SPEED = "-"
 DL_PROG_WIN = None
 PP_PROG_WIN = None
@@ -33,6 +33,7 @@ def video_dl(opts: dict) -> None:
     ydl_opts = _gen_ydl_opts(opts)
     DL_PROG_WIN = create_progress_bar(get_text(GuiField.download), False)
     PP_PROG_WIN = create_progress_bar(get_text(GuiField.process), False)
+    logger.debug("ydl options %s", ydl_opts)
     with YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(opts["url"])
         DL_PROG_WIN.close()

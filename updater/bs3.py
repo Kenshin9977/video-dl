@@ -5,7 +5,7 @@ import boto3
 import botocore.exceptions
 from environs import Env
 
-log = logging.getLogger(__name__)
+log = logging.getLogger()
 env = Env()
 
 

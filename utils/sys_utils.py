@@ -12,12 +12,18 @@ from typing import Any
 import PySimpleGUI as Sg
 
 APP_NAME = "video-dl"
-APP_VERSION = "0.10.3"
+APP_VERSION = "0.10.6"
 PLATFORM = system()
 VERSIONS_ARCHIVE_NAME = "versions.zip"
 VERSIONS_JSON_NAME = "versions.json"
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger()
+
+logger.debug("APP_NAME: %s", APP_NAME)
+logger.debug("APP_VERSION: %s", APP_VERSION)
+logger.debug("PLATFORM: %s", PLATFORM)
+logger.debug("VERSIONS_ARCHIVE_NAME: %s", VERSIONS_ARCHIVE_NAME)
+logger.debug("VERSIONS_JSON_NAME: %s", VERSIONS_JSON_NAME)
 
 
 def get_ff_components_path() -> dict:
@@ -41,6 +47,7 @@ def get_ff_components_path() -> dict:
         return {"ffmpeg": ffmpeg_path, "ffprobe": ffprobe_path}
     try:
         ffmpeg_version_cmd = check_output(["ffmpeg", "-version"])
+        logger.debug("ffmpeg version: %s", ffmpeg_version_cmd)
         if ffmpeg_version_cmd is not None:
             return {"ffmpeg": "ffmpeg", "ffprobe": "ffprobe"}
     except FileNotFoundError:
@@ -124,7 +131,7 @@ def get_bin_ext_for_platform() -> str:
     elif PLATFORM == "Darwin":
         ext = ".app"
     if ext is None:
-        log.error("Platform isn't supported")
+        logger.error("Platform isn't supported")
         raise RuntimeError
     return f"{APP_NAME}{ext}"
 
@@ -134,7 +141,7 @@ def gen_archive_name() -> str:
         r"(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)", APP_VERSION
     )
     if not correct_format:
-        log.error("Version number isn't formatted correctly")
+        logger.error("Version number isn't formatted correctly")
         raise ValueError
     architecture = get_system_architecture()
     return f"{APP_NAME}-{PLATFORM}-{architecture}-{APP_VERSION}.zip"

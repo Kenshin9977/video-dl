@@ -24,7 +24,7 @@ from utils.sys_utils import (
 )
 from yt_dlp.utils import traverse_obj
 
-log = logging.getLogger(__name__)
+log = logging.getLogger()
 
 
 class Updater:

@@ -21,10 +21,11 @@ from lang import (
 from utils.sys_utils import APP_VERSION
 
 env = Env()
+logger = logging.getLogger()
 default_playlist_items_value = "1,2,4-10,12"
 
 
-def _video_dl_gui() -> None:
+def video_dl_gui() -> None:
     """
     Start the GUI and run the app.
     """
@@ -41,8 +42,6 @@ def _video_dl_gui() -> None:
         _fill_timecode(values, window)
         if event == "Start" or event == "End":
             _trim_checkbox(values, window, event)
-        # elif event == "Subtitles":
-        #     _subtitles_checkbox(values, window)
         elif event == "AudioOnly":
             _audio_only_checkbox(values, window)
         elif event == "Lang":
@@ -79,6 +78,7 @@ def _run_video_dl(window: dict, values: dict) -> None:
         window["error"].update(visible=False)
         # noinspection PyBroadException
         try:
+            logger.debug("GUI's options selected %s", values)
             ytdlp_handler.video_dl(values)
         except ValueError:
             logging.error(traceback.format_exc())
@@ -282,13 +282,7 @@ def _gen_layout(default_download_path: str) -> list:
                 checkbox_color="black",
                 enable_events=True,
                 key="Subtitles",
-            ),
-            # Sg.Combo(
-            #     get_available_languages_name(),
-            #     default_value=get_current_language_name(),
-            #     readonly=True,
-            #     key="SubtitlesLanguage", size=(8, 1), disabled=True
-            #     )
+            )
         ],
         [
             Sg.Combo(

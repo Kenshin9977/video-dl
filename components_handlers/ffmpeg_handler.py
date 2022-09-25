@@ -43,7 +43,7 @@ def post_process_dl(full_name: str, target_vcodec: str) -> None:
     )
 
 
-def ffprobe(filename: str, cmd: str = 'ffprobe') -> dict:
+def ffprobe(filename: str, cmd: str = "ffprobe") -> dict:
     """
     Run ffprobe on the specified file and return a JSON representation of the
     output.
@@ -58,13 +58,13 @@ def ffprobe(filename: str, cmd: str = 'ffprobe') -> dict:
     Returns:
         dict: File's infos
     """
-    args = [cmd, '-show_format', '-show_streams', '-of', 'json', filename]
+    args = [cmd, "-show_format", "-show_streams", "-of", "json", filename]
 
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = p.communicate()
     if p.returncode != 0:
-        raise ValueError('ffprobe', out, err)
-    return json.loads(out.decode('utf-8'))
+        raise ValueError("ffprobe", out, err)
+    return json.loads(out.decode("utf-8"))
 
 
 def _ffmpeg_video(

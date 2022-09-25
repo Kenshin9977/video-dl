@@ -1,12 +1,13 @@
 boto3
 black
 environs
+fire
 flake8
 gputil
+mergedeep
 pillow
 pyinstaller
 pynacl
 quantiphy
 requests
 yt-dlp
-mergedeep

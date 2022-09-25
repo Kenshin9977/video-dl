@@ -34,3 +34,4 @@ venv/*
 *.dll
 *.exe
 Video-dl.app/*
+*.log

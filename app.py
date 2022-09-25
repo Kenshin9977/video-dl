@@ -1,9 +1,18 @@
-from gui import _video_dl_gui
+import logging
+
+import fire
+
+from gui import video_dl_gui
 from updater.updater import Updater
+from videodl_logger import videodl_logger
+
+logger = logging.getLogger()
 
 if __name__ == "__main__":
+    fire.Fire(videodl_logger)
     Updater().update_app()
-    _video_dl_gui()
+    logger.debug("GUI's startup")
+    video_dl_gui()
 
 # TODO: Write tests
 # TODO: Sign updates

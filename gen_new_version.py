@@ -22,7 +22,7 @@ from utils.sys_utils import (
     get_bin_ext_for_platform,
 )
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger()
 ASSETS = {"Windows": ["ffmpeg.exe", "ffprobe.exe"]}
 
 
@@ -87,7 +87,7 @@ class GenUpdate:
         # with open("signature.json", 'w') as outfile:
         #     json.dump(signature_dict, outfile)
         if not exists(self.versions_json_name):
-            log.error(f"{self.versions_json_name} file wasn't found")
+            logger.error(f"{self.versions_json_name} file wasn't found")
             raise FileNotFoundError
         zip_obj.write(self.versions_json_name)
         # zipObj.write("signature.json")
@@ -96,7 +96,7 @@ class GenUpdate:
     def _get_versions_json(self) -> dict:
         self._clean_versions_files()
         if not self.s3client.download(self.versions_archive_name):
-            log.info(f"{self.versions_json_name} doesn't exists")
+            logger.info(f"{self.versions_json_name} doesn't exists")
             return dict()
         with ZipFile(self.versions_archive_name, "r") as zip_ref:
             zip_ref.extractall()
@@ -104,12 +104,12 @@ class GenUpdate:
             versions_dict = json.load(f)
         self._clean_versions_files()
         if versions_dict is None:
-            log.info(f"{self.versions_json_name} doesn't exists")
+            logger.info(f"{self.versions_json_name} doesn't exists")
             raise FileNotFoundError
         return versions_dict
 
     def _gen_binary(self) -> None:
-        log.info("Generating the binary file")
+        logger.info("Generating the binary file")
         if PLATFORM == "Windows" and ARCHITECTURE == "x86_64":
             PyInstaller.__main__.run([f"{PLATFORM}-video-dl.spec"])
         elif PLATFORM == "Darwin" and ARCHITECTURE == "arm64":
@@ -125,34 +125,40 @@ class GenUpdate:
             self.app_version,
         )
         if not cv_re or not lv_re:
-            log.error("No versions infos found")
+            logger.error("No versions infos found")
             return False
         if int(lv_re.group("major")) > int(cv_re.group("major")):
-            log.error("Major version is lesser than the latest one")
+            logger.error("Major version is lesser than the latest one")
             return False
         elif int(lv_re.group("major")) < int(cv_re.group("major")):
-            log.info("Version number is valid: Generating new major version")
+            logger.info(
+                "Version number is valid: Generating new major version"
+            )
             return True
         elif int(lv_re.group("minor")) > int(cv_re.group("minor")):
-            log.error("Minor version is lesser than the latest one")
+            logger.error("Minor version is lesser than the latest one")
             return False
         elif int(lv_re.group("minor")) < int(cv_re.group("minor")):
-            log.info("Version number is valid: Generating new minor version")
+            logger.info(
+                "Version number is valid: Generating new minor version"
+            )
             return True
         elif int(lv_re.group("patch")) >= int(cv_re.group("patch")):
-            log.error("Patch version is lesser or equal to the latest one")
+            logger.error("Patch version is lesser or equal to the latest one")
             return False
         else:
-            log.info("Version number is valid: Generating new patch version")
+            logger.info(
+                "Version number is valid: Generating new patch version"
+            )
             return True
 
     def _clean_versions_files(self) -> None:
         try:
-            log.info("Removing existing versions files")
+            logger.info("Removing existing versions files")
             os.remove(self.versions_json_name)
             os.remove(self.versions_archive_name)
         except FileNotFoundError:
-            log.info("No versions files were found")
+            logger.info("No versions files were found")
 
     def _gen_versions_json(self) -> dict:
         new_version_dict = {

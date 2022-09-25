@@ -86,7 +86,8 @@ def _ffmpeg_video(
         target_vcodec (str): The video codec to convert to (if necessary)
 
     Raises:
-        ffmpeg.Error: If the resulted file doesn't exist because ffmpeg failed
+        FileNotFoundError: If the resulted file doesn't exist because ffmpeg
+            failed
     """
     ffmpeg_acodec = "aac" if not acodec_nle_friendly else "copy"
     new_ext = ".mov" if target_vcodec == "ProRes" else ".mp4"

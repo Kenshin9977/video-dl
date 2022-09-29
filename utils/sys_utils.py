@@ -12,18 +12,12 @@ from typing import Any
 import PySimpleGUI as Sg
 
 APP_NAME = "video-dl"
-APP_VERSION = "0.10.6"
+APP_VERSION = "0.10.28"
 PLATFORM = system()
 VERSIONS_ARCHIVE_NAME = "versions.zip"
 VERSIONS_JSON_NAME = "versions.json"
 
 logger = logging.getLogger()
-
-logger.debug("APP_NAME: %s", APP_NAME)
-logger.debug("APP_VERSION: %s", APP_VERSION)
-logger.debug("PLATFORM: %s", PLATFORM)
-logger.debug("VERSIONS_ARCHIVE_NAME: %s", VERSIONS_ARCHIVE_NAME)
-logger.debug("VERSIONS_JSON_NAME: %s", VERSIONS_JSON_NAME)
 
 
 def get_ff_components_path() -> dict:

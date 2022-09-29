@@ -35,3 +35,4 @@ venv/*
 *.exe
 Video-dl.app/*
 *.log
+.VSCodeCounter/*

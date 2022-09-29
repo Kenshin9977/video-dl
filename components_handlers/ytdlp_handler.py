@@ -89,11 +89,14 @@ def _gen_ydl_opts(opts: dict) -> dict:
     )
     max_height = opts["MaxHeight"][:-1]
     target_acodec = opts["TargetACodec"]
-    ydl_opts.update(_gen_av_opts(max_height, opts["AudioOnly"], target_acodec))
+    ydl_opts.update(
+        _gen_av_opts(
+            max_height, opts["MaxFPS"], opts["AudioOnly"], target_acodec
+        )
+    )
     ydl_opts.update(_gen_ffmpeg_opts(trim_start, trim_end))
     ydl_opts.update(_gen_subtitles_opts(opts["Subtitles"]))
     ydl_opts.update(_gen_browser_opts(opts["Browser"]))
-
     return ydl_opts
 
 
@@ -135,7 +138,9 @@ def _gen_file_opts(
     return opts
 
 
-def _gen_av_opts(h: int, audio_only: bool, target_acodec: str) -> dict:
+def _gen_av_opts(
+    h: int, fps: int, audio_only: bool, target_acodec: str
+) -> dict:
     """
     Generate yt-dlp options for the audio and the video both for their search
     filters, their downloader and their post process.
@@ -176,7 +181,12 @@ def _gen_av_opts(h: int, audio_only: bool, target_acodec: str) -> dict:
         # The best video preferably with the target codec merged with the best
         # audio without video preferably with a codec compatible with mp4
         # containers or the overall best
-        opts.update({"format_sort": {"res": h}, "merge-output-format": "mp4"})
+        opts.update(
+            {
+                "format_sort": [f"res:{h}", f"framerate:{fps}"],
+                "merge-output-format": "mp4",
+            }
+        )
         # In order looks for the exact resolution, lower if not found, higher
         # if not found
     opts.update({"format": format_opt})

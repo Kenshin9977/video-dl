@@ -7,8 +7,19 @@ block_cipher = None
 a = Analysis(
     ['app.py'],
     pathex=[],
-    binaries=[('dependencies/avcodec-59.dll', '.'), ('dependencies/avdevice-59.dll', '.'), ('dependencies/avfilter-8.dll', '.'), ('dependencies/avformat-59.dll', '.'), ('dependencies/avutil-57.dll', '.'), ('dependencies/postproc-56.dll', '.'), ('dependencies/swresample-4.dll', '.'), ('dependencies/swscale-6.dll', '.')],
-    datas=[('dependencies/ffmpeg.exe', '.'), ('dependencies/ffprobe.exe', '.')],
+    binaries=[
+        ('dependencies/avcodec-59.dll', '.'),
+        ('dependencies/avdevice-59.dll', '.'),
+        ('dependencies/avfilter-8.dll', '.'),
+        ('dependencies/avformat-59.dll', '.'),
+        ('dependencies/avutil-57.dll', '.'),
+        ('dependencies/swresample-4.dll', '.'),
+        ('dependencies/swscale-6.dll', '.')
+    ],
+    datas=[
+        ('dependencies/ffmpeg.exe', '.'),
+        ('dependencies/ffprobe.exe', '.')
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

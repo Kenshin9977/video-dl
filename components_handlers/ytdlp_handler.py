@@ -315,6 +315,8 @@ def download_progress_bar(d: dict) -> None:
         # Necessary for when the total size is inaccurate
         if progress_percent >= 100:
             progress_percent = 99
+        elif progress_percent < 0:
+            progress_percent = 0
     except (ZeroDivisionError, TypeError):
         progress_percent = "-"
 
@@ -367,6 +369,8 @@ def postprocess_progress_bar(d):
         # Necessary for when the total size is inaccurate
         if progress_percent >= 100:
             progress_percent = 99
+        elif progress_percent < 0:
+            progress_percent = 0
     except (ZeroDivisionError, TypeError):
         progress_percent = "-"
 

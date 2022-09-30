@@ -24,6 +24,7 @@ class GuiField(enum.Enum):
     vcodec = enum.auto()
     acodec = enum.auto()
     audio_only = enum.auto()
+    song_only = enum.auto()
     cookies = enum.auto()
     dl_button = enum.auto()
 
@@ -148,6 +149,11 @@ def get_text(field: GuiField) -> str:
             Language.english: "Audio only",
             Language.french: "Audio seul",
             Language.german: "Nur Audio",
+        },
+        GuiField.song_only: {
+            Language.english: "Song only",
+            Language.french: "Musique seulement",
+            Language.german: "Nur Lied",
         },
         GuiField.cookies: {
             Language.english: "Use cookies from the selected browser",

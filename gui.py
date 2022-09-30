@@ -253,7 +253,15 @@ def _gen_layout(default_download_path: str) -> list:
                 checkbox_color="black",
                 enable_events=True,
                 key="AudioOnly",
-            )
+            ),
+            Sg.Checkbox(
+                get_text(GuiField.song_only),
+                default=False,
+                checkbox_color="black",
+                disabled=True,
+                enable_events=True,
+                key="SongOnly",
+            ),
         ],
         [
             Sg.Combo(
@@ -367,6 +375,7 @@ def _audio_only_checkbox(values: dict, window: Sg.Window) -> None:
     window["MaxFPS"].update(disabled=audio_checkbox)
     window["TargetVCodec"].update(disabled=audio_checkbox)
     window["TargetACodec"].update(disabled=not audio_checkbox)
+    window["SongOnly"].update(disabled=not audio_checkbox)
 
 
 def _fill_timecode(values: dict, window: Sg.Window) -> None:

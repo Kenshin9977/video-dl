@@ -4,7 +4,7 @@ import logging
 import os
 from datetime import datetime
 from typing import Optional
-
+from yt_dlp.postprocessor.sponsorblock import SponsorBlockPP
 import quantiphy
 from lang import GuiField, get_text
 from quantiphy import Quantity
@@ -97,6 +97,9 @@ def _gen_ydl_opts(opts: dict) -> dict:
     ydl_opts.update(_gen_ffmpeg_opts(trim_start, trim_end))
     ydl_opts.update(_gen_subtitles_opts(opts["Subtitles"]))
     ydl_opts.update(_gen_browser_opts(opts["Browser"]))
+    ydl_opts.update(
+        _gen_sponsor_block_opts(opts["SongOnly"], ydl_opts["postprocessors"])
+    )
     return ydl_opts
 
 
@@ -251,6 +254,22 @@ def _gen_browser_opts(browser: str) -> dict:
     opts = {}
     if browser != "None":
         opts["cookiesfrombrowser"] = [browser.lower()]
+    return opts
+
+
+def _gen_sponsor_block_opts(song_only: bool, postprocessors: list) -> dict:
+    opts = {}
+    if song_only:
+        categories = SponsorBlockPP.CATEGORIES.keys()
+        opts["postprocessors"] = postprocessors + (
+            [
+                {"key": "SponsorBlock", "when": "pre_process"},
+                {
+                    "key": "ModifyChapters",
+                    "remove_sponsor_segments": categories,
+                },
+            ]
+        )
     return opts
 
 

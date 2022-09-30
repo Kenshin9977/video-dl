@@ -383,4 +383,4 @@ def postprocess_progress_bar(d):
 
     PP_PROG_WIN["PROGINFOS1"].update(percent_str)
     PP_PROG_WIN["-PROG-"].update(progress_percent)
-    DL_PROG_WIN["PROGINFOS2"].update(f"{get_text(GuiField.ff_speed)}: {speed}")
+    PP_PROG_WIN["PROGINFOS2"].update(f"{get_text(GuiField.ff_speed)}: {speed}")

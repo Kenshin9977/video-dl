@@ -129,7 +129,7 @@ def _gen_layout(default_download_path: str) -> list:
     """
     width_start = len(get_text(GuiField.start))
     width_end = len(get_text(GuiField.end))
-    width_start_end = max(width_start, width_end) + 2
+    width_start_end = max(width_start, width_end) + 3
     layout = [
         [
             Sg.Combo(
@@ -259,6 +259,7 @@ def _gen_layout(default_download_path: str) -> list:
                 default=False,
                 checkbox_color="black",
                 disabled=True,
+                tooltip=get_text(GuiField.song_only_tooltip),
                 enable_events=True,
                 key="SongOnly",
             ),
@@ -556,10 +557,19 @@ def _update_text_lang(window: Sg.Window) -> None:
         text=get_text(GuiField.playlist_items)
     )
     window["TextDestination"].update(get_text(GuiField.destination))
+    width_start = len(get_text(GuiField.start))
+    width_end = len(get_text(GuiField.end))
+    width_start_end = (max(width_start, width_end) + 3, 1)
     window["Start"].update(text=get_text(GuiField.start))
     window["End"].update(text=get_text(GuiField.end))
+    window["Start"].set_size(width_start_end)
+    window["End"].set_size(width_start_end)
     window["TextQuality"].update(get_text(GuiField.quality))
     window["TextFramerate"].update(get_text(GuiField.framerate))
     window["AudioOnly"].update(text=get_text(GuiField.audio_only))
+    window["SongOnly"].update(text=get_text(GuiField.song_only))
+    window["SongOnly"].set_tooltip(get_text(GuiField.song_only_tooltip))
+    window["Subtitles"].update(text=get_text(GuiField.subtitles))
+    window["TextACodec"].update(get_text(GuiField.acodec))
     window["TextCookies"].update(get_text(GuiField.cookies))
     window["dl"].update(get_text(GuiField.dl_button))

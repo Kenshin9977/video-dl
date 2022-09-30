@@ -25,6 +25,7 @@ class GuiField(enum.Enum):
     acodec = enum.auto()
     audio_only = enum.auto()
     song_only = enum.auto()
+    song_only_tooltip = enum.auto()
     cookies = enum.auto()
     dl_button = enum.auto()
 
@@ -155,6 +156,11 @@ def get_text(field: GuiField) -> str:
             Language.french: "Musique seulement",
             Language.german: "Nur Lied",
         },
+        GuiField.song_only_tooltip: {
+            Language.english: "Uses SponsorBlock to discard any non musical section",  # noqa
+            Language.french: "Utilise SponsorBlock pour retirer toutes les parties non musicales",  # noqa
+            Language.german: "Verwendet SponsorBlock, um alle nicht musikalischen Abschnitte zu verwerfen",  # noqa
+        },
         GuiField.cookies: {
             Language.english: "Use cookies from the selected browser",
             Language.french: "Utiliser les cookies du navigateur selectionné",
@@ -261,4 +267,3 @@ def set_current_language(name: str) -> None:
         return
     global _current_language
     _current_language = _language_from_name[name]
-    return

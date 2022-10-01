@@ -69,12 +69,23 @@ class Updater:
         """
         bs3_version_parsed = [int(n) for n in self.latest_version.split(".")]
         bin_version_parsed = [int(n) for n in APP_VERSION.split(".")]
-        if (
-            bs3_version_parsed[0] < bin_version_parsed[0]
-            or bs3_version_parsed[1] < bin_version_parsed[1]
+        if bs3_version_parsed[0] > bin_version_parsed[0]:
+            log.info("New major version found")
+            return True
+        elif (
+            bs3_version_parsed[0] == bin_version_parsed[0]
+            and bs3_version_parsed[1] > bin_version_parsed[1]
         ):
-            return False
-        return bs3_version_parsed[2] > bin_version_parsed[2]
+            log.info("New minor version found")
+            return True
+        elif (
+            bs3_version_parsed[0] == bin_version_parsed[0]
+            and bs3_version_parsed[1] == bin_version_parsed[1]
+            and bs3_version_parsed[2] > bin_version_parsed[2]
+        ):
+            log.info("New patch version found")
+            return True
+        return False
 
     def _get_versions_json(self) -> dict:
         """

@@ -4,6 +4,7 @@ import os
 from os.path import exists, getsize, join
 from platform import machine
 from re import match
+from shutil import make_archive
 from zipfile import ZipFile
 
 import PyInstaller.__main__
@@ -71,12 +72,16 @@ class GenUpdate:
 
     def _gen_app_archive(self):
         self._gen_binary()
-        zip_obj = ZipFile(self.archive_name, "w")
-        path2bin = join("dist", self.bin_name)
-        if not exists(path2bin):
-            raise FileNotFoundError("Binary file wasn't found")
-        zip_obj.write(path2bin, arcname=self.bin_name)
-        zip_obj.close()
+        if self.platform == "Windows":
+            zip_obj = ZipFile(self.archive_name, "w")
+            path2bin = join("dist", self.bin_name)
+            if not exists(path2bin):
+                raise FileNotFoundError("Binary file wasn't found")
+            zip_obj.write(path2bin, arcname=self.bin_name)
+            zip_obj.close()
+        else:
+            archive_name_no_ext = os.path.splitext(self.archive_name)[0]
+            make_archive(archive_name_no_ext, 'zip', "dist")
 
     def _gen_json_archive(self) -> None:
         versions_dict = self._gen_versions_json()

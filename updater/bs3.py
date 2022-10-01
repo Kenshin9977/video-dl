@@ -1,5 +1,5 @@
 import logging
-from os import path
+from os import path, stat
 
 import boto3
 import botocore.exceptions
@@ -11,6 +11,8 @@ env = Env()
 
 class Bs3client:
     def __init__(self):
+        self.total = 0
+        self.uploaded = 0
         aws_secret = env.str("AWS_SECRET")
         aws_id = env.str("AWS_ID")
         if not (aws_id and aws_secret):
@@ -23,9 +25,21 @@ class Bs3client:
             aws_secret_access_key=aws_secret,
         ).Bucket("video-dl-binaries")
 
+    def progress_callback(self, size):
+        if self.total == 0:
+            return
+        self.uploaded += size
+        percent_progress = int(self.uploaded / self.total * 100)
+        print(f"{percent_progress}%", end='\r')
+
     def download(self, filename, can_fail=False) -> bool:
         try:
-            self.bucket.download_file(filename, path.basename(filename))
+            self.bucket.download_file(
+                filename,
+                path.basename(filename),
+                Callback=self.progress_callback
+                )
+            print()
         except botocore.exceptions.ClientError as e:
             log.error(f"Can't find {filename}")
             if can_fail:
@@ -36,6 +50,12 @@ class Bs3client:
         return True
 
     def upload(self, filename):
+        self.uploaded = 0
+        self.total = stat(filename).st_size
         self.bucket.upload_file(
-            filename, path.basename(filename), ExtraArgs={"ACL": "public-read"}
+            filename,
+            path.basename(filename),
+            ExtraArgs={"ACL": "public-read"},
+            Callback=self.progress_callback
         )
+        print()

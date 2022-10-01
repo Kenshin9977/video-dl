@@ -1,14 +1,15 @@
 import io
 import json
 import logging
-import sys
 import os
-from shutil import rmtree, move
-from os import mkdir, remove, path, getcwd
+import sys
 from datetime import datetime, timedelta
+from os import getcwd, mkdir, path, remove
 from platform import system
+from shutil import move, rmtree
+from subprocess import Popen
 from zipfile import ZipFile
-from utils.sys_utils import popen
+
 from lang import GuiField, get_text
 from quantiphy import Quantity
 from requests import get
@@ -217,7 +218,7 @@ class Updater:
         """
         with io.open(bat_name, "w", encoding="utf-8") as bat:
             bat.write(batch_script)
-        popen(f'"{bat_name}"')
+        Popen(f'"{bat_name}"', shell=True)
         sys.exit(0)
 
     def _replace_on_unix(self, latest_archive_name: str) -> None:

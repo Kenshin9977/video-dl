@@ -1,13 +1,15 @@
 import io
 import json
 import logging
+import shutil
 import sys
+import os
+from shutil import rmtree, move
+from os import mkdir, remove, path, getcwd
 from datetime import datetime, timedelta
-from os import path, remove
 from platform import system
-from subprocess import Popen
 from zipfile import ZipFile
-
+from utils.sys_utils import popen
 from lang import GuiField, get_text
 from quantiphy import Quantity
 from requests import get
@@ -186,7 +188,7 @@ class Updater:
         if self.platform == "Windows":
             self._replace_on_windows(latest_archive_name)
         else:
-            log.info("The updater doesn't currently handle this platform")
+            self._replace_on_unix(latest_archive_name)
 
     def _replace_on_windows(self, latest_archive_name: str) -> None:
         """
@@ -216,8 +218,36 @@ class Updater:
         """
         with io.open(bat_name, "w", encoding="utf-8") as bat:
             bat.write(batch_script)
-        Popen(f'"{bat_name}"', shell=False)
+        popen(f'"{bat_name}"')
         sys.exit(0)
+
+    def _replace_on_unix(self, latest_archive_name: str) -> None:
+        """
+        Replace the current version with the latest one on Unix like systems
+
+        Args:
+            latest_archive_name (str): Name of the latest version's archive
+        """
+        tmp_folder = "tmp"
+        rmtree(tmp_folder, ignore_errors=True)
+        mkdir(tmp_folder)
+        try:
+            remove(self.app_bin_name)
+        except OSError:
+            pass
+        os.system(f"unzip -q -o {latest_archive_name} -d {tmp_folder}")
+        move(
+            f"{path.join(tmp_folder, self.app_bin_name)}",
+            f"{self.app_bin_name}"
+            )
+        rmtree(tmp_folder, ignore_errors=True)
+        try:
+            remove(latest_archive_name)
+        except OSError:
+            pass
+        fullpath_bin = path.join(path.abspath(getcwd()), self.app_bin_name)
+        os.system(f"open -a {fullpath_bin}")
+        exit()
 
     def _archive_ok(self, latest_archive_name: str) -> bool:
         """

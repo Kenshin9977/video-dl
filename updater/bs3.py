@@ -30,15 +30,15 @@ class Bs3client:
             return
         self.uploaded += size
         percent_progress = int(self.uploaded / self.total * 100)
-        print(f"{percent_progress}%", end='\r')
+        print(f"{percent_progress}%", end="\r")
 
     def download(self, filename, can_fail=False) -> bool:
         try:
             self.bucket.download_file(
                 filename,
                 path.basename(filename),
-                Callback=self.progress_callback
-                )
+                Callback=self.progress_callback,
+            )
             print()
         except botocore.exceptions.ClientError as e:
             log.error(f"Can't find {filename}")
@@ -56,6 +56,6 @@ class Bs3client:
             filename,
             path.basename(filename),
             ExtraArgs={"ACL": "public-read"},
-            Callback=self.progress_callback
+            Callback=self.progress_callback,
         )
         print()

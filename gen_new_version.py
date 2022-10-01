@@ -81,7 +81,7 @@ class GenUpdate:
             zip_obj.close()
         else:
             archive_name_no_ext = os.path.splitext(self.archive_name)[0]
-            make_archive(archive_name_no_ext, 'zip', "dist")
+            make_archive(archive_name_no_ext, "zip", "dist")
 
     def _gen_json_archive(self) -> None:
         versions_dict = self._gen_versions_json()

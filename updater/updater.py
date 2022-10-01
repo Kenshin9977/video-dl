@@ -1,7 +1,6 @@
 import io
 import json
 import logging
-import shutil
 import sys
 import os
 from shutil import rmtree, move
@@ -238,8 +237,8 @@ class Updater:
         os.system(f"unzip -q -o {latest_archive_name} -d {tmp_folder}")
         move(
             f"{path.join(tmp_folder, self.app_bin_name)}",
-            f"{self.app_bin_name}"
-            )
+            f"{self.app_bin_name}",
+        )
         rmtree(tmp_folder, ignore_errors=True)
         try:
             remove(latest_archive_name)

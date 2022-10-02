@@ -119,6 +119,8 @@ class GenUpdate:
             PyInstaller.__main__.run([f"{PLATFORM}-video-dl.spec"])
         elif PLATFORM == "Darwin" and ARCHITECTURE == "arm64":
             os.system("python MACOS-video-dl.py py2app")
+        elif PLATFORM == "Linux" and ARCHITECTURE == "x86":
+            PyInstaller.__main__.run([f"{PLATFORM}-video-dl.spec"])
 
     def _check_version_number_validity(self, latest_version) -> bool:
         lv_re = match(

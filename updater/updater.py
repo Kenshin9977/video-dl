@@ -216,8 +216,11 @@ class Updater:
         """
         if self.platform == "Windows":
             self._replace_on_windows(latest_archive_name)
-        else:
-            self._replace_on_unix(latest_archive_name)
+        elif self.platform == "Darwin":
+            self._replace_on_mac(latest_archive_name)
+        elif self.platform == "Linux":
+            self._replace_on_linux(latest_archive_name)
+        sys.exit(0)
 
     def _replace_on_windows(self, latest_archive_name: str) -> None:
         """
@@ -248,11 +251,10 @@ class Updater:
         with io.open(bat_name, "w", encoding="utf-8") as bat:
             bat.write(batch_script)
         Popen(f'"{bat_name}"', shell=True)
-        sys.exit(0)
 
-    def _replace_on_unix(self, latest_archive_name: str) -> None:
+    def _replace_on_mac(self, latest_archive_name: str) -> None:
         """
-        Replace the current version with the latest one on Unix like systems
+        Replace the current version with the latest one on Mac
 
         Args:
             latest_archive_name (str): Name of the latest version's archive
@@ -276,7 +278,34 @@ class Updater:
             pass
         fullpath_bin = path.join(path.abspath(getcwd()), self.app_bin_name)
         os.system(f"open -a {fullpath_bin}")
-        exit()
+
+    def _replace_on_linux(self, latest_archive_name: str) -> None:
+        """
+        Replace the current version with the latest one on Linux
+
+        Args:
+            latest_archive_name (str): Name of the latest version's archive
+        """
+        tmp_folder = "tmp"
+        rmtree(tmp_folder, ignore_errors=True)
+        mkdir(tmp_folder)
+        try:
+            remove(self.app_bin_name)
+        except OSError:
+            pass
+        with ZipFile(latest_archive_name, "r") as zip_ref:
+            zip_ref.extractall(tmp_folder)
+        move(
+            f"{path.join(tmp_folder, self.app_bin_name)}",
+            f"{self.app_bin_name}",
+        )
+        rmtree(tmp_folder, ignore_errors=True)
+        try:
+            remove(latest_archive_name)
+        except OSError:
+            pass
+        os.system(f"chmod +x {self.app_bin_name}")
+        os.system(f"./{self.app_bin_name}")
 
     def _archive_ok(self, latest_archive_name: str) -> bool:
         """

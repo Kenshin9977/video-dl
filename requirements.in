@@ -8,6 +8,7 @@ mergedeep
 pillow
 pyinstaller
 pynacl
+pysimplegui
 quantiphy
 requests
 yt-dlp

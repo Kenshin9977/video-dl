@@ -121,7 +121,7 @@ def get_bin_ext_for_platform() -> str:
     if PLATFORM == "Windows":
         ext = ".exe"
     elif PLATFORM == "Linux":
-        ext = "_amd64.deb"
+        ext = ""
     elif PLATFORM == "Darwin":
         ext = ".app"
     if ext is None:

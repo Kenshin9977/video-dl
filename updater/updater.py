@@ -41,16 +41,45 @@ class Updater:
             get_text(GuiField.update), True
         )
         self.versions_dict = self._get_versions_json()
-        self.latest_version = (
+        self.latest_version = self.get_latest_version()
+        self.update_canceled = False
+        self.time_last_update = datetime.now()
+        self.size_last_update = 0
+
+    def get_latest_version(self) -> str:
+        global ARCHITECTURE
+        latest_version = (
             traverse_obj(
                 self.versions_dict,
                 (APP_NAME, self.platform, ARCHITECTURE, "latest_version"),
             )
             or APP_VERSION
         )
-        self.update_canceled = False
-        self.time_last_update = datetime.now()
-        self.size_last_update = 0
+        if ARCHITECTURE == "x86_64":
+            latest_x86_version = (
+                traverse_obj(
+                    self.versions_dict,
+                    (APP_NAME, self.platform, "x86", "latest_version"),
+                )
+                or APP_VERSION
+            )
+            varray_x86 = latest_x86_version.split(".")
+            varray_x64 = latest_version.split(".")
+            if (
+                varray_x86[0] > varray_x64[0]
+                or (
+                    varray_x86[0] == varray_x64[0]
+                    and varray_x86[1] > varray_x64[1]
+                )
+                or (
+                    varray_x86[0] == varray_x64[0]
+                    and varray_x86[1] == varray_x64[1]
+                    and varray_x86[2] > varray_x64[2]
+                )
+            ):
+                latest_version = latest_x86_version
+                ARCHITECTURE = "x86"
+        return latest_version
 
     def update_app(self) -> None:
         """

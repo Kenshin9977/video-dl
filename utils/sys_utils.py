@@ -155,17 +155,17 @@ def ffmpeg_missing() -> None:
     url = ""
     if PLATFORM == "Windows":
         message = (
-            "On Windows, FFmpeg should be embedded with the app."
+            "On Windows, FFmpeg should be embedded with the app.\n"
             "This error shouldn't happen. Please open an issue at "
         )
         url = "https://github.com/Kenshin9977/video-dl/issues"
     elif PLATFORM == "Darwin":
-        message = "On MacOS you can follow this guide to install it: "
+        message = "On MacOS you can follow this guide to install it:"
         url = "https://macappstore.org/ffmpeg/"
     elif PLATFORM == "Linux":
         message = (
-            "On Linux you can install FFmpeg through your package manager "
-            'using the package name "ffmpeg"'
+            "On Linux you can install FFmpeg through your \n"
+            'package manager using the package name "ffmpeg"'
         )
 
     Sg.theme("DarkBrown4")

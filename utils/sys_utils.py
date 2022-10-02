@@ -40,13 +40,16 @@ def get_ff_components_path() -> dict:
         ffprobe_path = os.path.join(cwd, ffprobe_name)
         return {"ffmpeg": ffmpeg_path, "ffprobe": ffprobe_path}
     try:
-        ffmpeg_version_cmd = check_output(["ffmpeg", "-version"])
+        ffmpeg_version_cmd = subprocess.run(
+            ["ffmpeg", "-version"], capture_output=True
+        )
         logger.debug("ffmpeg version: %s", ffmpeg_version_cmd)
-        if ffmpeg_version_cmd is not None:
+        if ffmpeg_version_cmd.returncode == 0:
             return {"ffmpeg": "ffmpeg", "ffprobe": "ffprobe"}
-    except FileNotFoundError:
+    except subprocess.CalledProcessError as e:
+        logger.error(e)
         ffmpeg_missing()
-        raise FileNotFoundError("ffmpeg is missing")
+    sys.exit(-1)
 
 
 def _get_extension_for_platform() -> str:

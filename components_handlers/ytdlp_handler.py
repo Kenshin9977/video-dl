@@ -97,9 +97,8 @@ def _gen_ydl_opts(opts: dict) -> dict:
     ydl_opts.update(_gen_ffmpeg_opts(trim_start, trim_end))
     ydl_opts.update(_gen_subtitles_opts(opts["Subtitles"]))
     ydl_opts.update(_gen_browser_opts(opts["Browser"]))
-    ydl_opts.update(
-        _gen_sponsor_block_opts(opts["SongOnly"], ydl_opts["postprocessors"])
-    )
+    ydl_pp = ydl_opts.get("postprocessors")
+    ydl_opts.update(_gen_sponsor_block_opts(opts["SongOnly"], ydl_pp))
     return ydl_opts
 
 

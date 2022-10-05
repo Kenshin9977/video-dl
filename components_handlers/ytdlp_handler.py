@@ -36,14 +36,14 @@ def video_dl(opts: dict) -> None:
     logger.debug("ydl options %s", ydl_opts)
     with YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(opts["url"])
-        DL_PROG_WIN.close()
-        PP_PROG_WIN.close()
         if not opts["AudioOnly"]:
             if infos_ydl.get("_type") == "playlist":
                 for infos_ydl_entry in infos_ydl["entries"]:
                     _post_download(opts, ydl, infos_ydl_entry)
             else:
                 _post_download(opts, ydl, infos_ydl)
+    DL_PROG_WIN.close()
+    PP_PROG_WIN.close()
 
 
 def _post_download(opts: dict, ydl: YoutubeDL, infos_ydl: dict) -> None:
@@ -347,7 +347,7 @@ def postprocess_progress_bar(d):
 
     if pp_status == "finished":
         if n_current_entry is None or n_current_entry == n_entries:
-            PP_PROG_WIN.close()
+            return
     elif event == get_text(GuiField.cancel_button):
         PP_PROG_WIN.close()
         raise ValueError

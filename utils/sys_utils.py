@@ -12,7 +12,7 @@ from typing import Any
 import PySimpleGUI as Sg
 
 APP_NAME = "video-dl"
-APP_VERSION = "0.11.1"
+APP_VERSION = "0.11.2"
 PLATFORM = system()
 VERSIONS_ARCHIVE_NAME = "versions.zip"
 VERSIONS_JSON_NAME = "versions.json"

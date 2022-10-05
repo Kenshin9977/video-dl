@@ -4,13 +4,14 @@ import logging
 import os
 from datetime import datetime
 from typing import Optional
-from yt_dlp.postprocessor.sponsorblock import SponsorBlockPP
+
 import quantiphy
 from lang import GuiField, get_text
 from quantiphy import Quantity
 from sys_vars import FF_PATH
 from utils.gui_utils import create_progress_bar
 from yt_dlp import YoutubeDL
+from yt_dlp.postprocessor.sponsorblock import SponsorBlockPP
 from yt_dlp.utils import traverse_obj
 
 from components_handlers.ffmpeg_handler import post_process_dl

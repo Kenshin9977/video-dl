@@ -66,7 +66,7 @@ def _run_video_dl(window: dict, values: dict) -> None:
         window (dict): GUI window's dict
         values (dict): GUI values' dict
     """
-    if values["Start"] and values["End"] and _check_timecode(values):
+    if values.get("Start") and values.get("End") and _check_timecode(values):
         window["error"].update(
             get_text(GuiField.incorrect_timestamp),
             visible=True,

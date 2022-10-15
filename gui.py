@@ -429,7 +429,7 @@ def _check_timecode(values: dict) -> bool:
     return (
         sh > eh
         or (sh == eh and sm > em)
-        or (sh == eh and sm == em and ss > es)
+        or (sh == eh and sm == em and ss >= es)
     )
 
 

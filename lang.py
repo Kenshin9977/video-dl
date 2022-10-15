@@ -34,7 +34,7 @@ class GuiField(enum.Enum):
     error = enum.auto()
     dl_error = enum.auto()
     dl_finish = enum.auto()
-    missing_output = enum.auto()
+    invalid_output_path = enum.auto()
 
     # Progress window
     download = enum.auto()
@@ -191,10 +191,10 @@ def get_text(field: GuiField) -> str:
             Language.french: "Téléchargement terminé.",
             Language.german: "Herunterladen abgeschlossen.",
         },
-        GuiField.missing_output: {
-            Language.english: "Select an output path.",
-            Language.french: "Indiquez un dossier de destination.",
-            Language.german: "Wähle einen Zielordner.",
+        GuiField.invalid_output_path: {
+            Language.english: "Select a valid output path.",
+            Language.french: "Indiquez un dossier de destination valide.",
+            Language.german: "Wählen Sie einen gültigen Ausgabepfad.",
         },
         GuiField.ff_remux: {
             Language.english: "Remuxing",

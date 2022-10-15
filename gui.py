@@ -72,8 +72,10 @@ def _run_video_dl(window: dict, values: dict) -> None:
             visible=True,
             text_color="yellow",
         )
-    elif values["path"] == "":
-        window["error"].update(get_text(GuiField.missing_output), visible=True)
+    elif not values.get("path") or not os.path.isdir(values.get("path")):
+        window["error"].update(
+            get_text(GuiField.invalid_output_path), visible=True
+        )
     else:
         window["error"].update(visible=False)
         # noinspection PyBroadException

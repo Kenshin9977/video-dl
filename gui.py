@@ -9,7 +9,7 @@ import PySimpleGUI as Sg
 from environs import Env
 from yt_dlp import utils
 
-from components_handlers import ytdlp_handler
+from components_handlers.ytdlp_handler import video_dl, DL_PROG_WIN
 from icon_base64 import ICON_BASE64
 from lang import (
     GuiField,
@@ -79,7 +79,7 @@ def _run_video_dl(window: dict, values: dict) -> None:
         # noinspection PyBroadException
         try:
             logger.debug("GUI's options selected %s", values)
-            ytdlp_handler.video_dl(values)
+            video_dl(values)
         except ValueError:
             logging.error(traceback.format_exc())
             window["error"].update(
@@ -100,7 +100,8 @@ def _run_video_dl(window: dict, values: dict) -> None:
                 visible=True,
                 text_color="red",
             )
-            ytdlp_handler.DL_PROG_WIN.close()
+            if DL_PROG_WIN:
+                DL_PROG_WIN.close()
         except Exception as e:
             logging.error(traceback.format_exc())
             window["error"].update(

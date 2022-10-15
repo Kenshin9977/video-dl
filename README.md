@@ -23,13 +23,10 @@ The installer for Windows is available in the [releases](https://github.com/Kens
 The program isn't signed yet, so your browser will probably warn you when downloading it.
 
 
-## Installation
+## Usage
 
-### Windows
-Simply run the installer. The program isn't signed yet, so you'll have a window popping up telling you the program isn't safe.
-
-### UNIX
-I plan to compile binaries for both OSX and Linux. In the meantime you can compile from the sources.
+Simply run the binary. The program isn't signed yet, so on Windows and MacOS you'll have a window popping up telling you the program isn't safe.
+Each option should be self explanatory. If it isn't, don't hesitate to create an issue so that I can fix that.
 
 ## Features
 
@@ -64,7 +61,7 @@ Use pyinstaller and the file Windows-video-dl.spec `pyinstaller Windows-video-dl
 Use py2app and the file MACOS-video-dl.py `python MACOS-video-dl.py py2app`
 
 ### Linux
-N/A
+Use pyinstaller and the file Linux-video-dl.spec `pyinstaller Linux-video-dl.spec`
 
 ## Software used
 

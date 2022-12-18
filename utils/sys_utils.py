@@ -2,17 +2,16 @@ import logging
 import os
 import subprocess
 import sys
-import webbrowser
 from pathlib import Path
 from platform import machine, system
 from re import IGNORECASE, match, search
 from subprocess import Popen, check_output
 from typing import Any
 
-import PySimpleGUI as Sg
+import flet as ft
 
 APP_NAME = "video-dl"
-APP_VERSION = "0.11.2"
+APP_VERSION = "1.0.4"
 PLATFORM = system()
 VERSIONS_ARCHIVE_NAME = "versions.zip"
 VERSIONS_JSON_NAME = "versions.json"
@@ -48,7 +47,7 @@ def get_ff_components_path() -> dict:
             return {"ffmpeg": "ffmpeg", "ffprobe": "ffprobe"}
     except subprocess.CalledProcessError as e:
         logger.error(e)
-        ffmpeg_missing()
+        ft.app(ffmpeg_missing)
     sys.exit(-1)
 
 
@@ -152,7 +151,7 @@ def get_startup_info() -> Any:
     return startupinfo
 
 
-def ffmpeg_missing() -> None:
+def ffmpeg_missing(page: ft.Page) -> None:
     error_message = "Video-dl needs FFmpeg and FFprobe to work. "
     message = ""
     url = ""
@@ -161,42 +160,41 @@ def ffmpeg_missing() -> None:
             "On Windows, FFmpeg should be embedded with the app.\n"
             "This error shouldn't happen. Please open an issue at "
         )
-        url = "https://github.com/Kenshin9977/video-dl/issues"
+        url = "[Report issue](https://github.com/Kenshin9977/video-dl/issues)"
     elif PLATFORM == "Darwin":
         message = "On MacOS you can follow this guide to install it:"
-        url = "https://macappstore.org/ffmpeg/"
+        url = "[Install FFmpeg](https://macappstore.org/ffmpeg/)"
     elif PLATFORM == "Linux":
         message = (
             "On Linux you can install FFmpeg through your \n"
             'package manager using the package name "ffmpeg"'
         )
-
-    Sg.theme("DarkBrown4")
-    layout = [
-        [Sg.Text(error_message, font=("Arial", 16, ""))],
-        [Sg.Text(message, font=("Arial", 16, ""), text_color="white")],
-        [
-            Sg.Text(
-                text=url,
-                enable_events=True,
-                font=("Courier New", 16, "underline"),
-                key=url,
-                text_color="white",
-            )
-        ],
-    ]
-    window = Sg.Window(
-        "FFmpeg is missing",
-        layout,
-        finalize=True,
-        element_justification="center",
+    page.title = "FFmpeg required"
+    page.add(
+        ft.Text(error_message, color="red"),
+        ft.Text(message),
+        ft.Markdown(url, on_tap_link=lambda e: page.launch_url(e.data)),
     )
+    page.update()
 
-    while True:
-        event, values = window.read()
-        if event == Sg.WINDOW_CLOSED:
-            break
-        elif event.startswith("http"):
-            webbrowser.open(event)
-        print(event, values)
-    window.close()
+
+def get_default_download_path() -> str:
+    """
+    Get the default download folder path.
+
+    Returns:
+        str: Default download folder path
+    """
+    if system() != "Windows":
+        download_path = os.path.join(os.path.expanduser("~"), "Downloads")
+        if os.path.isdir(download_path):
+            return download_path
+        return ""
+
+    import winreg
+
+    key = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
+    downloads_guid = "{374DE290-123F-4565-9164-39C4925E467B}"
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as sub_key:
+        location = winreg.QueryValueEx(sub_key, downloads_guid)[0]
+    return location

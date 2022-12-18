@@ -7,16 +7,13 @@ import subprocess
 from subprocess import PIPE, STDOUT, run
 from typing import List
 
-import PySimpleGUI as Sg
+from components_handlers.hwaccel_handler import fastest_encoder
 from lang import GuiField, get_text
 from sys_vars import FF_PATH
-from utils.gui_utils import create_progress_bar
 from utils.sys_utils import popen
 
-from components_handlers.hwaccel_handler import fastest_encoder
 
-
-def post_process_dl(full_name: str, target_vcodec: str) -> None:
+def _post_process_dl(full_name: str, target_vcodec: str, videodl_app) -> None:
     """
     Remux to ensure compatibility with NLEs or reencode to the target video
     codec the downloaded file through ffmpeg.
@@ -39,7 +36,11 @@ def post_process_dl(full_name: str, target_vcodec: str) -> None:
         re.match("avc1", vcodec) and target_vcodec == "x264"
     )
     _ffmpeg_video(
-        full_name, acodec_nle_friendly, vcodec_nle_friendly, target_vcodec
+        full_name,
+        acodec_nle_friendly,
+        vcodec_nle_friendly,
+        target_vcodec,
+        videodl_app,
     )
 
 
@@ -72,6 +73,7 @@ def _ffmpeg_video(
     acodec_nle_friendly: bool,
     vcodec_nle_friendly: bool,
     target_vcodec: str,
+    videodl_app,
 ) -> None:
     """
     Generate the ffmpeg command arguments and run it if the checkbox AudioOnly
@@ -84,6 +86,7 @@ def _ffmpeg_video(
         vcodec_nle_friendly (bool): Whether or not the audio codec is nle
             friendly
         target_vcodec (str): The video codec to convert to (if necessary)
+        videodl_app (VideodlApp): GUIs object
 
     Raises:
         FileNotFoundError: If the resulted file doesn't exist because ffmpeg
@@ -113,14 +116,16 @@ def _ffmpeg_video(
         if acodec_nle_friendly and vcodec_nle_friendly
         else get_text(GuiField.ff_reencode)
     )
-    _progress_ffmpeg(ffmpeg_command, action, path)
+    _progress_ffmpeg(ffmpeg_command, action, path, videodl_app)
     if not os.path.isfile(tmp_path):
         raise FileNotFoundError(ffmpeg_command)
     os.remove(path)
     os.rename(src=tmp_path, dst=os.path.splitext(path)[0] + new_ext)
 
 
-def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
+def _progress_ffmpeg(
+    cmd: List[str], action: str, filepath: str, videodl_app
+) -> None:
     """
     Run the actual ffmpeg command and track its progress.
 
@@ -133,7 +138,6 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
         ValueError: If the user cancel the download
     """
     total_duration = _get_accurate_file_duration(filepath)
-    progress_window = create_progress_bar(action, False)
     progress_pattern = re.compile(
         r"(frame|fps|size|time|bitrate|speed)\s*=\s*(\S+)"
     )
@@ -146,17 +150,14 @@ def _progress_ffmpeg(cmd: List[str], action: str, filepath: str) -> None:
         if not progress_match:
             continue
         items = {key: value for key, value in progress_match}
-        event, _ = progress_window.read(timeout=10)
-        if event == get_text(GuiField.cancel_button) or event == Sg.WIN_CLOSED:
-            progress_window.close()
-            raise ValueError
-        progress_percent = _get_progress_percent(items["time"], total_duration)
-        progress_window["PROGINFOS1"].update(f"{progress_percent}%")
-        progress_window["PROGINFOS2"].update(
-            f"{get_text(GuiField.ff_speed)}: {items['speed']}"
-        )
-        progress_window["-PROG-"].update(progress_percent)
-    progress_window.close()
+        progress_float = _get_progress_percent(items["time"], total_duration)
+        progress_dict = {
+            "speed": items["speed"],
+            "processed_bytes": items["size"],
+            "progress_float": progress_float,
+            "action": action,
+        }
+        videodl_app._update_process_bar(progress_dict)
 
 
 def _get_accurate_file_duration(filepath: str) -> int:
@@ -188,7 +189,7 @@ def _get_accurate_file_duration(filepath: str) -> int:
     return int(float(result.stdout))
 
 
-def _get_progress_percent(timestamp: str, total_duration: int) -> int:
+def _get_progress_percent(timestamp: str, total_duration: int) -> float:
     """
     Compute ffmpeg progress percentage. Using timestamp and not frame count as
     this value is slow to get through ffprobe.
@@ -198,12 +199,12 @@ def _get_progress_percent(timestamp: str, total_duration: int) -> int:
         total_duration (int): Total duration of the file
 
     Returns:
-        int: _description_
+        float: Progress float value
     """
     prog = [float(str_time) for str_time in timestamp.split(":")]
     timestamps_factors = [3600, 60, 1, 0.01]
     progress_seconds = sum(
         [factor * time for factor, time in zip(prog, timestamps_factors)]
     )
-    progress_percent = int(progress_seconds / total_duration * 100)
-    return 99 if progress_percent > 100 else progress_percent
+    progress_float = progress_seconds / total_duration
+    return progress_float

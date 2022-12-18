@@ -1,14 +1,16 @@
 boto3
 black
+darkdetect
 environs
 fire
 flake8
+flet
 gputil
 mergedeep
 pillow
 pyinstaller
 pynacl
-pysimplegui
 quantiphy
 requests
+tomlkit
 yt-dlp

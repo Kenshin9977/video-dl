@@ -3,6 +3,7 @@ import subprocess
 
 from sys_vars import FF_PATH
 from utils.sys_utils import check_cmd_output
+from videodl_exceptions import FFmpegNoValidEncoderFound
 
 ENCODERS = {
     "x264": {
@@ -88,4 +89,4 @@ def fastest_encoder(path: str, target_vcodec: str) -> str:
             if os.path.isfile(output_path):
                 os.remove(path=output_path)
         return vcodec
-    raise Exception
+    raise FFmpegNoValidEncoderFound

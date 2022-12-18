@@ -27,7 +27,16 @@ class GuiField(enum.Enum):
     song_only = enum.auto()
     song_only_tooltip = enum.auto()
     cookies = enum.auto()
+    cookies_tooltip = enum.auto()
     dl_button = enum.auto()
+    destination_folder = enum.auto()
+    language = enum.auto()
+    indices_selected = enum.auto()
+    cookies_none = enum.auto()
+    unsupported_url = enum.auto()
+
+    # Main window properties
+    width = enum.auto()
 
     # Main window status
     dl_cancel = enum.auto()
@@ -35,6 +44,7 @@ class GuiField(enum.Enum):
     dl_error = enum.auto()
     dl_finish = enum.auto()
     invalid_output_path = enum.auto()
+    theme = enum.auto()
 
     # Progress window
     download = enum.auto()
@@ -42,9 +52,13 @@ class GuiField(enum.Enum):
     update = enum.auto()
     ff_remux = enum.auto()
     ff_reencode = enum.auto()
-    ff_starting = enum.auto()
-    ff_speed = enum.auto()
+    starting = enum.auto()
+    speed = enum.auto()
     cancel_button = enum.auto()
+
+    # Error window
+    permission_error_windows = enum.auto()
+    permission_error_unix = enum.auto()
 
 
 def _get_language() -> Language:
@@ -58,7 +72,10 @@ def _get_language() -> Language:
         "de": Language.german,
     }
 
-    locale.setlocale(locale.LC_ALL, "")
+    try:
+        locale.setlocale(locale.LC_ALL, "")
+    except Exception:
+        pass
     system_language = locale.getdefaultlocale()[0]
 
     if system_language is None:
@@ -127,24 +144,24 @@ def get_text(field: GuiField) -> str:
             Language.german: "Untertitel",
         },
         GuiField.quality: {
-            Language.english: "Maximum quality",
-            Language.french: "Qualité maximale",
-            Language.german: "Maximale Qualität",
+            Language.english: "Target quality",
+            Language.french: "Qualité cible",
+            Language.german: "Qualität ziel",
         },
         GuiField.framerate: {
-            Language.english: "Maximum framerate",
-            Language.french: "Fréquence d'images par seconde maximum",
-            Language.german: "Maximale Bildfrequenz",
+            Language.english: "Target fps",
+            Language.french: "IPS cible",
+            Language.german: "Bildfrequenz ziel",
         },
         GuiField.vcodec: {
             Language.english: "Video codec",
             Language.french: "Codec vidéo",
-            Language.german: "Codec für video",
+            Language.german: "Codec video",
         },
         GuiField.acodec: {
             Language.english: "Audio codec",
             Language.french: "Codec audio",
-            Language.german: "Codec für audio",
+            Language.german: "Codec audio",
         },
         GuiField.audio_only: {
             Language.english: "Audio only",
@@ -162,14 +179,50 @@ def get_text(field: GuiField) -> str:
             Language.german: "Verwendet SponsorBlock, um alle nicht musikalischen Abschnitte zu verwerfen",  # noqa
         },
         GuiField.cookies: {
-            Language.english: "Use cookies from the selected browser",
-            Language.french: "Utiliser les cookies du navigateur selectionné",
-            Language.german: "Benutze Cookies des ausgewählten Webbrowsers",
+            Language.english: "Cookies",
+            Language.french: "Cookies",
+            Language.german: "Cookies",
+        },
+        GuiField.cookies_tooltip: {
+            Language.english: (
+                "Browser from which to retrieve cookies. Useful if the media "
+                "requires you to be connected to an account to access it."
+            ),
+            Language.french: (
+                "Navigateur depuis lequel récupérer les cookies."
+                " Utile dans le cas où pour accéder au média il faut être "
+                "connecté à un compte."
+            ),
+            Language.german: (
+                "Browser, von dem Cookies abgerufen werden sollen. Nützlich, "
+                "wenn das Medium erfordert, dass Sie mit einem Konto verbunden"
+                " sind, um darauf zuzugreifen."
+            ),
         },
         GuiField.dl_button: {
             Language.english: "Download",
             Language.french: "Télécharger",
             Language.german: "Herunterladen",
+        },
+        GuiField.destination_folder: {
+            Language.english: "Destination folder",
+            Language.french: "Dossier de destination",
+            Language.german: "Zielordner",
+        },
+        GuiField.language: {
+            Language.english: "Language",
+            Language.french: "Langue",
+            Language.german: "Sprache",
+        },
+        GuiField.indices_selected: {
+            Language.english: "Indices selected",
+            Language.french: "Index sélectionnés",
+            Language.german: "Indizes ausgewählt",
+        },
+        GuiField.cookies_none: {
+            Language.english: "None",
+            Language.french: "Aucun",
+            Language.german: "None",
         },
         GuiField.dl_cancel: {
             Language.english: "Download cancelled.",
@@ -206,12 +259,12 @@ def get_text(field: GuiField) -> str:
             Language.french: "Réencodage",
             Language.german: "Neukodierung",
         },
-        GuiField.ff_starting: {
+        GuiField.starting: {
             Language.english: "Starting",
             Language.french: "Démarrage",
             Language.german: "Starte",
         },
-        GuiField.ff_speed: {
+        GuiField.speed: {
             # Add a space at the end of the message if
             # the language requires one before a colon
             Language.english: "Speed",
@@ -227,6 +280,55 @@ def get_text(field: GuiField) -> str:
             Language.english: "Update",
             Language.french: "Mise à jour",
             Language.german: "Aktualisierung",
+        },
+        GuiField.unsupported_url: {
+            Language.english: "Unsupported URL",
+            Language.french: "URL non gérée",
+            Language.german: "Nicht unterstützte URL",
+        },
+        GuiField.width: {
+            Language.english: 420,
+            Language.french: 440,
+            Language.german: 480,
+        },
+        GuiField.theme: {
+            Language.english: "Dark mode",
+            Language.french: "Mode sombre",
+            Language.german: "Dunkelmodus",
+        },
+        GuiField.permission_error_windows: {
+            Language.english: (
+                "Video-dl has been executed in a folder where it does not have"
+                " write permission. Please restart the application as "
+                "administrator or move the executable"
+            ),
+            Language.french: (
+                "Video-dl a été exécuté dans un dossier où il n'a pas les "
+                "droits d'écriture. Veuillez relancer l'applicaton en tant "
+                "qu'adminisatrateur ou déplacez l'exécutable"
+            ),
+            Language.german: (
+                "Video-dl wurde in einem Ordner ausgeführt, in dem es keine "
+                "Schreibrechte hat. Bitte starten Sie die Anwendung als "
+                "Administrator neu oder verschieben Sie die ausführbare Datei."
+            ),
+        },
+        GuiField.permission_error_unix: {
+            Language.english: (
+                "Video-dl has been executed in a folder where it has no write "
+                "permission. Please restart the application with sudo or move "
+                "the executable"
+            ),
+            Language.french: (
+                "Video-dl a été exécuté dans un dossier où il n'a pas les "
+                "droits d'écriture. Veuillez relancer l'applicaton avec sudo"
+                " ou déplacez l'exécutable"
+            ),
+            Language.german: (
+                "Video-dl wurde in einem Ordner ausgeführt, in dem es keine "
+                "Schreibrechte hat. Bitte starten Sie die Anwendung mit sudo "
+                "neu oder verschieben Sie die Datei."
+            ),
         },
     }
     return ui_text[field][_current_language]

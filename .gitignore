@@ -36,3 +36,6 @@ venv/*
 Video-dl.app/*
 *.log
 .VSCodeCounter/*
+*.toml
+*.pyc
+tmp/

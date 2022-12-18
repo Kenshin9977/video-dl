@@ -10,12 +10,15 @@ from shutil import move, rmtree
 from subprocess import Popen
 from zipfile import ZipFile
 
-from lang import GuiField, get_text
+import flet as ft
 from quantiphy import Quantity
 from requests import get
+from yt_dlp.utils import traverse_obj
+
+from lang import GuiField as GF
+from lang import get_text as gt
 from sys_vars import ARCHITECTURE
 from utils.crypto_util import compute_sha256
-from utils.gui_utils import create_progress_bar
 from utils.sys_utils import (
     APP_NAME,
     APP_VERSION,
@@ -24,7 +27,6 @@ from utils.sys_utils import (
     gen_archive_name,
     get_bin_ext_for_platform,
 )
-from yt_dlp.utils import traverse_obj
 
 log = logging.getLogger()
 
@@ -36,10 +38,6 @@ class Updater:
         self.app_bin_name = get_bin_ext_for_platform()
         self.versions_archive_name = VERSIONS_ARCHIVE_NAME
         self.versions_json_name = VERSIONS_JSON_NAME
-
-        self.update_prog_win = create_progress_bar(
-            get_text(GuiField.update), True
-        )
         self.versions_dict = self._get_versions_json()
         self.latest_version = self.get_latest_version()
         self.update_canceled = False
@@ -89,7 +87,9 @@ class Updater:
             log.info("No newer version found")
             return
         log.info("New version found")
-        self._download_and_replace()
+        ft.app(target=self._download_and_replace)
+        self.page.window_close()
+        sys.exit(0)
 
     def _new_version_is_available(self) -> bool:
         """
@@ -156,13 +156,22 @@ class Updater:
         except FileNotFoundError:
             log.info("No versions files were found")
 
-    def _download_and_replace(self) -> None:
+    def _download_and_replace(self, page: ft.Page) -> None:
         """
         Download the latest version and replace the current one.
 
         Raises:
             AssertionError: If the archive of the latest version isn't there
         """
+        self.page = page
+        self.page.title = "Video-dl updater"
+        self.page.window_width = 220
+        self.page.window_height = 100
+        self.download_progress_text = ft.Text(gt(GF.update))
+        self.download_progress_bar = ft.ProgressBar(width=200)
+        self.page.add(self.download_progress_text, self.download_progress_bar)
+        self.page.update()
+
         latest_archive_name = (
             f"{APP_NAME}-{self.platform}-{ARCHITECTURE}"
             f"-{self.latest_version}.zip"
@@ -171,7 +180,7 @@ class Updater:
         try:
             self._download_latest_version(latest_archive_name)
         except ValueError:
-            log.info("Update canceled")
+            log.info("Update cancelled")
             return
         log.info("Checking archive integrity...")
         if not self._archive_ok(latest_archive_name):
@@ -203,7 +212,6 @@ class Updater:
                     self.update_progress_bar(nth_chunk, total_size)
                     if self.update_canceled:
                         raise ValueError
-            self.update_prog_win.close()
             if r.status_code != 200:
                 log.error("Couldn't retrieve the latest version")
 
@@ -220,7 +228,6 @@ class Updater:
             self._replace_on_mac(latest_archive_name)
         elif self.platform == "Linux":
             self._replace_on_linux(latest_archive_name)
-        sys.exit(0)
 
     def _replace_on_windows(self, latest_archive_name: str) -> None:
         """
@@ -365,29 +372,47 @@ class Updater:
             chunks_downloaded (int): Number of chunk downloaded
             total_size (int): File's total size of to download
         """
-        event = None
         downloaded_bytes = chunks_downloaded * 8192
-        cancel_button_str = get_text(GuiField.cancel_button)
         try:
-            progress_percent = downloaded_bytes * 100 // total_size
+            progress_float = downloaded_bytes / total_size
         except ZeroDivisionError:
-            progress_percent = 100
+            progress_float = 1
         now = datetime.now()
         delta_time = now - self.time_last_update
         average_speed = 0
-        seconds_interval = 0.1
+        seconds_interval = 0.2
         if delta_time >= timedelta(milliseconds=seconds_interval * 1_000):
-            event, _ = self.update_prog_win.read(timeout=20)
-            if event == cancel_button_str:
-                self.update_prog_win.close()
-                self.update_canceled = True
             downloaded_in_interval = downloaded_bytes - self.size_last_update
-            average_speed = downloaded_in_interval // seconds_interval
+            average_speed = downloaded_in_interval / seconds_interval
             self.time_last_update = now
             self.size_last_update = downloaded_bytes
             average_speed_str = Quantity(average_speed, "B/s").render(prec=2)
-            self.update_prog_win["PROGINFOS1"].update(f"{progress_percent}%")
-            self.update_prog_win["-PROG-"].update(progress_percent)
-            self.update_prog_win["PROGINFOS2"].update(
-                f"{get_text(GuiField.ff_speed)}: {average_speed_str}"
+            self.download_progress_bar.value = progress_float
+            self.download_progress_text.value = (
+                f"{gt(GF.update)} {average_speed_str}"
+                f" {int(progress_float * 100)}%"
             )
+            self.page.update()
+
+
+def update_app() -> bool:
+    try:
+        Updater().update_app()
+    except PermissionError:
+        ft.app(target=permission_error_gui)
+        return False
+    return True
+
+
+def permission_error_gui(page: ft.Page):
+    platform_str = system()
+    page.title = "Video-dl: Permission Error"
+    page.window_height = 150
+    page.window_width = 400
+    page.add(ft.Text("Video-dl: Permission Error", color="red"))
+    if platform_str == "Windows":
+        page.add(ft.Text(gt(GF.permission_error_windows)))
+    else:
+        page.add(ft.Text(gt(GF.permission_error_unix)))
+    page.update()
+    sys.exit(0)

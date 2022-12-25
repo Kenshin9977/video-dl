@@ -2,7 +2,7 @@
 
 The purpose of this script is to simplify the usage of [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 <p align="center">
-<img src="https://imgur.com/73yFK06.png" width=400>
+<img src="https://i.imgur.com/Ji0CuT2.png" width=400>
 </p>
 
 
@@ -67,4 +67,4 @@ Use pyinstaller and the file Linux-video-dl.spec `pyinstaller Linux-video-dl.spe
 
 * [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 * [ffmpeg](https://github.com/yt-dlp/FFmpeg-Builds)
-* [PySimpleGUI](https://pysimplegui.readthedocs.io/en/latest/)
+* [flet](https://flet.dev/)

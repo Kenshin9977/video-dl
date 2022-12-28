@@ -364,7 +364,7 @@ class VideodlApp:
                     {"key": "SponsorBlock", "when": "pre_process"},
                     {
                         "key": "ModifyChapters",
-                        "remove_sponsor_segments": categories,
+                        "SponsorBlock": categories,
                     },
                 ]
             )

@@ -527,6 +527,8 @@ class VideodlApp:
             control.border_color = border
 
     def _directory_selected(self, e: ft.FilePickerResultEvent):
+        if not e.path:
+            return
         self.download_path_text.value = e.path
         self.tomlconfig.update(e.control.data, e.path)
         self.page.update()

@@ -21,7 +21,7 @@ from lang import get_text as gt
 from lang import set_current_language
 from sys_vars import FF_PATH
 from utils.sys_utils import APP_VERSION, get_default_download_path
-from videodl_exceptions import DownloadCancelled
+from videodl_exceptions import DownloadCancelled, PlaylistNotFound
 
 logger = logging.getLogger()
 
@@ -635,6 +635,11 @@ class VideodlApp:
         except DownloadCancelled:
             logging.error(traceback.format_exc())
             self.download_status_text.value = gt(GF.dl_cancel)
+            self.download_status_text.visible = True
+            self.download_status_text.color = "yellow"
+        except PlaylistNotFound:
+            logging.error(traceback.format_exc())
+            self.download_status_text.value = gt(GF.playlist_not_found)
             self.download_status_text.visible = True
             self.download_status_text.color = "yellow"
         except FileExistsError:

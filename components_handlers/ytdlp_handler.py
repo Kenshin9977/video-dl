@@ -6,6 +6,7 @@ import os
 from yt_dlp import YoutubeDL
 
 from components_handlers.ffmpeg_handler import _post_process_dl
+from videodl_exceptions import PlaylistNotFound
 
 logger = logging.getLogger()
 
@@ -15,6 +16,8 @@ def download(videodl_app):
     logger.debug("ydl options %s", ydl_opts)
     with YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(videodl_app.media_link.value)
+        if infos_ydl is None:
+            raise PlaylistNotFound
         if videodl_app.audio_only.value:
             return
         if infos_ydl.get("_type") == "playlist":

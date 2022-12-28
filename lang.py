@@ -45,6 +45,7 @@ class GuiField(enum.Enum):
     dl_finish = enum.auto()
     invalid_output_path = enum.auto()
     theme = enum.auto()
+    playlist_not_found = enum.auto()
 
     # Progress window
     download = enum.auto()
@@ -295,6 +296,19 @@ def get_text(field: GuiField) -> str:
             Language.english: "Dark mode",
             Language.french: "Mode sombre",
             Language.german: "Dunkelmodus",
+        },
+        GuiField.playlist_not_found: {
+            Language.english: (
+                "Playlist not found, probably private. Try setting the Cookies"
+            ),
+            Language.french: (
+                "Playlist introuvable, proablement privée. Essayez de régler "
+                "l'option Cookies"
+            ),
+            Language.german: (
+                "Wiedergabeliste nicht gefunden, wahrscheinlich privat. "
+                "Versuchen Sie die Cookies zu setzen"
+            ),
         },
         GuiField.permission_error_windows: {
             Language.english: (

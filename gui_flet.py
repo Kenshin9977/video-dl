@@ -773,7 +773,3 @@ def videodl_fletgui(page: ft.Page):
 
 def videodl_gui():
     ft.app(target=videodl_fletgui)
-
-
-# TODO: Update GUI's updater
-# TODO: Investigate ffmpeg error, test on Windows

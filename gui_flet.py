@@ -542,9 +542,13 @@ class VideodlApp:
         self.page.update()
 
     def _index_checkbox_change(self, e):
-        index: bool = e.control.value
-        self.indices_selected.disabled = not index
-        if index:
+        self._index_change()
+        self.tomlconfig.update(e.control.data, e.control.value)
+        self.page.update()
+
+    def _index_change(self):
+        self.indices_selected.disabled = not self.indices.value
+        if self.indices.value:
             self.indices_selected.text_style = ft.TextStyle(
                 weight=ft.FontWeight.BOLD, color=ft.colors.INVERSE_SURFACE
             )
@@ -554,8 +558,6 @@ class VideodlApp:
             self.indices_selected.text_style = ft.TextStyle(
                 color=DISABLED_COLOR
             )
-        self.tomlconfig.update(e.control.data, e.control.value)
-        self.page.update()
 
     def _option_change(self, e):
         self.tomlconfig.update(e.control.data, e.control.value)

@@ -41,7 +41,6 @@ class VideodlApp:
         self.download_disabled_reason = None
         self.default_indices_value = "1,2,4-10,12"
         checkbox_common_kwargs = {"fill_color": "Blue"}
-
         self.file_picker = ft.FilePicker(
             on_result=self._directory_selected,
             data="Destination folder",  # NOSONAR
@@ -60,7 +59,6 @@ class VideodlApp:
             icon=ft.icons.FOLDER,
             on_click=lambda _: self.file_picker.get_directory_path(),
         )
-
         self.language = ft.Dropdown(
             label=gt(GF.language),
             data="Language",
@@ -73,7 +71,6 @@ class VideodlApp:
                 for lang in get_available_languages_name()
             ],
         )
-
         self.theme = ft.Switch(
             label=gt(GF.theme),
             data="Theme",
@@ -171,7 +168,6 @@ class VideodlApp:
             on_change=self._option_change,
             options=[ft.dropdown.Option(acodec) for acodec in ACODECS],
         )
-
         timecode_common_kwargs = {
             "value": "00",
             "max_length": 2,
@@ -183,7 +179,6 @@ class VideodlApp:
             "counter_style": ft.TextStyle(size=0, color=DISABLED_COLOR),
             "on_focus": self._textfield_focus,
         }
-
         self.start_checkbox = ft.Checkbox(
             label="Start",
             **checkbox_common_kwargs,
@@ -193,7 +188,6 @@ class VideodlApp:
         self.start_m = ft.TextField(**timecode_common_kwargs)
         self.start_s = ft.TextField(**timecode_common_kwargs)
         self.start_controls = [self.start_h, self.start_m, self.start_s]
-
         self.end_checkbox = ft.Checkbox(
             label="End",
             **checkbox_common_kwargs,
@@ -203,9 +197,7 @@ class VideodlApp:
         self.end_m = ft.TextField(**timecode_common_kwargs)
         self.end_s = ft.TextField(**timecode_common_kwargs)
         self.end_controls = [self.end_h, self.end_m, self.end_s]
-
         self.colon = ft.Text(":")
-
         self.download_button = ft.ElevatedButton(
             text="Download", on_click=self._download_clicked
         )
@@ -602,14 +594,12 @@ class VideodlApp:
         self.page.update()
 
     def _enable_download_button(self):
-        global download_disabled_reason
-        download_disabled_reason = None
+        self.download_disabled_reason = None
         self.download_button.tooltip = None
         self.download_button.disabled = False
 
     def _disable_download_button(self, tooltip_message):
-        global download_disabled_reason
-        download_disabled_reason = tooltip_message
+        self.download_disabled_reason = tooltip_message
         self.download_button.tooltip = gt(tooltip_message)
         self.download_button.disabled = True
 
@@ -754,6 +744,7 @@ class VideodlApp:
         self.framerate.disabled = self.audio_only.value
         self._change_attribute_based_on_theme(self.theme.value)
         self._change_language()
+        self._index_change()
         audio_only = self.audio_only.value
         color = DISABLED_COLOR if audio_only else ft.colors.INVERSE_SURFACE
         video_elements = [self.video_codec, self.framerate, self.quality]

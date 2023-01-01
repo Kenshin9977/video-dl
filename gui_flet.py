@@ -313,8 +313,8 @@ class VideodlApp:
             self.ydl_opts.update(
                 {
                     "format_sort": [
-                        f"res:{self.quality}",
-                        f"fps:{self.framerate}",
+                        f"res:{self.quality.value}",
+                        f"fps:{self.framerate.value}",
                     ],
                     "merge-output-format": "mp4",
                 }

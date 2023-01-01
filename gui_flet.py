@@ -729,6 +729,7 @@ class VideodlApp:
     def load_config(self):
         options = self.tomlconfig.config["User options"]
         self.language.value = options["Language"]
+        set_current_language(options["Language"])
         self.theme.value = options["Theme"]
         self.download_path_text.value = options["Destination folder"]
         self.playlist.value = options["Playlist"]

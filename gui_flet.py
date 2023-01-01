@@ -238,6 +238,7 @@ class VideodlApp:
         Returns:
             dict: yt-dlp options
         """
+        self.ydl_opts = {}
         self._gen_file_opts()
         self._gen_av_opts()
         self._gen_ffmpeg_opts()

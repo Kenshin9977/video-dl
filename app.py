@@ -8,7 +8,7 @@ from videodl_logger import videodl_logger
 
 logger = logging.getLogger()
 
-if __name__ == "__main__":
+def main():
     fire.Fire(videodl_logger)
     logger.debug("Updating the app")
     update_succeeded = update_app()
@@ -16,5 +16,8 @@ if __name__ == "__main__":
         logger.debug("GUI's startup")
         videodl_gui()
 
+if __name__ == "__main__":
+    main()
+        
 # TODO: Sign updates
 # TODO: Autoinstall ffmpeg if missing on MacOS and Linux

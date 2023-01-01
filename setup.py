@@ -14,7 +14,7 @@ except IOError:
     long_description = "A GUI for yt-dlp that aims to simplify its usage"
 
 setup(
-    name="video-dl2",
+    name="video-dl",
     version="1.0.5",
     description="yt-dlp",
     long_description=long_description,
@@ -43,7 +43,7 @@ setup(
 	'tomlkit',
 	'yt-dlp',
 	],
-    entry_points={"console_scripts": ["video-dl2=app:main"]},
+    entry_points={"console_scripts": ["video-dl=app:main"]},
     classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: 3.10",

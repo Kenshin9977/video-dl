@@ -585,8 +585,24 @@ class VideodlApp:
         [setattr(ctrl, "disabled", not start) for ctrl in self.start_controls]
         if not self._timecodes_are_valid():
             self._disable_download_button(GF.incorrect_timestamp)
+            [
+                setattr(ctrl, "border_color", "red")
+                for ctrl in self.start_controls
+            ]
+            [
+                setattr(ctrl, "border_color", "red")
+                for ctrl in self.end_controls
+            ]
         else:
             self._enable_download_button()
+            [
+                setattr(ctrl, "border_color", "white")
+                for ctrl in self.start_controls
+            ]
+            [
+                setattr(ctrl, "border_color", "white")
+                for ctrl in self.end_controls
+            ]
         self.page.update()
 
     def _end_checkbox_change(self, e):
@@ -594,8 +610,24 @@ class VideodlApp:
         [setattr(ctrl, "disabled", not end) for ctrl in self.end_controls]
         if not self._timecodes_are_valid():
             self._disable_download_button(GF.incorrect_timestamp)
+            [
+                setattr(ctrl, "border_color", "red")
+                for ctrl in self.start_controls
+            ]
+            [
+                setattr(ctrl, "border_color", "red")
+                for ctrl in self.end_controls
+            ]
         else:
             self._enable_download_button()
+            [
+                setattr(ctrl, "border_color", "white")
+                for ctrl in self.start_controls
+            ]
+            [
+                setattr(ctrl, "border_color", "white")
+                for ctrl in self.end_controls
+            ]
         self.page.update()
 
     def _enable_download_button(self):
@@ -611,8 +643,24 @@ class VideodlApp:
     def _timecode_change(self, e):
         if not self._timecodes_are_valid():
             self._disable_download_button(GF.incorrect_timestamp)
+            [
+                setattr(ctrl, "border_color", "red")
+                for ctrl in self.start_controls
+            ]
+            [
+                setattr(ctrl, "border_color", "red")
+                for ctrl in self.end_controls
+            ]
         else:
             self._enable_download_button()
+            [
+                setattr(ctrl, "border_color", "white")
+                for ctrl in self.start_controls
+            ]
+            [
+                setattr(ctrl, "border_color", "white")
+                for ctrl in self.end_controls
+            ]
         self.page.update()
 
     def _textfield_focus(self, e: ft.ControlEvent):

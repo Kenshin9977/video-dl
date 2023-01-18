@@ -162,7 +162,7 @@ class VideodlApp:
         self.audio_codec = ft.Dropdown(
             label=gt(GF.acodec),
             data="Audio codec",
-            value="BEST",
+            value="AAC",
             width=100,
             dense=True,
             on_change=self._option_change,

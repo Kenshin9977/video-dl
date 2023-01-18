@@ -79,17 +79,18 @@ class Updater:
                 ARCHITECTURE = "x86"
         return latest_version
 
-    def update_app(self) -> None:
+    def update_app(self) -> bool:
         """
         Check if a new version of the app is available. Download it if there is
+        Returns:
+            bool: Whether or not the app has been updated
         """
         if not self._new_version_is_available():
             log.info("No newer version found")
-            return
+            return False
         log.info("New version found")
         ft.app(target=self._download_and_replace)
-        self.page.window_close()
-        sys.exit(0)
+        return True
 
     def _new_version_is_available(self) -> bool:
         """
@@ -191,6 +192,8 @@ class Updater:
             raise AssertionError
         log.info("Restarting...")
         self._replace_with_latest(latest_archive_name)
+        self.page.window_close()
+        sys.exit(0)
 
     def _download_latest_version(self, latest_archive_name: str) -> None:
         """
@@ -397,11 +400,10 @@ class Updater:
 
 def update_app() -> bool:
     try:
-        Updater().update_app()
+        return Updater().update_app()
     except PermissionError:
         ft.app(target=permission_error_gui)
         return False
-    return True
 
 
 def permission_error_gui(page: ft.Page):

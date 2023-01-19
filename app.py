@@ -11,8 +11,8 @@ logger = logging.getLogger()
 def main():
     fire.Fire(videodl_logger)
     logger.debug("Updating the app")
-    update_succeeded = update_app()
-    if update_succeeded:
+    app_has_been_updated = update_app()
+    if not app_has_been_updated:
         logger.debug("GUI's startup")
         videodl_gui()
 

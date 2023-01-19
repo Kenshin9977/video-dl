@@ -162,7 +162,7 @@ class VideodlApp:
         self.audio_codec = ft.Dropdown(
             label=gt(GF.acodec),
             data="Audio codec",
-            value="BEST",
+            value="AAC",
             width=100,
             dense=True,
             on_change=self._option_change,
@@ -238,6 +238,7 @@ class VideodlApp:
         Returns:
             dict: yt-dlp options
         """
+        self.ydl_opts = {}
         self._gen_file_opts()
         self._gen_av_opts()
         self._gen_ffmpeg_opts()
@@ -312,8 +313,8 @@ class VideodlApp:
             self.ydl_opts.update(
                 {
                     "format_sort": [
-                        f"res:{self.quality}",
-                        f"fps:{self.framerate}",
+                        f"res:{self.quality.value}",
+                        f"fps:{self.framerate.value}",
                     ],
                     "merge-output-format": "mp4",
                 }
@@ -584,8 +585,24 @@ class VideodlApp:
         [setattr(ctrl, "disabled", not start) for ctrl in self.start_controls]
         if not self._timecodes_are_valid():
             self._disable_download_button(GF.incorrect_timestamp)
+            [
+                setattr(ctrl, "border_color", "red")
+                for ctrl in self.start_controls
+            ]
+            [
+                setattr(ctrl, "border_color", "red")
+                for ctrl in self.end_controls
+            ]
         else:
             self._enable_download_button()
+            [
+                setattr(ctrl, "border_color", "white")
+                for ctrl in self.start_controls
+            ]
+            [
+                setattr(ctrl, "border_color", "white")
+                for ctrl in self.end_controls
+            ]
         self.page.update()
 
     def _end_checkbox_change(self, e):
@@ -593,8 +610,24 @@ class VideodlApp:
         [setattr(ctrl, "disabled", not end) for ctrl in self.end_controls]
         if not self._timecodes_are_valid():
             self._disable_download_button(GF.incorrect_timestamp)
+            [
+                setattr(ctrl, "border_color", "red")
+                for ctrl in self.start_controls
+            ]
+            [
+                setattr(ctrl, "border_color", "red")
+                for ctrl in self.end_controls
+            ]
         else:
             self._enable_download_button()
+            [
+                setattr(ctrl, "border_color", "white")
+                for ctrl in self.start_controls
+            ]
+            [
+                setattr(ctrl, "border_color", "white")
+                for ctrl in self.end_controls
+            ]
         self.page.update()
 
     def _enable_download_button(self):
@@ -610,8 +643,24 @@ class VideodlApp:
     def _timecode_change(self, e):
         if not self._timecodes_are_valid():
             self._disable_download_button(GF.incorrect_timestamp)
+            [
+                setattr(ctrl, "border_color", "red")
+                for ctrl in self.start_controls
+            ]
+            [
+                setattr(ctrl, "border_color", "red")
+                for ctrl in self.end_controls
+            ]
         else:
             self._enable_download_button()
+            [
+                setattr(ctrl, "border_color", "white")
+                for ctrl in self.start_controls
+            ]
+            [
+                setattr(ctrl, "border_color", "white")
+                for ctrl in self.end_controls
+            ]
         self.page.update()
 
     def _textfield_focus(self, e: ft.ControlEvent):
@@ -728,6 +777,7 @@ class VideodlApp:
     def load_config(self):
         options = self.tomlconfig.config["User options"]
         self.language.value = options["Language"]
+        set_current_language(options["Language"])
         self.theme.value = options["Theme"]
         self.download_path_text.value = options["Destination folder"]
         self.playlist.value = options["Playlist"]

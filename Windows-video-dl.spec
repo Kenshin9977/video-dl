@@ -13,6 +13,7 @@ a = Analysis(
         ('dependencies/avfilter-8.dll', '.'),
         ('dependencies/avformat-59.dll', '.'),
         ('dependencies/avutil-57.dll', '.'),
+        ('dependencies/postproc-56.dll', '.'),
         ('dependencies/swresample-4.dll', '.'),
         ('dependencies/swscale-6.dll', '.')
     ],

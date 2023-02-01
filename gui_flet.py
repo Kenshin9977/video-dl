@@ -299,13 +299,15 @@ class VideodlApp:
                 }
             )
         else:
+            resolution = self.quality.value[:-1]
             vcodec_re_str = "vcodec~='avc1|h264'"
             # Either the target vcodec or the most common and easiest to
             # convert (h264)
             acodec_re_str = "acodec~='aac|mp3|mp4a'"
             # Audio codecs compatible with mp4 containers
             format_opt = (
-                f"((bv[{vcodec_re_str}]/bv)+(ba[{acodec_re_str}]/ba))/b"
+                f"((bv[{vcodec_re_str}][height={resolution}]/"
+                f"bv[height={resolution}]/bv)+(ba[{acodec_re_str}]/ba))/b"
             )
             # The best video preferably with the target codec merged with the
             # best audio without video preferably with a codec compatible with
@@ -313,7 +315,7 @@ class VideodlApp:
             self.ydl_opts.update(
                 {
                     "format_sort": [
-                        f"res:{self.quality.value}",
+                        f"res:{resolution}",
                         f"fps:{self.framerate.value}",
                     ],
                     "merge-output-format": "mp4",

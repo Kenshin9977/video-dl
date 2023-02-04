@@ -15,7 +15,7 @@ except IOError:
 
 setup(
     name="video-dl",
-    version="1.0.9a",
+    version="1.0.10",
     description="yt-dlp",
     long_description=long_description,
     license="MIT",
@@ -23,7 +23,7 @@ setup(
     author_email="unknown",
     url="https://github.com/Kenshin9977/video-dl",
     packages=['', 'utils', 'components_handlers', 'updater'],
-    package_data={'': ['*.ini', '*.ico', '*.png', '*.txt', '*.in', '*.md']},
+    package_data={'': ['*.ini', '*.ico', '*.png', '*.txt', '*.in', '*.md', '*.toml']},
     python_requires='>=3.10',
     install_requires=[
     	'boto3',

@@ -1,3 +1,4 @@
+import os
 from os.path import isdir, isfile
 
 import tomlkit
@@ -17,7 +18,7 @@ USER_OPTIONS = "User options"
 
 class VideodlConfig:
     def __init__(self):
-        if isfile(CONFIG_FILENAME):
+        if os.path.isfile(os.curdir + 'videodl-config.toml'):
             self.config = self._load()
         else:
             self.config = self._create_default()

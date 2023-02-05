@@ -15,7 +15,7 @@ except IOError:
 
 setup(
     name="video-dl",
-    version="1.0.11",
+    version="1.0.12",
     description="yt-dlp",
     long_description=long_description,
     license="MIT",

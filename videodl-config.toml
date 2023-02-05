@@ -1,0 +1,14 @@
+["User options"]
+Language = "English"
+Theme = false
+"Destination folder" = "/Users/chenzhiyu/Downloads"
+Playlist = false
+Indices = false
+"Video codec" = "x264"
+"Video quality" = "1080p"
+Framerate = "60"
+"Audio codec" = "BEST"
+"Audio only" = false
+"Song only" = false
+Subtitles = false
+Cookies = "None"

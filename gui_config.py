@@ -1,4 +1,8 @@
+import os
+from os import path
 from os.path import isdir, isfile
+
+import sys
 
 import tomlkit
 from darkdetect import isDark
@@ -17,7 +21,8 @@ USER_OPTIONS = "User options"
 
 class VideodlConfig:
     def __init__(self):
-        if isfile(CONFIG_FILENAME):
+        self.work_path = os.path.dirname(sys.argv[0])
+        if os.path.isfile(CONFIG_FILENAME):
             self.config = self._load()
         else:
             self.config = self._create_default()

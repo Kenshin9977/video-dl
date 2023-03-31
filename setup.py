@@ -32,7 +32,7 @@ setup(
       'environs',
       'fire',
       'flake8',
-      'flet>=0.3.0.dev968',
+      'flet',
       'gputil',
       'mergedeep',
       'pillow',

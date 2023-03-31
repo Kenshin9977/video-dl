@@ -108,6 +108,9 @@ websockets==10.3
     # via yt-dlp
 yt-dlp==2022.9.1
     # via -r requirements.in
+flet
+darkdetect
+tomlkit
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools

@@ -1,4 +1,4 @@
-# video-dl script
+# video-dl (a yt-dlp GUI)
 
 The purpose of this script is to simplify the usage of [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 <p align="center">

@@ -33,7 +33,6 @@ class GuiField(enum.Enum):
     language = enum.auto()
     indices_selected = enum.auto()
     cookies_none = enum.auto()
-    unsupported_url = enum.auto()
 
     # Main window properties
     width = enum.auto()
@@ -46,6 +45,9 @@ class GuiField(enum.Enum):
     invalid_output_path = enum.auto()
     theme = enum.auto()
     playlist_not_found = enum.auto()
+    unsupported_url = enum.auto()
+    file_in_use = enum.auto()
+    no_encoder = enum.auto()
 
     # Progress window
     download = enum.auto()
@@ -286,6 +288,16 @@ def get_text(field: GuiField) -> str:
             Language.english: "Unsupported URL",
             Language.french: "URL non gérée",
             Language.german: "Nicht unterstützte URL",
+        },
+        GuiField.file_in_use: {
+            Language.english: "File already in use",
+            Language.french: "Fichier en cours d'utilisation",
+            Language.german: "Datei wird bereits verwendet",
+        },
+        GuiField.no_encoder: {
+            Language.english: "No capable encoder found",
+            Language.french: "Aucun encodeur apte trouvé",
+            Language.german: "Kein fähiger Encoder gefunden",
         },
         GuiField.width: {
             Language.english: 420,

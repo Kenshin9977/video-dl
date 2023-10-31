@@ -5,7 +5,7 @@ import os
 
 from yt_dlp import YoutubeDL
 
-from components_handlers.ffmpeg_handler import _post_process_dl
+from components_handlers.ffmpeg_handler import post_process_dl
 from videodl_exceptions import PlaylistNotFound
 
 logger = logging.getLogger()
@@ -48,4 +48,4 @@ def post_download(
     ext = infos_ydl["ext"]
     media_filename_formated = ydl.prepare_filename(infos_ydl)
     full_path = f"{os.path.splitext(media_filename_formated)[0]}.{ext}"
-    _post_process_dl(full_path, target_vcodec, videodl_app)
+    post_process_dl(full_path, target_vcodec, videodl_app)

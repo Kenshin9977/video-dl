@@ -13,7 +13,7 @@ from sys_vars import FF_PATH
 from utils.sys_utils import popen
 
 
-def _post_process_dl(full_name: str, target_vcodec: str, videodl_app) -> None:
+def post_process_dl(full_name: str, target_vcodec: str, videodl_app) -> None:
     """
     Remux to ensure compatibility with NLEs or reencode to the target video
     codec the downloaded file through ffmpeg.
@@ -24,21 +24,25 @@ def _post_process_dl(full_name: str, target_vcodec: str, videodl_app) -> None:
     """
     file_infos = ffprobe(full_name, cmd=FF_PATH.get("ffprobe"))["streams"]
     acodec, vcodec = "na", "na"
-    for i in range(0, min(2, len(file_infos))):
-        if file_infos[i]["codec_type"] == "audio":
-            acodec = file_infos[i]["codec_tag_string"]
-        elif file_infos[i]["codec_type"] == "video":
-            vcodec = file_infos[i]["codec_tag_string"]
+    for stream in file_infos:
+        if stream["codec_type"] == "audio":
+            acodec = stream["codec_name"]
+        elif stream["codec_type"] == "video":
+            vcodec = stream["codec_name"]
+            big_dimension = 1080 < min(stream["width"], stream["height"])
+
     common_acodecs = ["aac", "mp3", "mp4a"]
     # Audio codecs NLE friendly
     acodec_nle_friendly = any(re.match(f"{c}", acodec) for c in common_acodecs)
-    vcodec_nle_friendly = bool(
-        re.match("avc1", vcodec) and target_vcodec == "x264"
-    )
+    vcodec_equivalence = {
+        "x264": "avc1", "x265": "hevc", "ProRes": "prores", "AV1": "av1"
+        }
+    vcodec_is_target = vcodec_equivalence[target_vcodec] == vcodec
     _ffmpeg_video(
         full_name,
         acodec_nle_friendly,
-        vcodec_nle_friendly,
+        vcodec_is_target,
+        big_dimension,
         target_vcodec,
         videodl_app,
     )
@@ -71,7 +75,8 @@ def ffprobe(filename: str, cmd: str = "ffprobe") -> dict:
 def _ffmpeg_video(
     path: str,
     acodec_nle_friendly: bool,
-    vcodec_nle_friendly: bool,
+    vcodec_is_target: bool,
+    big_dimension: bool,
     target_vcodec: str,
     videodl_app,
 ) -> None:
@@ -83,8 +88,9 @@ def _ffmpeg_video(
         path (str): Downloaded file's path
         acodec_nle_friendly (bool): Whether or not the audio codec is nle
             friendly
-        vcodec_nle_friendly (bool): Whether or not the audio codec is nle
-            friendly
+        vcodec_is_target (bool): Whether or not the video codec is the same
+            as the targeted one
+        smallest_dimension (int): Smallest video dimension
         target_vcodec (str): The video codec to convert to (if necessary)
         videodl_app (VideodlApp): GUIs object
 
@@ -94,9 +100,10 @@ def _ffmpeg_video(
     """
     ffmpeg_acodec = "aac" if not acodec_nle_friendly else "copy"
     new_ext = ".mov" if target_vcodec == "ProRes" else ".mp4"
-    ffmpeg_vcodec = (
-        "copy" if vcodec_nle_friendly else fastest_encoder(path, target_vcodec)
-    )
+    if vcodec_is_target:
+        ffmpeg_vcodec, quality_options = "copy", []
+    else:
+        ffmpeg_vcodec, quality_options = fastest_encoder(path, target_vcodec)
     tmp_path = f"{os.path.splitext(path)[0]}.tmp{new_ext}"
     ffmpeg_command = [
         FF_PATH.get("ffmpeg"),
@@ -108,12 +115,14 @@ def _ffmpeg_video(
         "-c:v",
         ffmpeg_vcodec,
     ]
-    if target_vcodec == "ProRes":
+    if big_dimension:
+        ffmpeg_command.extend(quality_options)
+    elif target_vcodec == "ProRes":
         ffmpeg_command.extend(["-profile:v", "0", "-qscale:v", "4"])
     ffmpeg_command.extend(["-y", tmp_path])
     action = (
         get_text(GuiField.ff_remux)
-        if acodec_nle_friendly and vcodec_nle_friendly
+        if acodec_nle_friendly and vcodec_is_target
         else get_text(GuiField.ff_reencode)
     )
     _progress_ffmpeg(ffmpeg_command, action, path, videodl_app)

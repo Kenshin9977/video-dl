@@ -21,7 +21,8 @@ from lang import get_text as gt
 from lang import set_current_language
 from sys_vars import FF_PATH
 from utils.sys_utils import APP_VERSION, get_default_download_path
-from videodl_exceptions import DownloadCancelled, PlaylistNotFound
+from videodl_exceptions import (DownloadCancelled, FFmpegNoValidEncoderFound,
+                                FileAlreadyInUse, PlaylistNotFound)
 
 logger = logging.getLogger()
 
@@ -407,7 +408,10 @@ class VideodlApp:
         if self.cancel_button.disabled:
             raise DownloadCancelled
         try:
-            speed = Quantity(d.get("speed"), "B/s").render(prec=2)
+            if bytes_fieldname == "downloaded_bytes":
+                speed = Quantity(d.get("speed"), "B/s").render(prec=2)
+            else:
+                speed = d.get("speed")
         except InvalidNumber:
             speed = "-"
         try:
@@ -690,7 +694,7 @@ class VideodlApp:
         except FileExistsError:
             self.download_status_text.value = gt(GF.dl_finish)
             self.download_status_text.visible = True
-            self.download_status_text.color = "red"
+            self.download_status_text.color = "green"
         except utils.UnsupportedError:
             self.download_status_text.value = gt(GF.unsupported_url)
             self.download_status_text.visible = True
@@ -698,6 +702,16 @@ class VideodlApp:
         except utils.DownloadError:
             logging.error(traceback.format_exc())
             self.download_status_text.value = gt(GF.unsupported_url)
+            self.download_status_text.visible = True
+            self.download_status_text.color = "red"
+        except FFmpegNoValidEncoderFound:
+            logging.error(traceback.format_exc())
+            self.download_status_text.value = gt(GF.no_encoder)
+            self.download_status_text.visible = True
+            self.download_status_text.color = "red"
+        except FileAlreadyInUse:
+            logging.error(traceback.format_exc())
+            self.download_status_text.value = gt(GF.file_in_use)
             self.download_status_text.visible = True
             self.download_status_text.color = "red"
         except Exception as e:

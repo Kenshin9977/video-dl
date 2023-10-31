@@ -11,3 +11,8 @@ class FFmpegNoValidEncoderFound(Exception):
 class PlaylistNotFound(Exception):
     "Raised when the playlist doesn't seem to exist"
     pass
+
+
+class FileAlreadyInUse(Exception):
+    "Raised when it's impossible to delete or overwrite a file"
+    pass

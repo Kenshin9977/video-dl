@@ -21,7 +21,7 @@ a = Analysis(
         ('dependencies/ffmpeg.exe', '.'),
         ('dependencies/ffprobe.exe', '.')
     ],
-    hiddenimports=[],
+    hiddenimports = [],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

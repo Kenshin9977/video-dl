@@ -39,3 +39,4 @@ Video-dl.app/*
 *.toml
 *.pyc
 tmp/
+*.old

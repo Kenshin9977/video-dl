@@ -11,7 +11,7 @@ from typing import Any
 import flet as ft
 
 APP_NAME = "video-dl"
-APP_VERSION = "1.1.8"
+APP_VERSION = "1.1.9"
 PLATFORM = system()
 VERSIONS_ARCHIVE_NAME = "versions.zip"
 VERSIONS_JSON_NAME = "versions.json"

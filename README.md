@@ -54,6 +54,8 @@ You need to install:
 * ffmpeg
 * ffprobe
 
+Add [this plugin](https://github.com/seproDev/yt-dlp-ChromeCookieUnlock?tab=readme-ov-file) in your venv so that cookie's extraction works with Chromium-based browser.
+
 ### Windows
 Use pyinstaller and the file Windows-video-dl.spec `pyinstaller Windows-video-dl.spec`
 

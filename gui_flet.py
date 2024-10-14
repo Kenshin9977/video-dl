@@ -826,11 +826,12 @@ class VideodlApp:
         self.page.update()
 
 
-def videodl_fletgui(page: ft.Page):
+def videodl_fletgui(page: Page):
+    page.window.icon = r"C:\Users\kensh\Repo\video-dl\icon.ico"
     videodl_app = VideodlApp(page)
     videodl_app.build_gui()
     videodl_app.load_config()
 
 
 def videodl_gui():
-    ft.app(target=videodl_fletgui)
+    app(target=videodl_fletgui, assets_dir="assets")

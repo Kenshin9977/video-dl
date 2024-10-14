@@ -210,6 +210,9 @@ def _get_progress_percent(timestamp: str, total_duration: int) -> float:
     Returns:
         float: Progress float value
     """
+
+    if timestamp == "N/A":
+        return 0
     prog = [float(str_time) for str_time in timestamp.split(":")]
     timestamps_factors = [3600, 60, 1, 0.01]
     progress_seconds = sum(

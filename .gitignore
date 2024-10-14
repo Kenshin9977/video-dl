@@ -40,3 +40,6 @@ Video-dl.app/*
 *.pyc
 tmp/
 *.old
+verbose.output
+$null
+main.spec

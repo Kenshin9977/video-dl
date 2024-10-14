@@ -11,6 +11,5 @@ pillow
 pyinstaller
 pynacl
 quantiphy
-requests
 tomlkit
 yt-dlp

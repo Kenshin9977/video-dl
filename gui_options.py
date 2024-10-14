@@ -24,5 +24,5 @@ QUALITY = [
     "240p",
     "144p",
 ]
-VCODECS = ["x264", "x265", "ProRes", "AV1"]
-ACODECS = ["AAC", "ALAC", "BEST", "FLAC", "OPUS", "MP3", "VORBIS", "WAV"]
+VCODECS = ["Best", "x264", "x265", "ProRes", "AV1"]
+ACODECS = ["Best", "AAC", "ALAC", "FLAC", "OPUS", "MP3", "VORBIS", "WAV"]

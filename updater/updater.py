@@ -12,8 +12,8 @@ from zipfile import ZipFile
 
 import flet as ft
 from quantiphy import Quantity
-from requests import get
-from yt_dlp.utils import traverse_obj
+from httpx import get
+from utils.parse_util import simple_traverse
 
 from lang import GuiField as GF
 from lang import get_text as gt
@@ -47,7 +47,7 @@ class Updater:
     def get_latest_version(self) -> str:
         global ARCHITECTURE
         latest_version = (
-            traverse_obj(
+            simple_traverse(
                 self.versions_dict,
                 (APP_NAME, self.platform, ARCHITECTURE, "latest_version"),
             )
@@ -55,7 +55,7 @@ class Updater:
         )
         if ARCHITECTURE == "x86_64":
             latest_x86_version = (
-                traverse_obj(
+                simple_traverse(
                     self.versions_dict,
                     (APP_NAME, self.platform, "x86", "latest_version"),
                 )

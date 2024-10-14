@@ -5,7 +5,7 @@ block_cipher = None
 
 
 a = Analysis(
-    ['app.py'],
+    ['main.py'],
     pathex=[],
     binaries=[
         ('dependencies/avcodec-59.dll', '.'),

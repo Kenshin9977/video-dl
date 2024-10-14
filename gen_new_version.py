@@ -24,7 +24,6 @@ from utils.sys_utils import (
 )
 
 logger = logging.getLogger()
-ASSETS = {"Windows": ["ffmpeg.exe", "ffprobe.exe"]}
 
 
 def update():

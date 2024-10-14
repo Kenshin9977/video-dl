@@ -58,11 +58,7 @@ def _get_extension_for_platform() -> str:
     Returns:
         str: binary extension for the current platform
     """
-    ext = ""
-    platform = system()
-    if platform == "Windows":
-        ext = ".exe"
-    return ext
+    return ".exe" if PLATFORM == "Windows" else ""
 
 
 def popen(cmd: list) -> Popen:

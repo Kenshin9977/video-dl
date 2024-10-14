@@ -5,32 +5,58 @@ import os
 import traceback
 from datetime import datetime
 
-import flet as ft
+from typing import TYPE_CHECKING
+
+
+from flet import FilePicker
+from flet import Text
+from flet import TextField
+# from flet import icons
+from flet import ElevatedButton
+from flet import Dropdown
+from flet import dropdown
+from flet import Switch
+from flet import Checkbox
+from flet import TextStyle
+from flet import colors
+from flet import TextAlign
+from flet import ProgressBar
+from flet import Column
+from flet import FontWeight
+from flet import Row
+from flet import MainAxisAlignment
+from flet import app
 from darkdetect import isDark
 from quantiphy import InvalidNumber, Quantity
-from yt_dlp import utils
-from yt_dlp.postprocessor.sponsorblock import SponsorBlockPP
-from yt_dlp.utils import traverse_obj
-
+from utils.sponsor_block_dict import CATEGORIES
+from utils.parse_util import simple_traverse, validate_url
 from components_handlers.ytdlp_handler import download
 from gui_config import VideodlConfig
 from gui_options import ACODECS, BROWSERS, FRAMERATE, QUALITY, VCODECS
 from lang import GuiField as GF
-from lang import get_available_languages_name, get_current_language_name
 from lang import get_text as gt
+from lang import get_available_languages_name, get_current_language_name
 from lang import set_current_language
 from sys_vars import FF_PATH
-from utils.sys_utils import APP_VERSION, get_default_download_path
+from utils.sys_utils import APP_VERSION, get_default_download_path, PLATFORM
+from sys_vars import FF_PATH
 from videodl_exceptions import (DownloadCancelled, FFmpegNoValidEncoderFound,
                                 FileAlreadyInUse, PlaylistNotFound)
 
+
+if TYPE_CHECKING:
+    from flet import Page, FilePickerResultEvent, ControlEvent
+
+
 logger = logging.getLogger()
 
-DISABLED_COLOR = ft.colors.ON_INVERSE_SURFACE
+
+
+DISABLED_COLOR = colors.ON_INVERSE_SURFACE
 
 
 class VideodlApp:
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: Page):
         is_dark = bool(isDark())
         self.page = page
         self.page.title = "Video-dl"
@@ -41,26 +67,25 @@ class VideodlApp:
         self.page.window_min_width = gt(GF.width)
         self.download_disabled_reason = None
         self.default_indices_value = "1,2,4-10,12"
-        checkbox_common_kwargs = {"fill_color": "Blue"}
-        self.file_picker = ft.FilePicker(
+        self.file_picker = FilePicker(
             on_result=self._directory_selected,
             data="Destination folder",  # NOSONAR
         )
         self.page.overlay.append(self.file_picker)
-        self.media_link = ft.TextField(
+        self.media_link = TextField(
             label=gt(GF.link),
             autofocus=True,
             dense=True,
         )
-        self.download_path_text = ft.Text(
+        self.download_path_text = Text(
             get_default_download_path(), data="Destination folder"
         )
-        self.download_path = ft.ElevatedButton(
+        self.download_path = ElevatedButton(
             gt(GF.destination_folder),
-            icon=ft.icons.FOLDER,
+            # icon=icons.FOLDER,
             on_click=lambda _: self.file_picker.get_directory_path(),
         )
-        self.language = ft.Dropdown(
+        self.language = Dropdown(
             label=gt(GF.language),
             data="Language",
             value=get_current_language_name(),
@@ -68,11 +93,11 @@ class VideodlApp:
             dense=True,
             on_change=self._change_language,
             options=[
-                ft.dropdown.Option(lang)
+                dropdown.Option(lang)
                 for lang in get_available_languages_name()
             ],
         )
-        self.theme = ft.Switch(
+        self.theme = Switch(
             label=gt(GF.theme),
             data="Theme",
             value=is_dark,
@@ -80,68 +105,68 @@ class VideodlApp:
             on_change=self._change_theme,
         )
 
-        self.version_number = ft.Text(
-            value=f"v{APP_VERSION}", text_align=ft.TextAlign.RIGHT
+        self.version_number = Text(
+            value=f"v{APP_VERSION}", text_align=TextAlign.RIGHT
         )
-        self.playlist = ft.Checkbox(
+        self.playlist = Checkbox(
             label=gt(GF.is_playlist),
             data="Playlist",
-            **checkbox_common_kwargs,
+            # **checkbox_common_kwargs,
             on_change=self._playlist_checkbox_change,
         )
-        self.indices = ft.Checkbox(
+        self.indices = Checkbox(
             label=gt(GF.playlist_items),
             data="Indices",
             disabled=True,
-            **checkbox_common_kwargs,
+            # **checkbox_common_kwargs,
             on_change=self._index_checkbox_change,
         )
-        self.indices_selected = ft.TextField(
+        self.indices_selected = TextField(
             label=gt(GF.indices_selected),
             value=self.default_indices_value,
             width=200,
             disabled=True,
-            text_style=ft.TextStyle(color=DISABLED_COLOR),
+            text_style=TextStyle(color=DISABLED_COLOR),
         )
-        self.quality = ft.Dropdown(
+        self.quality = Dropdown(
             label=gt(GF.quality),
             data="Video quality",
             value="1080p",
             width=120,
             dense=True,
             on_change=self._option_change,
-            options=[ft.dropdown.Option(quality) for quality in QUALITY],
+            options=[dropdown.Option(quality) for quality in QUALITY],
         )
-        self.framerate = ft.Dropdown(
+        self.framerate = Dropdown(
             label=gt(GF.framerate),
             data="Framerate",
             value="60",
             width=120,
             dense=True,
             on_change=self._option_change,
-            options=[ft.dropdown.Option(framerate) for framerate in FRAMERATE],
+            options=[dropdown.Option(framerate) for framerate in FRAMERATE],
         )
-        self.audio_only = ft.Checkbox(
+        self.audio_only = Checkbox(
             label=gt(GF.audio_only),
             data="Audio only",
             on_change=self._audio_only_checkbox_change,
-            **checkbox_common_kwargs,
+            # **checkbox_common_kwargs,
         )
-        self.song_only = ft.Checkbox(
+        self.song_only = Checkbox(
             label=gt(GF.song_only),
             data="Song only",
             disabled=True,
             tooltip=gt(GF.song_only_tooltip),
             on_change=self._option_change,
-            **checkbox_common_kwargs,
+            # **checkbox_common_kwargs,
         )
-        self.subtitles = ft.Checkbox(
+        self.subtitles = Checkbox(
             label=gt(GF.subtitles),
             data="Subtitles",
             on_change=self._option_change,
-            **checkbox_common_kwargs,
+            # **checkbox_common_kwargs,
         )
-        self.cookies = ft.Dropdown(
+        self.cookies = Dropdown(
             label=gt(GF.cookies),
             data="Cookies",
             value=gt(GF.cookies_none),
@@ -149,25 +174,25 @@ class VideodlApp:
             dense=True,
             tooltip=gt(GF.cookies_tooltip),
             on_change=self._option_change,
-            options=[ft.dropdown.Option(browser) for browser in BROWSERS],
+            options=[dropdown.Option(browser) for browser in BROWSERS],
         )
-        self.video_codec = ft.Dropdown(
+        self.video_codec = Dropdown(
             label=gt(GF.vcodec),
             data="Video codec",
             value="x264",
             width=100,
             dense=True,
             on_change=self._option_change,
-            options=[ft.dropdown.Option(vcodec) for vcodec in VCODECS],
+            options=[dropdown.Option(vcodec) for vcodec in VCODECS],
         )
-        self.audio_codec = ft.Dropdown(
+        self.audio_codec = Dropdown(
             label=gt(GF.acodec),
             data="Audio codec",
             value="AAC",
             width=100,
             dense=True,
             on_change=self._option_change,
-            options=[ft.dropdown.Option(acodec) for acodec in ACODECS],
+            options=[dropdown.Option(acodec) for acodec in ACODECS],
         )
         timecode_common_kwargs = {
             "value": "00",
@@ -177,46 +202,46 @@ class VideodlApp:
             "disabled": True,
             "on_change": self._timecode_change,
             "border_color": "white",
-            "counter_style": ft.TextStyle(size=0, color=DISABLED_COLOR),
+            "counter_style": TextStyle(size=0, color=DISABLED_COLOR),
             "on_focus": self._textfield_focus,
         }
-        self.start_checkbox = ft.Checkbox(
+        self.start_checkbox = Checkbox(
             label="Start",
-            **checkbox_common_kwargs,
+            # **checkbox_common_kwargs,
             on_change=self._start_checkbox_change,
         )
-        self.start_h = ft.TextField(**timecode_common_kwargs)
-        self.start_m = ft.TextField(**timecode_common_kwargs)
-        self.start_s = ft.TextField(**timecode_common_kwargs)
+        self.start_h = TextField(**timecode_common_kwargs)
+        self.start_m = TextField(**timecode_common_kwargs)
+        self.start_s = TextField(**timecode_common_kwargs)
         self.start_controls = [self.start_h, self.start_m, self.start_s]
-        self.end_checkbox = ft.Checkbox(
+        self.end_checkbox = Checkbox(
             label="End",
-            **checkbox_common_kwargs,
+            # **checkbox_common_kwargs,
             on_change=self._end_checkbox_change,
         )
-        self.end_h = ft.TextField(**timecode_common_kwargs)
-        self.end_m = ft.TextField(**timecode_common_kwargs)
-        self.end_s = ft.TextField(**timecode_common_kwargs)
+        self.end_h = TextField(**timecode_common_kwargs)
+        self.end_m = TextField(**timecode_common_kwargs)
+        self.end_s = TextField(**timecode_common_kwargs)
         self.end_controls = [self.end_h, self.end_m, self.end_s]
-        self.colon = ft.Text(":")
-        self.download_button = ft.ElevatedButton(
+        self.colon = Text(":")
+        self.download_button = ElevatedButton(
             text="Download", on_click=self._download_clicked
         )
-        self.cancel_button = ft.ElevatedButton(
+        self.cancel_button = ElevatedButton(
             text=gt(GF.cancel_button),
             on_click=self._cancel_clicked,
             disabled=True,
         )
-        self.download_status_text = ft.Text(visible=False)
-        self.download_progress_text = ft.Text(gt(GF.download))
-        self.process_progress_text = ft.Text(gt(GF.process))
-        self.download_progress_bar = ft.ProgressBar(width=200)
-        self.process_progress_bar = ft.ProgressBar(width=200, color="red")
-        self.download_progress = ft.Column(
+        self.download_status_text = Text(visible=False)
+        self.download_progress_text = Text(gt(GF.download))
+        self.process_progress_text = Text(gt(GF.process))
+        self.download_progress_bar = ProgressBar(width=200)
+        self.process_progress_bar = ProgressBar(width=200, color="red")
+        self.download_progress = Column(
             [self.download_progress_text, self.download_progress_bar],
             visible=False,
         )
-        self.process_progress = ft.Column(
+        self.process_progress = Column(
             [self.process_progress_text, self.process_progress_bar],
             visible=False,
         )
@@ -239,7 +264,7 @@ class VideodlApp:
         Returns:
             dict: yt-dlp options
         """
-        self.ydl_opts = {}
+        self.ydl_opts = {"verbose": True}
         self._gen_file_opts()
         self._gen_av_opts()
         self._gen_ffmpeg_opts()
@@ -326,7 +351,7 @@ class VideodlApp:
             # higher if not found
         self.ydl_opts["format"] = format_opt
 
-    def _gen_ffmpeg_opts(self) -> dict:
+    def _gen_ffmpeg_opts(self):
         """
         Generate the dictionnary for yt-dlp ffmpeg options
         """
@@ -345,6 +370,10 @@ class VideodlApp:
                     },
                 }
             )
+            if PLATFORM == "Windows":
+                self.ydl_opts.update({"ffmpeg_location": FF_PATH.get("ffmpeg")})
+        logger.info(f"Options passed to yt-dlp are the following:\n{self.ydl_opts}")
+
 
     def _gen_subtitles_opts(self):
         """
@@ -362,7 +391,7 @@ class VideodlApp:
 
     def _gen_sponsor_block_opts(self):
         if self.song_only.value:
-            categories = SponsorBlockPP.CATEGORIES.keys()
+            categories = CATEGORIES.keys()
             self.ydl_opts.get("postprocessors", []).append(
                 [
                     {"key": "SponsorBlock", "when": "pre_process"},
@@ -401,8 +430,8 @@ class VideodlApp:
         bytes_fieldname: str,
         time_last_update: datetime,
         last_speed: str,
-        progress_bar: ft.ProgressBar,
-        progress_text: ft.Text,
+        progress_bar: ProgressBar,
+        progress_text: Text,
         last_progress_percent: int,  # NOSONAR
     ):
         if self.cancel_button.disabled:
@@ -438,8 +467,8 @@ class VideodlApp:
             except (ZeroDivisionError, TypeError):
                 progress_float = last_progress_percent
 
-        n_current_entry = traverse_obj(d, ("info_dict", "playlist_autonumber"))
-        n_entries = traverse_obj(d, ("info_dict", "n_entries"))
+        n_current_entry = simple_traverse(d, ("info_dict", "playlist_autonumber"))
+        n_entries = simple_traverse(d, ("info_dict", "n_entries"))
         progress_bar.value = progress_float
         time_elapsed = datetime.now() - time_last_update
         delta_ms = (
@@ -533,7 +562,7 @@ class VideodlApp:
         for control in self.start_controls + self.end_controls:
             control.border_color = border
 
-    def _directory_selected(self, e: ft.FilePickerResultEvent):
+    def _directory_selected(self, e: FilePickerResultEvent):
         if not e.path:
             return
         self.download_path_text.value = e.path
@@ -558,13 +587,13 @@ class VideodlApp:
     def _index_change(self):
         self.indices_selected.disabled = not self.indices.value
         if self.indices.value:
-            self.indices_selected.text_style = ft.TextStyle(
-                weight=ft.FontWeight.BOLD, color=ft.colors.INVERSE_SURFACE
+            self.indices_selected.text_style = TextStyle(
+                weight=FontWeight.BOLD, color=colors.INVERSE_SURFACE
             )
             if self.indices_selected.value == self.default_indices_value:
                 self.indices_selected.value = ""
         else:
-            self.indices_selected.text_style = ft.TextStyle(
+            self.indices_selected.text_style = TextStyle(
                 color=DISABLED_COLOR
             )
 
@@ -576,9 +605,9 @@ class VideodlApp:
         self.song_only.disabled = not audio_only
         video_elements = [self.video_codec, self.framerate, self.quality]
         for video_element in video_elements:
-            color = DISABLED_COLOR if audio_only else ft.colors.INVERSE_SURFACE
-            video_element.text_style = ft.TextStyle(
-                weight=ft.FontWeight.BOLD, color=color
+            color = DISABLED_COLOR if audio_only else colors.INVERSE_SURFACE
+            video_element.text_style = TextStyle(
+                weight=FontWeight.BOLD, color=color
             )
             video_element.disabled = audio_only
         if not audio_only:
@@ -669,10 +698,16 @@ class VideodlApp:
             ]
         self.page.update()
 
-    def _textfield_focus(self, e: ft.ControlEvent):
+    def _textfield_focus(self, e: ControlEvent):
         e.control.focus()
 
     def _download_clicked(self, event):
+        if not validate_url(self.media_link.value):
+            self.download_status_text.value = gt(GF.unsupported_url)
+            self.download_status_text.visible = True
+            self.download_status_text.color = "yellow"
+            self.page.update()
+            return
         try:
             self.download_button.disabled = True
             self.cancel_button.disabled = False
@@ -695,15 +730,15 @@ class VideodlApp:
             self.download_status_text.value = gt(GF.dl_finish)
             self.download_status_text.visible = True
             self.download_status_text.color = "green"
-        except utils.UnsupportedError:
-            self.download_status_text.value = gt(GF.unsupported_url)
-            self.download_status_text.visible = True
-            self.download_status_text.color = "red"
-        except utils.DownloadError:
-            logging.error(traceback.format_exc())
-            self.download_status_text.value = gt(GF.unsupported_url)
-            self.download_status_text.visible = True
-            self.download_status_text.color = "red"
+        # except utils.UnsupportedError:
+        #     self.download_status_text.value = gt(GF.unsupported_url)
+        #     self.download_status_text.visible = True
+        #     self.download_status_text.color = "red"
+        # except utils.DownloadError:
+        #     logging.error(traceback.format_exc())
+        #     self.download_status_text.value = gt(GF.unsupported_url)
+        #     self.download_status_text.visible = True
+        #     self.download_status_text.color = "red"
         except FFmpegNoValidEncoderFound:
             logging.error(traceback.format_exc())
             self.download_status_text.value = gt(GF.no_encoder)
@@ -745,21 +780,21 @@ class VideodlApp:
 
     def build_gui(self):
         self.page.add(
-            ft.Row(
+            Row(
                 controls=[self.language, self.theme, self.version_number],
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                alignment=MainAxisAlignment.SPACE_BETWEEN,
             ),
-            ft.Row(controls=[self.media_link]),
-            ft.Row(controls=[self.download_path_text]),
-            ft.Row(controls=[self.download_path]),
-            ft.Row(
+            Row(controls=[self.media_link]),
+            Row(controls=[self.download_path_text]),
+            Row(controls=[self.download_path]),
+            Row(
                 controls=[self.playlist, self.indices, self.indices_selected]
             ),
-            ft.Row(controls=[self.video_codec, self.quality, self.framerate]),
-            ft.Row(
+            Row(controls=[self.video_codec, self.quality, self.framerate]),
+            Row(
                 controls=[self.audio_codec, self.audio_only, self.song_only]
             ),
-            ft.Row(
+            Row(
                 controls=[
                     self.start_checkbox,
                     self.start_h,
@@ -769,7 +804,7 @@ class VideodlApp:
                     self.start_s,
                 ]
             ),
-            ft.Row(
+            Row(
                 controls=[
                     self.end_checkbox,
                     self.end_h,
@@ -779,15 +814,15 @@ class VideodlApp:
                     self.end_s,
                 ]
             ),
-            ft.Row(controls=[self.subtitles, self.cookies]),
-            ft.Row(
+            Row(controls=[self.subtitles, self.cookies]),
+            Row(
                 controls=[
                     self.download_button,
                     self.cancel_button,
                     self.download_status_text,
                 ]
             ),
-            ft.Row(controls=[self.download_progress, self.process_progress]),
+            Row(controls=[self.download_progress, self.process_progress]),
         )
 
     def load_config(self):
@@ -816,12 +851,12 @@ class VideodlApp:
         self._change_language()
         self._index_change()
         audio_only = self.audio_only.value
-        color = DISABLED_COLOR if audio_only else ft.colors.INVERSE_SURFACE
+        color = DISABLED_COLOR if audio_only else colors.INVERSE_SURFACE
         video_elements = [self.video_codec, self.framerate, self.quality]
         for video_element in video_elements:
             video_element.disabled = audio_only
-            video_element.text_style = ft.TextStyle(
-                weight=ft.FontWeight.BOLD, color=color
+            video_element.text_style = TextStyle(
+                weight=FontWeight.BOLD, color=color
             )
         self.page.update()
 

@@ -4,9 +4,12 @@ import logging
 import os
 
 from yt_dlp import YoutubeDL
-
+from sys_vars import FF_PATH
 from components_handlers.ffmpeg_handler import post_process_dl
 from videodl_exceptions import PlaylistNotFound
+from yt_dlp.postprocessor import FFmpegPostProcessor
+from lang import GuiField as GF
+from lang import get_text as gt
 
 logger = logging.getLogger()
 
@@ -14,12 +17,15 @@ logger = logging.getLogger()
 def download(videodl_app):
     ydl_opts = videodl_app._gen_ydl_opts()
     logger.debug("ydl options %s", ydl_opts)
+    FFmpegPostProcessor._ffmpeg_location.set(FF_PATH.get("ffmpeg"))
     with YoutubeDL(ydl_opts) as ydl:
         infos_ydl = ydl.extract_info(videodl_app.media_link.value)
         if infos_ydl is None:
             raise PlaylistNotFound
         if videodl_app.audio_only.value:
             return
+        videodl_app.download_progress.controls[0].value = f"{gt(GF.download)} 100%"
+        videodl_app.page.update()
         if infos_ydl.get("_type") == "playlist":
             for infos_ydl_entry in infos_ydl["entries"]:
                 post_download(

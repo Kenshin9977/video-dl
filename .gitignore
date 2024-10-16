@@ -43,3 +43,4 @@ tmp/
 verbose.output
 $null
 main.spec
+.venv/

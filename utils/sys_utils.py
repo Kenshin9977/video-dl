@@ -21,6 +21,7 @@ logger = logging.getLogger()
 
 logger.info(f"Platform is '{PLATFORM}'")
 
+
 def add_ffmpeg_to_path():
     username = os.getlogin()
     ffmpeg_bin_path = Path(
@@ -35,12 +36,15 @@ def add_ffmpeg_to_path():
 
     path_env = os.environ.get("PATH", "")
     if str(ffmpeg_bin_path) not in path_env:
-        logger.info(f"Adding {ffmpeg_bin_path} to PATH")        
+        logger.info(f"Adding {ffmpeg_bin_path} to PATH")
         subprocess.run(
             ["setx", "PATH", f"{path_env};{ffmpeg_bin_path}"],
-            shell=True, capture_output=True
+            shell=True,
+            capture_output=True,
         )
-        logger.info("FFmpeg path added. Please restart the terminal for changes to take effect.")
+        logger.info(
+            "FFmpeg path added. Please restart the terminal for changes to take effect."
+        )
     else:
         logger.info("FFmpeg is already in the PATH")
 
@@ -49,7 +53,14 @@ def install_ffmpeg_on_windows():
     """Install ffmpeg using winget."""
     try:
         subprocess.run(
-            ["winget", "install", "--id=Gyan.FFmpeg", "-e", "--version", FFMPEG_WINGET_VERSION],
+            [
+                "winget",
+                "install",
+                "--id=Gyan.FFmpeg",
+                "-e",
+                "--version",
+                FFMPEG_WINGET_VERSION,
+            ],
             check=True,
         )
         add_ffmpeg_to_path()
@@ -93,8 +104,6 @@ def get_ff_components_path() -> dict:
         logger.info(f"FFmpeg found at {ffmpeg_path}")
         return {"ffmpeg": ffmpeg_path, "ffprobe": ffprobe_path}
     raise SystemError("FFmpeg is missing")
-
-
 
 
 def _get_extension_for_platform() -> str:
@@ -200,7 +209,7 @@ def ffmpeg_missing(page: ft.Page) -> None:
         message += (
             "On Windows, it should be installed if missing.\n"
             "This error shouldn't happen. Please open an issue on the following link:"
-        ) 
+        )
         url = "[https://github.com/Kenshin9977/video-dl/issues](https://github.com/Kenshin9977/video-dl/issues)"
     elif PLATFORM == "Darwin":
         message = "On MacOS you can follow this guide to install it:"

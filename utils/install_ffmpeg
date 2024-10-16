@@ -1,0 +1,35 @@
+import json
+import os
+import re
+import urllib.request
+
+
+def download_asset(bits_archi: str, download_folder="."):
+    api_url = "https://api.github.com/repos/yt-dlp/FFmpeg-Builds/releases/latest"
+    asset_pattern = f"-win{bits_archi}-gpl-shared.zip"
+    try:
+        with urllib.request.urlopen(api_url) as response:
+            release_info = json.load(response)
+
+        assets = release_info.get("assets", [])
+        for asset in assets:
+            if re.search(asset_pattern, asset["name"]):
+                asset_url = asset["browser_download_url"]
+                file_name = os.path.join(download_folder, asset["name"])
+
+                print(f"Downloading {asset['name']}...")
+                urllib.request.urlretrieve(asset_url, file_name, reporthook)
+                print(f"Downloaded {asset['name']} to {file_name}")
+                return
+
+    except Exception as e:
+        print(f"Error occurred while retrieving FFmpeg from GitHub: {e}")
+
+
+def reporthook(block_num, block_size, total_size):
+    downloaded = block_num * block_size
+    if total_size > 0:
+        percent = downloaded / total_size * 100
+        print(f"\rProgress: {percent:.2f}% ({downloaded}/{total_size} bytes)", end="")
+    else:
+        print(f"\rDownloaded {downloaded} bytes", end="")

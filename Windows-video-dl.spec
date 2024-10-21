@@ -7,20 +7,6 @@ block_cipher = None
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[
-        ('dependencies/avcodec-59.dll', '.'),
-        ('dependencies/avdevice-59.dll', '.'),
-        ('dependencies/avfilter-8.dll', '.'),
-        ('dependencies/avformat-59.dll', '.'),
-        ('dependencies/avutil-57.dll', '.'),
-        ('dependencies/postproc-56.dll', '.'),
-        ('dependencies/swresample-4.dll', '.'),
-        ('dependencies/swscale-6.dll', '.')
-    ],
-    datas=[
-        ('dependencies/ffmpeg.exe', '.'),
-        ('dependencies/ffprobe.exe', '.')
-    ],
     hiddenimports = [],
     hookspath=[],
     hooksconfig={},
@@ -30,6 +16,8 @@ a = Analysis(
     win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
+    # upx_dir= "upx.exe",
+    
 )
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
@@ -44,7 +32,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,

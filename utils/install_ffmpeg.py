@@ -13,9 +13,12 @@ from utils.sys_architecture import ARCHITECTURE
 logger = logging.getLogger()
 
 
-def ffmpeg_progress_page(page: ft.Page, folder_path: str) -> None:
+def ffmpeg_progress_page(page: ft.Page) -> None:
+    page.window_width = 400
+    page.window_height = 150
+    folder_path = os.path.join(os.getenv("LOCALAPPDATA"), "video-dl")
     page.title = "FFmpeg installation progress"
-    progress_bar = ft.ProgressBar(width=400, height=150)
+    progress_bar = ft.ProgressBar(width=300)
     download_text = ft.Text(f"Downloading FFmpeg to: {folder_path}", size=16)
 
     page.add(download_text, progress_bar)
@@ -77,6 +80,7 @@ def ffmpeg_progress_page(page: ft.Page, folder_path: str) -> None:
             raise Exception(f"Error occurred while retrieving FFmpeg from GitHub: {e}")
 
     install_ffmpeg()
+    page.window_destroy()
 
 
 def ffmpeg_missing_on_windows(page: ft.Page) -> None:

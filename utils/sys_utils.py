@@ -1,5 +1,6 @@
 import logging
 import os
+from pathlib import Path
 import subprocess
 import sys
 from platform import system
@@ -51,9 +52,9 @@ def get_ff_windows(ffmpeg_name, ffprobe_name):
     ffmpeg_path = os.path.join(ff_bin_path, ffmpeg_name)
     ffprobe_path = os.path.join(ff_bin_path, ffprobe_name)
 
-    if not (ffmpeg_path.exists() and ffprobe_path.exists()):
+    if not (Path(ffmpeg_path).exists() and ffprobe_path.exists()):
         logger.info(f"FF components not found at {ff_bin_path}")
-        ft.app(target=ffmpeg_progress_page, args=[ff_bin_path])
+        ft.app(ffmpeg_progress_page)
 
     try:
         ffmpeg_version_cmd = subprocess.run(

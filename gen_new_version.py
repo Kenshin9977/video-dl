@@ -10,9 +10,9 @@ from zipfile import ZipFile
 import PyInstaller.__main__
 from mergedeep import merge
 
-from sys_vars import ARCHITECTURE
 from updater.bs3 import Bs3client
 from utils.crypto_util import compute_sha256
+from utils.sys_architecture import ARCHITECTURE
 from utils.sys_utils import (
     APP_NAME,
     APP_VERSION,
@@ -58,14 +58,12 @@ class GenUpdate:
     def _init_latest_dict_versions(self):
         dict_versions = self._get_versions_json()
         try:
-            latest_version = dict_versions[self.app_name][self.platform][
-                ARCHITECTURE
-            ]["latest_version"]
+            latest_version = dict_versions[self.app_name][self.platform][ARCHITECTURE][
+                "latest_version"
+            ]
         except KeyError:
             latest_version = None
-        if latest_version and not self._check_version_number_validity(
-            latest_version
-        ):
+        if latest_version and not self._check_version_number_validity(latest_version):
             raise ValueError("Version number isn't valid")
         return dict_versions
 
@@ -137,25 +135,19 @@ class GenUpdate:
             logger.error("Major version is lesser than the latest one")
             return False
         elif int(lv_re.group("major")) < int(cv_re.group("major")):
-            logger.info(
-                "Version number is valid: Generating new major version"
-            )
+            logger.info("Version number is valid: Generating new major version")
             return True
         elif int(lv_re.group("minor")) > int(cv_re.group("minor")):
             logger.error("Minor version is lesser than the latest one")
             return False
         elif int(lv_re.group("minor")) < int(cv_re.group("minor")):
-            logger.info(
-                "Version number is valid: Generating new minor version"
-            )
+            logger.info("Version number is valid: Generating new minor version")
             return True
         elif int(lv_re.group("patch")) >= int(cv_re.group("patch")):
             logger.error("Patch version is lesser or equal to the latest one")
             return False
         else:
-            logger.info(
-                "Version number is valid: Generating new patch version"
-            )
+            logger.info("Version number is valid: Generating new patch version")
             return True
 
     def _clean_versions_files(self) -> None:

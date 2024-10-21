@@ -11,14 +11,14 @@ from subprocess import Popen
 from zipfile import ZipFile
 
 import flet as ft
-from quantiphy import Quantity
 from httpx import get
-from utils.parse_util import simple_traverse
+from quantiphy import Quantity
 
 from lang import GuiField as GF
 from lang import get_text as gt
-from sys_vars import ARCHITECTURE
 from utils.crypto_util import compute_sha256
+from utils.parse_util import simple_traverse
+from utils.sys_architecture import ARCHITECTURE
 from utils.sys_utils import (
     APP_NAME,
     APP_VERSION,
@@ -65,10 +65,7 @@ class Updater:
             varray_x64 = latest_version.split(".")
             if (
                 varray_x86[0] > varray_x64[0]
-                or (
-                    varray_x86[0] == varray_x64[0]
-                    and varray_x86[1] > varray_x64[1]
-                )
+                or (varray_x86[0] == varray_x64[0] and varray_x86[1] > varray_x64[1])
                 or (
                     varray_x86[0] == varray_x64[0]
                     and varray_x86[1] == varray_x64[1]
@@ -129,8 +126,7 @@ class Updater:
         self._clean_versions_files()
         versions_dict = {}
         r = get(
-            "http://video-dl-binaries.s3.amazonaws.com/"
-            f"{self.versions_archive_name}"
+            "http://video-dl-binaries.s3.amazonaws.com/" f"{self.versions_archive_name}"
         )
         if r.status_code != 200:
             log.info(f"{self.versions_archive_name} doesn't exists")
@@ -174,8 +170,7 @@ class Updater:
         self.page.update()
 
         latest_archive_name = (
-            f"{APP_NAME}-{self.platform}-{ARCHITECTURE}"
-            f"-{self.latest_version}.zip"
+            f"{APP_NAME}-{self.platform}-{ARCHITECTURE}-{self.latest_version}.zip"
         )
         log.info("Downloading...")
         try:
@@ -327,9 +322,9 @@ class Updater:
         Returns:
             bool: Whether or not the archive size and SHA256 match
         """
-        latest_version = self.versions_dict[APP_NAME][self.platform][
-            ARCHITECTURE
-        ]["latest_version"]
+        latest_version = self.versions_dict[APP_NAME][self.platform][ARCHITECTURE][
+            "latest_version"
+        ]
         bin_infos = self.versions_dict[APP_NAME][self.platform][ARCHITECTURE][
             latest_version
         ]
@@ -365,9 +360,7 @@ class Updater:
             return False
         # match signature
 
-    def update_progress_bar(
-        self, chunks_downloaded: int, total_size: int
-    ) -> None:
+    def update_progress_bar(self, chunks_downloaded: int, total_size: int) -> None:
         """
         Handle the update's progress bar.
 
@@ -392,18 +385,29 @@ class Updater:
             average_speed_str = Quantity(average_speed, "B/s").render(prec=2)
             self.download_progress_bar.value = progress_float
             self.download_progress_text.value = (
-                f"{gt(GF.update)} {average_speed_str}"
-                f" {int(progress_float * 100)}%"
+                f"{gt(GF.update)} {average_speed_str}" f" {int(progress_float * 100)}%"
             )
             self.page.update()
 
 
 def update_app() -> bool:
+    current_dir = os.getcwd()
+    can_read = os.access(current_dir, os.R_OK)
+    can_write = os.access(current_dir, os.W_OK)
+    can_execute = os.access(current_dir, os.X_OK)
+
+    log.info(f"Current working directory:'{current_dir}'")
+    log.info(f"Read:'{can_read}', Write:'{can_write}', Execute:'{can_execute}'")
+
+    if not (can_read and can_write and can_execute):
+        ft.app(target=permission_error_gui)
+        sys.exit(-1)
+
     try:
         return Updater().update_app()
     except PermissionError:
         ft.app(target=permission_error_gui)
-        return False
+        sys.exit(-1)
 
 
 def permission_error_gui(page: ft.Page):

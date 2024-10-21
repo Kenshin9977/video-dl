@@ -1,6 +1,9 @@
 import logging
+
 import fire
+
 from videodl_logger import videodl_logger
+
 
 def main(debug=False):
     videodl_logger(debug=debug)

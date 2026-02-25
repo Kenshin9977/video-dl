@@ -1,31 +1,35 @@
 import logging
 import os
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 from platform import system
-from re import match
-from subprocess import Popen, check_output
-from typing import Any
 
 import flet as ft
 
-from utils.install_ffmpeg import (
+from utils.aria2_install import (
+    aria2c_brew_install_page,
+    aria2c_info_linux,
+    aria2c_progress_page,
+    get_aria2c_install_folder,
+)
+from utils.ffmpeg_install import (
     ffmpeg_missing_on_linux,
     ffmpeg_missing_on_mac,
     ffmpeg_missing_on_windows,
     ffmpeg_progress_page,
 )
-from utils.sys_architecture import ARCHITECTURE
+from utils.quickjs_install import (
+    get_quickjs_install_folder,
+    quickjs_missing,
+    quickjs_progress_page,
+)
 
 APP_NAME = "video-dl"
 APP_VERSION = "1.1.15"
 PLATFORM = system()
-VERSIONS_ARCHIVE_NAME = "versions.zip"
-VERSIONS_JSON_NAME = "versions.json"
-FFMPEG_WINGET_VERSION = "7.1"
 
-logger = logging.getLogger()
+logger = logging.getLogger("videodl")
 
 logger.info(f"Platform is '{PLATFORM}'")
 
@@ -52,23 +56,21 @@ def get_ff_windows(ffmpeg_name, ffprobe_name):
     ffmpeg_path = os.path.join(ff_bin_path, ffmpeg_name)
     ffprobe_path = os.path.join(ff_bin_path, ffprobe_name)
 
-    if not (Path(ffmpeg_path).exists() and ffprobe_path.exists()):
+    if not (Path(ffmpeg_path).exists() and Path(ffprobe_path).exists()):
         logger.info(f"FF components not found at {ff_bin_path}")
-        ft.app(ffmpeg_progress_page)
+        ft.run(ffmpeg_progress_page)
 
     try:
-        ffmpeg_version_cmd = subprocess.run(
-            [ffmpeg_path, "-version"], capture_output=True
-        )
+        ffmpeg_version_cmd = subprocess.run([ffmpeg_path, "-version"], capture_output=True)
     except Exception:
-        ft.app(ffmpeg_missing_on_windows)
+        ft.run(ffmpeg_missing_on_windows)
         sys.exit(-1)
 
     if ffmpeg_version_cmd.returncode == 0:
         logger.info(f"FFmpeg found at {ffmpeg_path}")
         return {"ffmpeg": ffmpeg_path, "ffprobe": ffprobe_path}
 
-    ft.app(ffmpeg_missing_on_windows)
+    ft.run(ffmpeg_missing_on_windows)
     sys.exit(-1)
 
 
@@ -78,20 +80,166 @@ def get_ff(ffmpeg_name, ffprobe_name):
     elif PLATFORM == "Darwin":
         ff_missing_function = ffmpeg_missing_on_mac
 
-    try:
-        ffmpeg_version_cmd = subprocess.run(
-            [ffmpeg_name, "-version"], capture_output=True
-        )
-    except Exception:
-        ft.app(ff_missing_function)
-        sys.exit(-1)
+    ffmpeg_path = _find_executable(ffmpeg_name)
+    if ffmpeg_path:
+        ffprobe_path = _find_executable(ffprobe_name) or ffprobe_name
+        logger.info(f"FFmpeg found at {ffmpeg_path}")
+        return {"ffmpeg": ffmpeg_path, "ffprobe": ffprobe_path}
 
-    if ffmpeg_version_cmd.returncode == 0:
-        logger.info(f"FFmpeg found at {ffmpeg_name}")
-        return {"ffmpeg": ffmpeg_name, "ffprobe": ffprobe_name}
-
-    ft.app(ff_missing_function)
+    ft.run(ff_missing_function)
     sys.exit(-1)
+
+
+def _find_executable(name):
+    """Find an executable by name, checking PATH and common install locations."""
+    import shutil
+
+    found = shutil.which(name)
+    if found:
+        return found
+
+    # Common locations not always in PATH (e.g. Homebrew on Apple Silicon/Intel)
+    extra_dirs = ["/opt/homebrew/bin", "/usr/local/bin"]
+    for d in extra_dirs:
+        candidate = os.path.join(d, name)
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+
+    return None
+
+
+def get_quickjs_path() -> str | None:
+    """
+    Get the path of QuickJS binary if it exists on the system.
+
+    Returns:
+        str | None: The path for QuickJS binary, or None if not found
+    """
+    ext = _get_extension_for_platform()
+    qjs_name = f"qjs{ext}"
+    if PLATFORM == "Windows":
+        return _get_quickjs_windows(qjs_name)
+    elif PLATFORM in ["Darwin", "Linux"]:
+        return _get_quickjs_unix(qjs_name)
+    return None
+
+
+def _get_quickjs_windows(qjs_name):
+    qjs_bin_path = get_quickjs_install_folder()
+    qjs_path = os.path.join(qjs_bin_path, qjs_name)
+
+    if not Path(qjs_path).exists():
+        logger.info(f"QuickJS not found at {qjs_bin_path}")
+        ft.run(quickjs_progress_page)
+
+    if Path(qjs_path).exists():
+        logger.info(f"QuickJS found at {qjs_path}")
+        return qjs_path
+
+    ft.run(quickjs_missing)
+    sys.exit(-1)
+
+
+def _get_quickjs_unix(qjs_name):
+    # Check system PATH first
+    qjs_path = _find_executable(qjs_name)
+    if qjs_path:
+        logger.info(f"QuickJS found at {qjs_path}")
+        return qjs_path
+
+    # Check our install folder
+    qjs_bin_path = get_quickjs_install_folder()
+    qjs_path = os.path.join(qjs_bin_path, qjs_name)
+    if Path(qjs_path).exists():
+        logger.info(f"QuickJS found at {qjs_path}")
+        return qjs_path
+
+    # Auto-download
+    logger.info("QuickJS not found, downloading...")
+    ft.run(quickjs_progress_page)
+
+    if Path(qjs_path).exists():
+        logger.info(f"QuickJS installed at {qjs_path}")
+        return qjs_path
+
+    ft.run(quickjs_missing)
+    sys.exit(-1)
+
+
+def get_aria2c_path() -> str | None:
+    """
+    Get the path of aria2c binary if it exists on the system.
+    Auto-installs on Windows (zip) and macOS (brew). On Linux, shows info page.
+
+    Returns:
+        str | None: The path for aria2c binary, or None if not found
+    """
+    ext = _get_extension_for_platform()
+    aria2c_name = f"aria2c{ext}"
+    if PLATFORM == "Windows":
+        return _get_aria2c_windows(aria2c_name)
+    elif PLATFORM == "Darwin":
+        return _get_aria2c_macos(aria2c_name)
+    elif PLATFORM == "Linux":
+        return _get_aria2c_linux(aria2c_name)
+    return None
+
+
+def _get_aria2c_windows(aria2c_name):
+    install_folder = get_aria2c_install_folder()
+    aria2c_path = os.path.join(install_folder, aria2c_name)
+
+    if Path(aria2c_path).exists():
+        logger.info(f"aria2c found at {aria2c_path}")
+        return aria2c_path
+
+    # Auto-install
+    logger.info("aria2c not found on Windows, downloading...")
+    ft.run(aria2c_progress_page)
+
+    if Path(aria2c_path).exists():
+        logger.info(f"aria2c installed at {aria2c_path}")
+        return aria2c_path
+
+    logger.warning("aria2c installation failed, continuing without it")
+    return None
+
+
+def _get_aria2c_macos(aria2c_name):
+    # Check system PATH first
+    aria2c_path = _find_executable(aria2c_name)
+    if aria2c_path:
+        logger.info(f"aria2c found at {aria2c_path}")
+        return aria2c_path
+
+    # Try brew install
+    import shutil
+
+    if shutil.which("brew"):
+        logger.info("aria2c not found, attempting brew install...")
+        ft.run(aria2c_brew_install_page)
+
+        aria2c_path = _find_executable(aria2c_name)
+        if aria2c_path:
+            logger.info(f"aria2c installed at {aria2c_path}")
+            return aria2c_path
+
+    # No brew or install failed — show info page like Linux
+    logger.info("aria2c not available on macOS (no brew or install failed)")
+    ft.run(aria2c_info_linux)
+    return None
+
+
+def _get_aria2c_linux(aria2c_name):
+    aria2c_path = _find_executable(aria2c_name)
+    if aria2c_path:
+        logger.info(f"aria2c found at {aria2c_path}")
+        return aria2c_path
+
+    # Show info page
+    logger.info("aria2c not found on Linux, showing info page")
+    ft.run(aria2c_info_linux)
+    return None
 
 
 def _get_extension_for_platform() -> str:
@@ -104,72 +252,84 @@ def _get_extension_for_platform() -> str:
     return ".exe" if PLATFORM == "Windows" else ""
 
 
-def popen(cmd: list) -> Popen:
-    """
-    Popen handler for OSs. Avoid opening a console when running commands.
+_BUNDLE_ID_TO_BROWSER = {
+    "com.apple.safari": "Safari",
+    "com.google.chrome": "Chrome",
+    "org.mozilla.firefox": "Firefox",
+    "com.brave.browser": "Brave",
+    "com.microsoft.edgemac": "Edge",
+    "com.operasoftware.opera": "Opera",
+    "com.vivaldi.vivaldi": "Vivaldi",
+    "org.chromium.chromium": "Chromium",
+}
 
-    Args:
-        cmd (list): Commands list
+_DESKTOP_FILE_TO_BROWSER = {
+    "firefox": "Firefox",
+    "google-chrome": "Chrome",
+    "chromium": "Chromium",
+    "chromium-browser": "Chromium",
+    "brave-browser": "Brave",
+    "microsoft-edge": "Edge",
+    "opera": "Opera",
+    "vivaldi-stable": "Vivaldi",
+}
 
-    Returns:
-        Popen: Popen object
-    """
-    process = Popen(
-        cmd,
-        startupinfo=get_startup_info(),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        stdin=subprocess.PIPE,
-        universal_newlines=True,
-        encoding="utf8",
+_PROGID_TO_BROWSER = {
+    "chromehtml": "Chrome",
+    "firefoxurl": "Firefox",
+    "bravehtml": "Brave",
+    "msedgehtm": "Edge",
+    "operastable": "Opera",
+    "vivaldihtm": "Vivaldi",
+    "safarihtml": "Safari",
+}
+
+
+def get_default_browser() -> str | None:
+    """Detect the system's default browser. Returns a browser name or None."""
+    try:
+        if PLATFORM == "Darwin":
+            return _detect_browser_macos()
+        elif PLATFORM == "Linux":
+            return _detect_browser_linux()
+        elif PLATFORM == "Windows":
+            return _detect_browser_windows()
+    except Exception:
+        pass
+    return None
+
+
+def _detect_browser_macos() -> str | None:
+    import plistlib
+
+    plist_path = os.path.expanduser(
+        "~/Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist"
     )
-    return process
+    with open(plist_path, "rb") as f:
+        data = plistlib.load(f)
+    for handler in data.get("LSHandlers", []):
+        if handler.get("LSHandlerURLScheme") in ("https", "http"):
+            bundle_id = handler.get("LSHandlerRoleAll", "").lower()
+            return _BUNDLE_ID_TO_BROWSER.get(bundle_id)
+    return None
 
 
-def check_cmd_output(cmd: list[str]) -> str:
-    """
-    Check the output of the cmd executed by the system.
-
-    Args:
-        cmd (list[str]): Command line to be executed
-
-    Returns:
-        str: The output of the command line
-    """
-    return check_output(cmd, startupinfo=get_startup_info())
+def _detect_browser_linux() -> str | None:
+    result = subprocess.run(["xdg-settings", "get", "default-web-browser"], capture_output=True, text=True)
+    desktop_file = result.stdout.strip().lower().removesuffix(".desktop")
+    return _DESKTOP_FILE_TO_BROWSER.get(desktop_file)
 
 
-def get_bin_ext_for_platform() -> str:
-    ext = None
-    if PLATFORM == "Windows":
-        ext = ".exe"
-    elif PLATFORM == "Linux":
-        ext = ""
-    elif PLATFORM == "Darwin":
-        ext = ".app"
-    if ext is None:
-        logger.error("Platform isn't supported")
-        raise RuntimeError
-    return f"{APP_NAME}{ext}"
+def _detect_browser_windows() -> str | None:
+    import winreg
 
-
-def gen_archive_name() -> str:
-    correct_format = match(
-        r"(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)", APP_VERSION
+    key_path = (
+        r"Software\Microsoft\Windows\Shell\Associations"
+        r"\UrlAssociations\http\UserChoice"
     )
-    if not correct_format:
-        logger.error("Version number isn't formatted correctly")
-        raise ValueError
-    architecture = ARCHITECTURE
-    return f"{APP_NAME}-{PLATFORM}-{architecture}-{APP_VERSION}.zip"
-
-
-def get_startup_info() -> Any:
-    startupinfo = None
-    if PLATFORM == "Windows":
-        startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-    return startupinfo
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path) as key:  # type: ignore[attr-defined]
+        prog_id = winreg.QueryValueEx(key, "ProgId")[0]  # type: ignore[attr-defined]
+    return _PROGID_TO_BROWSER.get(prog_id.lower())
 
 
 def get_default_download_path() -> str:
@@ -189,6 +349,6 @@ def get_default_download_path() -> str:
 
     key = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
     downloads_guid = "{374DE290-123F-4565-9164-39C4925E467B}"
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as sub_key:
-        location = winreg.QueryValueEx(sub_key, downloads_guid)[0]
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as sub_key:  # type: ignore[attr-defined]
+        location = winreg.QueryValueEx(sub_key, downloads_guid)[0]  # type: ignore[attr-defined]
     return location

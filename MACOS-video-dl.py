@@ -7,7 +7,7 @@ Usage:
 
 from setuptools import setup
 
-APP = ["app.py"]
+APP = ["main.py"]
 DATA_FILES = []
 OPTIONS = {"iconfile": "icon.png", "emulate_shell_environment": True}
 

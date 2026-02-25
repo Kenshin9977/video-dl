@@ -1,0 +1,46 @@
+[project]
+name = "video-dl"
+version = "1.1.15"
+description = "A Flet-based GUI for yt-dlp with hardware-accelerated encoding"
+requires-python = ">=3.12"
+dependencies = [
+    "darkdetect",
+    "flet>=0.80",
+    "quantiphy",
+    "tomlkit",
+    "tufup>=0.10",
+    "yt-dlp-ejs",
+    "yt-dlp-enhanced-progress",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy",
+    "pyinstaller",
+    "pytest",
+    "ruff",
+]
+
+[project.scripts]
+video-dl = "main:main"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
+ignore_missing_imports = true
+exclude = ["build", "dist", "venv", "\\.venv"]
+disable_error_code = ["no-any-return", "var-annotated"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

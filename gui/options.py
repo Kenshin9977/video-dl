@@ -1,9 +1,9 @@
-from lang import GuiField as GF
-from lang import get_text as gt
+from i18n.lang import GuiField as GF
+from i18n.lang import get_text as gt
 
 FRAMERATE = ["30", "60"]
 BROWSERS = [
-    gt(GF.cookies_none),
+    gt(GF.login_from_none),
     "Brave",
     "Chrome",
     "Chromium",
@@ -24,5 +24,5 @@ QUALITY = [
     "240p",
     "144p",
 ]
-VCODECS = ["Best", "x264", "x265", "ProRes", "AV1"]
-ACODECS = ["Best", "AAC", "ALAC", "FLAC", "OPUS", "MP3", "VORBIS", "WAV"]
+VCODECS = ["Auto", "x264", "x265", "ProRes", "AV1"]
+ACODECS = ["Auto", "AAC", "ALAC", "FLAC", "OPUS", "MP3", "VORBIS", "WAV"]

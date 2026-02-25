@@ -18,6 +18,7 @@ def get_system_architecture() -> str:
         return "x86"
     elif search("64", architecture, IGNORECASE):
         return "x86_64"
+    return "unknown"
 
 
 ARCHITECTURE = get_system_architecture()

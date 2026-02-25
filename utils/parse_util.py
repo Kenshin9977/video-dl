@@ -1,5 +1,6 @@
 from urllib.parse import urlparse
 
+
 def simple_traverse(obj, path, default=None):
     """
     Traverse a nested dictionary or list using the given path.
@@ -22,6 +23,6 @@ def simple_traverse(obj, path, default=None):
 def validate_url(url):
     try:
         result = urlparse(url)
-        return all([result.scheme, result.netloc])
+        return bool(result.scheme and result.netloc)
     except ValueError:
         return False

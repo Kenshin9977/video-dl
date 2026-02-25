@@ -19,7 +19,6 @@ downloads/*
 /ffprobe.exe
 /ffmpeg.exe
 /poetry.lock
-/pyproject.toml
 /swresample-4.dll
 /swscale-6.dll
 /venv/*
@@ -33,10 +32,12 @@ venv/*
 .cspell/*
 *.dll
 *.exe
-Video-dl.app/*
+video-dl.app/
+Video-dl.app/
 *.log
 .VSCodeCounter/*
-*.toml
+settings.toml
+videodl-config.toml
 *.pyc
 tmp/
 *.old
@@ -44,3 +45,5 @@ verbose.output
 $null
 main.spec
 .venv/
+keystore/
+my_repo/

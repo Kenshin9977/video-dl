@@ -13,6 +13,7 @@ from darkdetect import isDark
 from flet import (
     Button,
     Checkbox,
+    Clipboard,
     Colors,
     Column,
     Dropdown,
@@ -1021,8 +1022,8 @@ class VideodlApp:
             text_size=12,
         )
 
-        def copy_to_clipboard(_e):
-            self.page.clipboard = detail
+        async def copy_to_clipboard(_e):
+            await Clipboard().set(detail)
 
         def open_log_folder(_e):
             path = str(LOG_DIR)

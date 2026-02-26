@@ -3,7 +3,7 @@ import pathlib
 import shutil
 import sys
 
-from utils.sys_utils import APP_NAME, APP_VERSION
+from utils.sys_utils import APP_NAME, APP_VERSION, PLATFORM_APP_NAME
 
 logger = logging.getLogger("videodl")
 
@@ -49,7 +49,7 @@ def check_for_updates() -> bool:
             shutil.copy2(trusted_root_src, trusted_root_dst)
 
         client = Client(
-            app_name=APP_NAME,
+            app_name=PLATFORM_APP_NAME,
             app_install_dir=_get_install_dir(),
             current_version=APP_VERSION,
             metadata_dir=metadata_dir,

@@ -50,14 +50,85 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}
 
-  release:
+  sign:
     needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e "."
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Restore signing keys
+        run: |
+          mkdir -p keystore
+          echo "${{ secrets.TUFUP_PRIVATE_KEY }}" | base64 -d > keystore/video_dl_key
+          chmod 600 keystore/video_dl_key
+          echo "${{ secrets.TUFUP_PUBLIC_KEY }}" | base64 -d > keystore/video_dl_key.pub
+          echo "${{ secrets.TUFUP_CONFIG }}" | base64 -d > .tufup-repo-config
+
+      - name: Restore tufup repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TUFUP_REPO_ARCHIVE: ${{ secrets.TUFUP_REPO_ARCHIVE }}
+        run: |
+          if gh release download --repo ${{ github.repository }} \
+              --pattern "tufup-repo.tar.gz" --dir /tmp 2>/dev/null; then
+            tar -xzf /tmp/tufup-repo.tar.gz
+            echo "Restored tufup repo from previous release"
+          elif [ -n "$TUFUP_REPO_ARCHIVE" ]; then
+            echo "$TUFUP_REPO_ARCHIVE" | base64 -d | tar -xzf -
+            echo "Restored tufup repo from secret"
+          else
+            mkdir -p repository/metadata repository/targets
+            cp root.json repository/metadata/root.json
+            echo "Bootstrapped fresh tufup repo"
+          fi
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Sign all platform artifacts
+        run: |
+          python -m tools.ci_sign \
+            --version "${{ steps.version.outputs.version }}" \
+            --artifacts-dir artifacts \
+            --keys-dir keystore \
+            --repo-dir repository
+
+      - name: Package signed files
+        run: |
+          mkdir -p signed
+          cp repository/metadata/*.json signed/
+          cp repository/targets/*.tar.gz signed/ 2>/dev/null || true
+          tar -czf signed/tufup-repo.tar.gz -C . repository/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tufup-signed
+          path: signed/
+
+  release:
+    needs: [build, sign]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
+
+      - name: List release files
+        run: ls -la artifacts/
 
       - uses: softprops/action-gh-release@v2
         with:

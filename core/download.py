@@ -26,16 +26,16 @@ _STATUS_PATTERNS = [
 class _YdlUiLogger:
     """Bridges yt-dlp log messages to a Flet status text widget."""
 
-    def __init__(self, status_text, ui_dirty_event):
+    def __init__(self, status_text, mark_dirty):
         self._status_text = status_text
-        self._ui_dirty = ui_dirty_event
+        self._mark_dirty = mark_dirty
 
     def _update_status(self, msg):
         for pattern, gui_field in _STATUS_PATTERNS:
             if pattern.search(msg):
                 self._status_text.value = gt(gui_field)
                 self._status_text.visible = True
-                self._ui_dirty.set()
+                self._mark_dirty()
                 return
 
     def debug(self, msg):
@@ -57,7 +57,7 @@ def create_ydl(videodl_app):
     """Create a reusable YoutubeDL instance (cookies extracted once)."""
     ydl_opts = videodl_app._gen_ydl_opts()
     logger.debug("ydl options %s", ydl_opts)
-    ydl_opts["logger"] = _YdlUiLogger(videodl_app.download_status_text, videodl_app._ui_dirty)
+    ydl_opts["logger"] = _YdlUiLogger(videodl_app.download_status_text, videodl_app._mark_ui_dirty)
     FFmpegPostProcessor._ffmpeg_location.set(FF_PATH.get("ffmpeg"))
     return YoutubeDL(ydl_opts)
 
@@ -79,7 +79,7 @@ def _finish_download(videodl_app, ydl, infos_ydl):
     if videodl_app.audio_only.value:
         return
     videodl_app.download_progress.controls[0].value = f"{gt(GF.download)} 100%"
-    videodl_app._ui_dirty.set()
+    videodl_app._mark_ui_dirty()
     if infos_ydl.get("_type") == "playlist":
         for infos_ydl_entry in infos_ydl["entries"]:
             if videodl_app._cancel_requested.is_set():

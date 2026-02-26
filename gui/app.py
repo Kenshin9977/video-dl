@@ -401,8 +401,9 @@ class VideodlApp:
         self.process_last_speed: str = ""
         self.download_progress_percent: float = 0
         self.process_progress_percent: float = 0
-        self._ui_dirty = threading.Event()
-        self._download_done = threading.Event()
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._ui_dirty = asyncio.Event()
+        self._download_done = asyncio.Event()
         self._cancel_requested = threading.Event()
         self._preparing = False
         self._download_counter = ""
@@ -592,7 +593,7 @@ class VideodlApp:
             elif n_current and n_entries > 1:
                 progress_str += f"({n_current}/{n_entries})"
             progress_text.value = progress_str
-            self._ui_dirty.set()
+            self._mark_ui_dirty()
         return time_last_update, last_speed, last_progress_percent
 
     def _timecodes_are_valid(self) -> bool:
@@ -985,6 +986,11 @@ class VideodlApp:
     def _textfield_focus(self, e: Event[TextField]):
         e.control.focus()
 
+    def _mark_ui_dirty(self):
+        """Signal the UI refresh loop. Safe to call from any thread."""
+        if self._loop is not None:
+            self._loop.call_soon_threadsafe(self._ui_dirty.set)
+
     def _show_status(self, message, color):
         self._error_report = None
         self.download_status_banner.visible = False
@@ -1098,6 +1104,7 @@ class VideodlApp:
         self.page.run_task(self._run_download_async)
 
     async def _run_download_async(self):
+        self._loop = asyncio.get_running_loop()
         ui_task = asyncio.create_task(self._ui_refresh_loop())
         main_url = self.media_link.value if validate_url(self.media_link.value) else None
         urls = ([main_url] if main_url else []) + list(self._url_queue)
@@ -1139,17 +1146,21 @@ class VideodlApp:
         self._update_queue_badge()
         ydl.close()
         self._download_done.set()
+        self._ui_dirty.set()  # Wake refresh loop for clean exit
         await ui_task
         self._reset_after_download()
 
     async def _ui_refresh_loop(self):
-        """Poll for UI changes from the download thread and flush them."""
+        """Coalesce dirty signals from the download thread and flush at ~5 Hz."""
         while not self._download_done.is_set():
-            await asyncio.to_thread(self._ui_dirty.wait, 0.15)
-            if self._ui_dirty.is_set():
-                self._ui_dirty.clear()
-                self.page.update()
+            await self._ui_dirty.wait()
+            self._ui_dirty.clear()
+            if self._download_done.is_set():
+                break
+            self.page.update()
+            await asyncio.sleep(0.2)
         # Final flush
+        self._ui_dirty.clear()
         self.page.update()
 
     def _reset_after_download(self):

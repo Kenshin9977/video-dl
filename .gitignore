@@ -47,3 +47,4 @@ main.spec
 .venv/
 keystore/
 my_repo/
+repository/

@@ -6,7 +6,6 @@ import re
 
 from yt_dlp import YoutubeDL
 from yt_dlp.postprocessor import FFmpegPostProcessor
-
 from yt_dlp.utils import DownloadCancelled as YtdlpDownloadCancelled
 
 from core.encode import post_process_dl
@@ -68,7 +67,7 @@ def download(videodl_app, ydl, url=None):
     try:
         infos_ydl = ydl.extract_info(target_url)
     except YtdlpDownloadCancelled:
-        raise DownloadCancelled
+        raise DownloadCancelled from None
     if videodl_app._cancel_requested.is_set():
         raise DownloadCancelled
     _finish_download(videodl_app, ydl, infos_ydl)

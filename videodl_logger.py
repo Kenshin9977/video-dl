@@ -1,7 +1,11 @@
 import logging
 import sys
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 APP_LOGGER_NAME = "videodl"
+LOG_DIR = Path.home() / ".videodl" / "logs"
+LOG_FILE = LOG_DIR / "videodl.log"
 
 
 def videodl_logger(debug: bool = False, verbose: bool = False) -> None:
@@ -27,14 +31,17 @@ def videodl_logger(debug: bool = False, verbose: bool = False) -> None:
     stdout_handler.setFormatter(formatter)
     root_logger.addHandler(stdout_handler)
 
-    # App logger: DEBUG when --debug or --verbose
+    # App logger: DEBUG when --debug or --verbose, INFO otherwise
     app_logger = logging.getLogger(APP_LOGGER_NAME)
     if debug or verbose:
         app_logger.setLevel(logging.DEBUG)
+    else:
+        app_logger.setLevel(logging.INFO)
 
-    if not (debug or verbose):
-        return
-
-    file_handler = logging.FileHandler("video_dl.log")
+    # Always write to a rotating log file
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    file_level = logging.DEBUG if (debug or verbose) else logging.INFO
+    file_handler = RotatingFileHandler(LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=2)
+    file_handler.setLevel(file_level)
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)

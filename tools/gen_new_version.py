@@ -16,7 +16,7 @@ import subprocess
 import sys
 
 import PyInstaller.__main__
-from tufup.repo import Repository
+from tufup.repo import DEFAULT_KEYS_DIR_NAME, DEFAULT_REPO_DIR_NAME, Repository
 
 from utils.sys_architecture import ARCHITECTURE
 from utils.sys_utils import APP_NAME, APP_VERSION, PLATFORM
@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 PROJECT_DIR = pathlib.Path(__file__).resolve().parent.parent
 DIST_DIR = PROJECT_DIR / "dist"
 SPECS_DIR = PROJECT_DIR / "specs"
-KEYS_DIR = PROJECT_DIR / "keystore"
+KEYS_DIR = PROJECT_DIR / DEFAULT_KEYS_DIR_NAME
+REPO_DIR = PROJECT_DIR / DEFAULT_REPO_DIR_NAME
 
 
 def build_binary():
@@ -39,11 +40,8 @@ def build_binary():
         spec = SPECS_DIR / "Linux-video-dl.spec"
         PyInstaller.__main__.run([str(spec)])
     elif PLATFORM == "Darwin":
-        macos_setup = PROJECT_DIR / "MACOS-video-dl.py"
-        subprocess.run(
-            [sys.executable, str(macos_setup), "py2app"],
-            check=True,
-        )
+        spec = SPECS_DIR / "macOS-video-dl.spec"
+        PyInstaller.__main__.run([str(spec)])
     else:
         sys.exit(f"Unsupported platform: {PLATFORM}")
 
@@ -70,10 +68,9 @@ def add_bundle_to_repo():
 def upload_to_github():
     """Create a GitHub Release and upload tufup metadata + targets."""
     tag = f"v{APP_VERSION}"
-    repo_dir = PROJECT_DIR / "my_repo"
 
-    metadata_dir = repo_dir / "metadata"
-    targets_dir = repo_dir / "targets"
+    metadata_dir = REPO_DIR / "metadata"
+    targets_dir = REPO_DIR / "targets"
 
     # Collect all files to upload
     files_to_upload = []

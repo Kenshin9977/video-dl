@@ -5,7 +5,6 @@ import logging
 import os
 import subprocess
 import threading
-import traceback
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -32,17 +31,25 @@ from flet import (
     TextAlign,
     TextField,
     TextStyle,
+    ThemeMode,
     dropdown,
 )
-from quantiphy import InvalidNumber, Quantity
-
 from yt_dlp.utils import DownloadCancelled as YtdlpDownloadCancelled
 
 from core.download import create_ydl, download
-from core.exceptions import (
-    DownloadCancelled,
-    FFmpegNoValidEncoderFound,
-    PlaylistNotFound,
+from core.error_report import ErrorReport, build_error_report
+from core.progress import compute_progress, parse_quantity, parse_speed, timecodes_are_valid
+from core.ydl_opts import (
+    build_av_opts,
+    build_browser_opts,
+    build_ffmpeg_opts,
+    build_file_opts,
+    build_original_opts,
+    build_sponsor_block_opts,
+    build_subtitles_opts,
+    determine_encode_state,
+    filter_formats,
+    get_effective_vcodec,
 )
 from gui.config import (
     CK_ACODEC,
@@ -72,12 +79,13 @@ from i18n.lang import (
 )
 from i18n.lang import get_text as gt
 from sys_vars import ARIA2C_PATH, FF_PATH, QJS_PATH
+from videodl_logger import LOG_DIR
 from utils.parse_util import simple_traverse, validate_url
 from utils.sponsor_block_dict import CATEGORIES
 from utils.sys_utils import APP_VERSION, PLATFORM, get_default_download_path
 
 if TYPE_CHECKING:
-    from flet import ControlEvent, Page
+    from flet import Event, Page
 
 
 logger = logging.getLogger("videodl")
@@ -91,14 +99,15 @@ class VideodlApp:
         is_dark = bool(isDark())
         self.page = page
         self.page.title = "Video-dl"
-        self.page.theme_mode = "dark" if is_dark else "light"
+        self.page.theme_mode = ThemeMode.DARK if is_dark else ThemeMode.LIGHT
         self._height_collapsed = 460
         self._height_advanced = 290
         self._height_download = 120
         self.page.window.height = self._height_collapsed
         self.page.window.min_height = self._height_collapsed
-        self.page.window.width = gt(GF.width)
-        self.page.window.min_width = gt(GF.width)
+        window_width = int(gt(GF.width))  # gt returns int for GF.width
+        self.page.window.width = window_width
+        self.page.window.min_width = window_width
         self.download_disabled_reason = None
         self.default_indices_value = "1,2,4-10,12"
         self.file_picker = FilePicker()
@@ -268,32 +277,36 @@ class VideodlApp:
         )
         self._video_formats = []
         self._audio_formats = []
-        timecode_common_kwargs = {
-            "value": "00",
-            "max_length": 2,
-            "dense": True,
-            "width": 60,
-            "disabled": True,
-            "on_change": self._timecode_change,
-            "border_color": "white" if is_dark else "black",
-            "counter_style": TextStyle(size=0, color=DISABLED_COLOR),
-            "on_focus": self._textfield_focus,
-        }
+        border_color = "white" if is_dark else "black"
+
+        def _timecode_field() -> TextField:
+            return TextField(
+                value="00",
+                max_length=2,
+                dense=True,
+                width=60,
+                disabled=True,
+                on_change=self._timecode_change,
+                border_color=border_color,
+                counter_style=TextStyle(size=0, color=DISABLED_COLOR),
+                on_focus=self._textfield_focus,
+            )
+
         self.start_checkbox = Checkbox(
             label="Start",
             on_change=self._start_checkbox_change,
         )
-        self.start_h = TextField(**timecode_common_kwargs)
-        self.start_m = TextField(**timecode_common_kwargs)
-        self.start_s = TextField(**timecode_common_kwargs)
+        self.start_h = _timecode_field()
+        self.start_m = _timecode_field()
+        self.start_s = _timecode_field()
         self.start_controls = [self.start_h, self.start_m, self.start_s]
         self.end_checkbox = Checkbox(
             label="End",
             on_change=self._end_checkbox_change,
         )
-        self.end_h = TextField(**timecode_common_kwargs)
-        self.end_m = TextField(**timecode_common_kwargs)
-        self.end_s = TextField(**timecode_common_kwargs)
+        self.end_h = _timecode_field()
+        self.end_m = _timecode_field()
+        self.end_s = _timecode_field()
         self.end_controls = [self.end_h, self.end_m, self.end_s]
         self.advanced_section = ExpansionTile(
             title=gt(GF.advanced),
@@ -358,7 +371,17 @@ class VideodlApp:
             on_click=self._open_folder_clicked,
             visible=False,
         )
+        self._error_report: ErrorReport | None = None
         self.download_status_text = Text(visible=False)
+        self.download_status_banner = ft.Container(
+            content=Row(
+                [Icon(Icons.ERROR_OUTLINE, color="red", size=18), self.download_status_text],
+                spacing=6,
+            ),
+            on_click=self._show_error_dialog,
+            visible=False,
+            tooltip=gt(GF.error_click_for_details),
+        )
         self.download_progress_text = Text(gt(GF.download))
         self.process_progress_text = Text(gt(GF.process))
         self.download_progress_bar = ProgressBar(width=350)
@@ -430,137 +453,65 @@ class VideodlApp:
         return self.ydl_opts
 
     def _gen_file_opts(self):
-        """
-        Generate yt-dlp file's options
-        """
         self.ydl_opts.update(
-            {
-                "noplaylist": not self.playlist.value,
-                "ignoreerrors": "only_download" if self.playlist.value else False,
-                "overwrites": True,
-                "trim_file_name": 250,
-                "outtmpl": os.path.join(
-                    f"{self.download_path_text.value}",
-                    "%(title).100s - %(uploader)s.%(ext)s",
-                ),
-                "progress_hooks": [self._update_download_bar],
-                "postprocessor_hooks": [self._update_process_bar],
-            }
+            build_file_opts(
+                playlist=bool(self.playlist.value),
+                dest_folder=str(self.download_path_text.value),
+                indices_enabled=bool(self.indices.value),
+                indices_value=self.indices_selected.value,
+                ff_path=FF_PATH,
+                progress_hook=self._update_download_bar,
+                postprocessor_hook=self._update_process_bar,
+            )
         )
-        if self.indices.value:
-            self.ydl_opts["playlist_items"] = self.indices_selected.value or 1
-
-        if FF_PATH.get("ffmpeg") != "ffmpeg":
-            self.ydl_opts["ffmpeg_location"] = FF_PATH.get("ffmpeg")
 
     def _gen_av_opts(self):
-        """
-        Generate yt-dlp options for the audio and the video both for their
-        search filters, their downloader and their post process.
-        """
         if self.original_checkbox.value:
             self._gen_original_opts()
             return
-        if self.audio_only.value:
-            format_opt = "ba/ba*"
-            acodec_val = self.audio_codec.value
-            if acodec_val != "Auto":
-                format_opt = f"ba[acodec*={acodec_val}]/{format_opt}"
-            postprocessor = {"key": "FFmpegExtractAudio"}
-            if acodec_val != "Auto":
-                postprocessor["preferredcodec"] = acodec_val
-            self.ydl_opts.update(
-                {
-                    "extract_audio": True,
-                    "postprocessors": [postprocessor],
-                }
+        self.ydl_opts.update(
+            build_av_opts(
+                audio_only=bool(self.audio_only.value),
+                acodec=self.audio_codec.value or "Auto",
+                quality=self.quality.value or "1080p",
+                framerate=self.framerate.value or "60",
             )
-        else:
-            resolution = self.quality.value[:-1]
-            vcodec_re_str = "vcodec~='avc1|h264'"
-            acodec_re_str = "acodec~='aac|mp3|mp4a'"
-            format_opt = (
-                f"((bv[{vcodec_re_str}][height={resolution}]/bv[height={resolution}]/bv)+(ba[{acodec_re_str}]/ba))/b"
-            )
-            self.ydl_opts.update(
-                {
-                    "format_sort": [
-                        f"res:{resolution}",
-                        f"fps:{self.framerate.value}",
-                    ],
-                    "merge_output_format": "mp4",
-                }
-            )
-        self.ydl_opts["format"] = format_opt
+        )
 
     def _gen_original_opts(self):
-        """Generate yt-dlp options for Original mode with specific stream selection."""
-        video_id = self.original_video_dropdown.value
-        audio_id = self.original_audio_dropdown.value
-        if self.audio_only.value and audio_id:
-            format_opt = audio_id
-        elif video_id and audio_id:
-            format_opt = f"{video_id}+{audio_id}"
-        elif video_id:
-            format_opt = f"{video_id}+ba"
-        elif audio_id:
-            format_opt = f"bv+{audio_id}"
-        else:
-            # No streams selected — fallback to best
-            format_opt = "bv+ba/b"
-        self.ydl_opts["format"] = format_opt
-        self.ydl_opts["merge_output_format"] = "mp4"
+        self.ydl_opts.update(
+            build_original_opts(
+                video_id=self.original_video_dropdown.value,
+                audio_id=self.original_audio_dropdown.value,
+                audio_only=bool(self.audio_only.value),
+            )
+        )
 
     def _gen_ffmpeg_opts(self):
-        """
-        Generate the dictionnary for yt-dlp ffmpeg options
-        """
-        start_values = [ctrl.value for ctrl in self.start_controls]
-        start_timecode = ":".join(start_values)
-        end_values = [ctrl.value for ctrl in self.end_controls]
-        end_timecode = ":".join(end_values)
-        if self.start_checkbox.value or self.end_checkbox.value:
-            start = start_timecode if self.start_checkbox.value else "00:00:00"
-            ffmpeg_args = ["-ss", start]
-            if self.end_checkbox.value:
-                ffmpeg_args.extend(["-to", end_timecode])
-            self.ydl_opts.update(
-                {
-                    "external_downloader": "ffmpeg",
-                    "external_downloader_args": {"ffmpeg_i": ffmpeg_args},
-                }
+        start_timecode = ":".join(ctrl.value for ctrl in self.start_controls)
+        end_timecode = ":".join(ctrl.value for ctrl in self.end_controls)
+        self.ydl_opts.update(
+            build_ffmpeg_opts(
+                start_enabled=bool(self.start_checkbox.value),
+                start_timecode=start_timecode,
+                end_enabled=bool(self.end_checkbox.value),
+                end_timecode=end_timecode,
+                platform=PLATFORM,
+                ff_path=FF_PATH,
             )
-            if PLATFORM == "Windows":
-                self.ydl_opts.update({"ffmpeg_location": FF_PATH.get("ffmpeg")})
+        )
         logger.info(f"Options passed to yt-dlp are the following:\n{self.ydl_opts}")
 
     def _gen_subtitles_opts(self):
-        """
-        Generate the dictionnary for yt-dlp subtitles options
-        """
-        if self.subtitles.value:
-            self.ydl_opts["subtitleslangs"] = ["all"]
-            self.ydl_opts["writesubtitles"] = True
+        self.ydl_opts.update(build_subtitles_opts(bool(self.subtitles.value)))
 
     def _gen_browser_opts(self):
-        """
-        Generate the dictionnary for yt-dlp cookies option
-        """
-        if self.cookies.value != gt(GF.login_from_none):
-            self.ydl_opts["cookiesfrombrowser"] = [self.cookies.value.lower()]
+        self.ydl_opts.update(build_browser_opts(self.cookies.value, gt(GF.login_from_none)))
 
     def _gen_sponsor_block_opts(self):
-        if self.song_only.value:
-            categories = CATEGORIES.keys()
-            self.ydl_opts.setdefault("postprocessors", []).extend(
-                [
-                    {"key": "SponsorBlock", "when": "pre_process"},
-                    {
-                        "key": "ModifyChapters",
-                        "SponsorBlock": categories,
-                    },
-                ]
-            )
+        sb_opts = build_sponsor_block_opts(bool(self.song_only.value), CATEGORIES.keys())
+        if "postprocessors" in sb_opts:
+            self.ydl_opts.setdefault("postprocessors", []).extend(sb_opts["postprocessors"])
 
     def _update_download_bar(self, d: dict):
         if self._cancel_requested.is_set():
@@ -570,6 +521,7 @@ class VideodlApp:
         if self._preparing:
             self._preparing = False
             self.download_status_text.visible = False
+            self.download_status_banner.visible = False
             force = True
         (
             self.download_last_update,
@@ -615,10 +567,10 @@ class VideodlApp:
         if self._cancel_requested.is_set():
             return time_last_update, last_speed, last_progress_percent
 
-        speed = self._parse_speed(d, bytes_fieldname)
-        downloaded = self._parse_quantity(d.get(bytes_fieldname))
-        total = self._parse_quantity(d.get("total_bytes")) or self._parse_quantity(d.get("total_bytes_estimate"))
-        progress_float, last_progress_percent = self._compute_progress(
+        speed = parse_speed(d, bytes_fieldname)
+        downloaded = parse_quantity(d.get(bytes_fieldname))
+        total = parse_quantity(d.get("total_bytes")) or parse_quantity(d.get("total_bytes_estimate"))
+        progress_float, last_progress_percent = compute_progress(
             d.get("progress_float"), downloaded, total, last_progress_percent
         )
 
@@ -643,56 +595,15 @@ class VideodlApp:
             self._ui_dirty.set()
         return time_last_update, last_speed, last_progress_percent
 
-    @staticmethod
-    def _parse_speed(d: dict, bytes_fieldname: str) -> str:
-        try:
-            raw_speed = d.get("speed")
-            if bytes_fieldname == "downloaded_bytes":
-                return Quantity(raw_speed, "B/s").render(prec=2)
-            return Quantity(raw_speed / 8, "B/s").render(prec=2) if raw_speed else "-"
-        except (InvalidNumber, TypeError):
-            return "-"
-
-    @staticmethod
-    def _parse_quantity(value):
-        try:
-            return Quantity(value, "B")
-        except (InvalidNumber, TypeError):
-            return None
-
-    @staticmethod
-    def _compute_progress(progress_float, downloaded, total, last_progress_percent):
-        if progress_float is not None:
-            return progress_float, last_progress_percent
-        try:
-            progress_float = downloaded / total
-            progress_float = max(0, min(progress_float, 0.99))
-            return progress_float, progress_float
-        except (ZeroDivisionError, TypeError):
-            return last_progress_percent, last_progress_percent
-
     def _timecodes_are_valid(self) -> bool:
-        if self.start_checkbox.value:
-            sh, sm, ss = VideodlApp._timecode_is_valid(self.start_controls)
-            if (sh, sm, ss) == (-1, -1, -1):
-                return False
-        if self.end_checkbox.value:
-            eh, em, es = VideodlApp._timecode_is_valid(self.end_controls)
-            if (eh, em, es) == (-1, -1, -1):
-                return False
-        if self.start_checkbox.value and self.end_checkbox.value:
-            return sh < eh or (sh == eh and sm < em) or (sh == eh and sm == em and ss < es)
-        return True
-
-    @staticmethod
-    def _timecode_is_valid(ctrls: list) -> tuple[int, int, int]:
-        try:
-            h_int, m_int, s_int = [int(ctr.value) for ctr in ctrls]
-        except ValueError:
-            return -1, -1, -1
-        if m_int >= 60 or s_int >= 60:
-            return -1, -1, -1
-        return h_int, m_int, s_int
+        sc = self.start_controls
+        ec = self.end_controls
+        return timecodes_are_valid(
+            bool(self.start_checkbox.value),
+            (sc[0].value, sc[1].value, sc[2].value),
+            bool(self.end_checkbox.value),
+            (ec[0].value, ec[1].value, ec[2].value),
+        )
 
     def _build_language_items(self):
         return [
@@ -745,10 +656,11 @@ class VideodlApp:
         self.advanced_section.title = gt(GF.advanced)
         self.download_button.content = gt(GF.download)
         self.cancel_button.content = gt(GF.cancel_button)
-        self.download_progress.controls[0].value = gt(GF.download)
-        self.process_progress.controls[0].value = gt(GF.process)
-        self.page.window.width = gt(GF.width)
-        self.page.window.min_width = gt(GF.width)
+        self.download_progress_text.value = gt(GF.download)
+        self.process_progress_text.value = gt(GF.process)
+        new_width = int(gt(GF.width))
+        self.page.window.width = new_width
+        self.page.window.min_width = new_width
         if self.download_disabled_reason is not None:
             self.download_button.tooltip = gt(self.download_disabled_reason)
 
@@ -759,7 +671,7 @@ class VideodlApp:
         self.page.update()
 
     def _change_attribute_based_on_theme(self, dark: bool):
-        new_theme, border = ("dark", "white") if dark else ("light", "black")
+        new_theme, border = (ThemeMode.DARK, "white") if dark else (ThemeMode.LIGHT, "black")
         self.page.theme_mode = new_theme
         for control in self.start_controls + self.end_controls:
             control.border_color = border
@@ -869,7 +781,7 @@ class VideodlApp:
             formats = info.get("formats")
             if not want_playlist and not formats:
                 # extract_flat doesn't return formats, do a full extract for the single video
-                full_opts = {"quiet": True, "no_warnings": True, "noplaylist": True}
+                full_opts: dict[str, object] = {"quiet": True, "no_warnings": True, "noplaylist": True}
                 if QJS_PATH:
                     full_opts["js_runtimes"] = {"quickjs": {"path": QJS_PATH}}
                 with YoutubeDL(full_opts) as ydl2:
@@ -883,39 +795,9 @@ class VideodlApp:
         self.page.update()
 
     def _populate_original_dropdowns(self, formats):
-        from flet import dropdown
-
-        video_seen = {}
-        audio_seen = {}
-        for fmt in formats:
-            vcodec = fmt.get("vcodec", "none")
-            acodec = fmt.get("acodec", "none")
-            fmt_id = fmt.get("format_id", "")
-            if vcodec not in ("none", None):
-                height = fmt.get("height") or 0
-                key = vcodec.split(".")[0]
-                if key not in video_seen or height > video_seen[key]["height"]:
-                    video_seen[key] = {"format_id": fmt_id, "height": height, "codec": vcodec}
-            if acodec not in ("none", None) and vcodec in ("none", None):
-                abr = fmt.get("abr") or 0
-                key = acodec.split(".")[0]
-                if key not in audio_seen or abr > audio_seen[key]["abr"]:
-                    audio_seen[key] = {"format_id": fmt_id, "abr": abr, "codec": acodec}
-
-        self._video_formats = []
-        self._audio_formats = []
-        video_options = []
-        for key, v in sorted(video_seen.items(), key=lambda x: x[1]["height"], reverse=True):
-            label = f"{key} — {v['height']}p"
-            self._video_formats.append({"format_id": v["format_id"], "label": label})
-            video_options.append(dropdown.Option(key=v["format_id"], text=label))
-        audio_options = []
-        for key, a in sorted(audio_seen.items(), key=lambda x: x[1]["abr"], reverse=True):
-            abr_str = f"{int(a['abr'])}kbps" if a["abr"] else ""
-            label = f"{key} — {abr_str}" if abr_str else key
-            self._audio_formats.append({"format_id": a["format_id"], "label": label})
-            audio_options.append(dropdown.Option(key=a["format_id"], text=label))
-
+        self._video_formats, self._audio_formats = filter_formats(formats)
+        video_options = [dropdown.Option(key=v["format_id"], text=v["label"]) for v in self._video_formats]
+        audio_options = [dropdown.Option(key=a["format_id"], text=a["label"]) for a in self._audio_formats]
         self.original_video_dropdown.options = video_options
         self.original_audio_dropdown.options = audio_options
         if video_options:
@@ -984,42 +866,29 @@ class VideodlApp:
         acodec_tooltips = {
             "Auto": gt(GF.acodec_auto_tooltip),
         }
-        self.video_codec.tooltip = vcodec_tooltips.get(self.video_codec.value)
-        self.audio_codec.tooltip = acodec_tooltips.get(self.audio_codec.value)
+        self.video_codec.tooltip = vcodec_tooltips.get(self.video_codec.value or "")
+        self.audio_codec.tooltip = acodec_tooltips.get(self.audio_codec.value or "")
 
     def _update_encode_indicator(self):
-        if self.original_checkbox.value:
-            # Original mode — remux (fast)
-            self.encode_indicator.icon = Icons.CHECK_CIRCLE
-            self.encode_indicator.color = "green"
-            self.encode_indicator.tooltip = gt(GF.will_remux)
-            self.encode_indicator.visible = True
-            return
-        vcodec = self.video_codec.value
-        if vcodec == "Auto" and not self.nle_ready.value:
-            # No processing — no indicator
-            self.encode_indicator.visible = False
-        elif vcodec == "Auto" and self.nle_ready.value:
-            # Remux (fast): Auto+NLE remuxes if compatible
-            self.encode_indicator.icon = Icons.CHECK_CIRCLE
-            self.encode_indicator.color = "green"
-            self.encode_indicator.tooltip = gt(GF.will_remux)
-            self.encode_indicator.visible = True
-        else:
-            # Specific codec chosen — re-encode
-            self.encode_indicator.icon = Icons.WARNING_AMBER
-            self.encode_indicator.color = "orange"
-            self.encode_indicator.tooltip = gt(GF.will_reencode)
-            self.encode_indicator.visible = True
+        icon, color, state, visible = determine_encode_state(
+            bool(self.original_checkbox.value),
+            self.video_codec.value,
+            bool(self.nle_ready.value),
+        )
+        if visible:
+            icon_map = {"check_circle": Icons.CHECK_CIRCLE, "warning_amber": Icons.WARNING_AMBER}
+            tooltip_map = {"remux": gt(GF.will_remux), "reencode": gt(GF.will_reencode)}
+            self.encode_indicator.icon = icon_map[icon]
+            self.encode_indicator.color = color
+            self.encode_indicator.tooltip = tooltip_map[state]
+        self.encode_indicator.visible = visible
 
     def _get_effective_vcodec(self) -> str:
-        if self.original_checkbox.value:
-            return "Original"
-        if self.video_codec.value != "Auto":
-            return self.video_codec.value
-        if self.nle_ready.value:
-            return "NLE"
-        return "Best"
+        return get_effective_vcodec(
+            bool(self.original_checkbox.value),
+            self.video_codec.value,
+            bool(self.nle_ready.value),
+        )
 
     def _set_controls_enabled(self, enabled: bool):
         """Enable or disable all user-facing controls during download."""
@@ -1113,13 +982,61 @@ class VideodlApp:
             self._enable_download_button()
         self.page.update()
 
-    def _textfield_focus(self, e: ControlEvent):
+    def _textfield_focus(self, e: Event[TextField]):
         e.control.focus()
 
     def _show_status(self, message, color):
+        self._error_report = None
+        self.download_status_banner.visible = False
         self.download_status_text.value = message
         self.download_status_text.visible = True
         self.download_status_text.color = color
+
+    def _show_error(self, report: ErrorReport):
+        self._error_report = report
+        self.download_status_text.value = report.short_message
+        self.download_status_text.visible = True
+        self.download_status_text.color = report.color
+        if report.has_detail:
+            self.download_status_banner.visible = True
+        else:
+            self.download_status_banner.visible = False
+
+    def _show_error_dialog(self, e):
+        if not self._error_report or not self._error_report.has_detail:
+            return
+        detail = self._error_report.detail
+        detail_field = TextField(
+            value=detail,
+            read_only=True,
+            multiline=True,
+            min_lines=8,
+            max_lines=15,
+            text_size=12,
+        )
+
+        def copy_to_clipboard(_e):
+            self.page.set_clipboard(detail)
+
+        def open_log_folder(_e):
+            path = str(LOG_DIR)
+            if PLATFORM == "Darwin":
+                subprocess.Popen(["open", path])
+            elif PLATFORM == "Windows":
+                os.startfile(path)  # type: ignore[attr-defined]
+            else:
+                subprocess.Popen(["xdg-open", path])
+
+        dialog = ft.AlertDialog(
+            title=Text(self._error_report.short_message),
+            content=ft.Container(content=detail_field, width=550, height=300),
+            actions=[
+                ft.TextButton(gt(GF.error_copy), on_click=copy_to_clipboard),
+                ft.TextButton(gt(GF.error_open_log), on_click=open_log_folder),
+                ft.TextButton(gt(GF.error_close), on_click=lambda _e: self.page.close(dialog)),
+            ],
+        )
+        self.page.show_dialog(dialog)
 
     def _update_queue_badge(self):
         count = len(self._url_queue)
@@ -1206,27 +1123,13 @@ class VideodlApp:
             try:
                 await asyncio.to_thread(download, self, ydl, url)
                 completed_urls.append(url)
-            except DownloadCancelled:
-                logger.info("Download cancelled by user")
-                self._show_status(gt(GF.dl_cancel), "yellow")
-                error_occurred = True
-                break
-            except PlaylistNotFound:
-                logger.error(traceback.format_exc())
-                self._show_status(gt(GF.playlist_not_found), "yellow")
-                error_occurred = True
-                continue
-            except FFmpegNoValidEncoderFound:
-                logger.error(traceback.format_exc())
-                self._show_status(gt(GF.no_encoder), "red")
-                error_occurred = True
-                continue
             except Exception as e:
-                logger.error(traceback.format_exc())
-                err_msg = str(e).removeprefix("ERROR: ").split(";")[0]
-                self._show_status(f"{gt(GF.dl_error)} {err_msg}", "red")
+                report = build_error_report(e)
+                logger.error(report.detail or report.short_message)
+                self._show_error(report)
                 error_occurred = True
-                continue
+                if report.should_break:
+                    break
         if not error_occurred:
             logger.info("All downloads completed")
             self._show_status(gt(GF.dl_finish), "green")
@@ -1251,9 +1154,9 @@ class VideodlApp:
 
     def _reset_after_download(self):
         self._set_controls_enabled(True)
-        self._apply_audio_only_state(self.audio_only.value)
-        self._apply_original_state(self.original_checkbox.value)
-        self.original_checkbox.disabled = self.playlist.value
+        self._apply_audio_only_state(bool(self.audio_only.value))
+        self._apply_original_state(bool(self.original_checkbox.value))
+        self.original_checkbox.disabled = bool(self.playlist.value)
         self.indices.disabled = not self.playlist.value
         self.indices_selected.disabled = not self.indices.value
         for ctrl in self.start_controls:
@@ -1278,7 +1181,7 @@ class VideodlApp:
         if PLATFORM == "Darwin":
             subprocess.Popen(["open", path])
         elif PLATFORM == "Windows":
-            os.startfile(path)
+            os.startfile(path)  # type: ignore[attr-defined]  # Windows-only
         else:
             subprocess.Popen(["xdg-open", path])
 
@@ -1303,6 +1206,7 @@ class VideodlApp:
                 controls=[
                     self.download_button,
                     self.cancel_button,
+                    self.download_status_banner,
                     self.download_status_text,
                     self.open_folder_button,
                 ]

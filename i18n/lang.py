@@ -81,6 +81,12 @@ class GuiField(enum.Enum):
     queue_dialog_clear = enum.auto()
     queue_invalid_urls = enum.auto()
 
+    # Error dialog
+    error_copy = enum.auto()
+    error_open_log = enum.auto()
+    error_close = enum.auto()
+    error_click_for_details = enum.auto()
+
 
 def _get_language() -> Language:
     """
@@ -433,6 +439,26 @@ def get_text(field: GuiField) -> str:
             Language.english: "Some URLs were invalid and removed",
             Language.french: "Certaines URLs invalides ont été retirées",
             Language.german: "Einige ungültige URLs wurden entfernt",
+        },
+        GuiField.error_copy: {
+            Language.english: "Copy",
+            Language.french: "Copier",
+            Language.german: "Kopieren",
+        },
+        GuiField.error_open_log: {
+            Language.english: "Open log",
+            Language.french: "Ouvrir le log",
+            Language.german: "Log öffnen",
+        },
+        GuiField.error_close: {
+            Language.english: "Close",
+            Language.french: "Fermer",
+            Language.german: "Schließen",
+        },
+        GuiField.error_click_for_details: {
+            Language.english: "Click for details",
+            Language.french: "Cliquer pour les détails",
+            Language.german: "Klicken für Details",
         },
         GuiField.width: {
             Language.english: 530,

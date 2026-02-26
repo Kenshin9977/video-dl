@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import json
 import logging
 import os
 import re
 import sys
 import urllib.request
+from typing import TypedDict
 from zipfile import ZipFile
 
 import flet as ft
@@ -29,7 +32,7 @@ def ffmpeg_progress_page(page: ft.Page) -> None:
         if total_size > 0:
             percent = downloaded / total_size
             progress_bar.value = percent
-            progress_bar.label = f"{percent * 100:.2f}%"
+            progress_bar.label = f"{percent * 100:.2f}%"  # type: ignore[attr-defined]
             page.update()
 
     def install_ffmpeg():
@@ -57,7 +60,7 @@ def ffmpeg_progress_page(page: ft.Page) -> None:
                 zip_ref.extractall(folder_path)
 
             progress_bar.value = 1.0
-            progress_bar.label = "Download complete"
+            progress_bar.label = "Download complete"  # type: ignore[attr-defined]
             page.update()
 
         except Exception as e:
@@ -90,7 +93,13 @@ def ffmpeg_progress_page(page: ft.Page) -> None:
     page.run_task(page.window.destroy)
 
 
-_FFMPEG_MISSING = {
+class _FfmpegMissingInfo(TypedDict):
+    width: int
+    message: str
+    url: str | None
+
+
+_FFMPEG_MISSING: dict[str, _FfmpegMissingInfo] = {
     "Windows": {
         "width": 400,
         "message": (
@@ -102,7 +111,7 @@ _FFMPEG_MISSING = {
     },
     "Darwin": {
         "width": 344,
-        "message": ("FFmpeg is missing. On MacOS you can follow this guide to install it:"),
+        "message": "FFmpeg is missing. On MacOS you can follow this guide to install it:",
         "url": "[Install FFmpeg](https://macappstore.org/ffmpeg/)",
     },
     "Linux": {

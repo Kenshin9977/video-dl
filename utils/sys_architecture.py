@@ -14,10 +14,10 @@ def get_system_architecture() -> str:
         return "arm64"
     elif search("arm", architecture, IGNORECASE):
         return "arm"
+    elif search("x86_64|amd64", architecture, IGNORECASE):
+        return "x86_64"
     elif search("86", architecture, IGNORECASE):
         return "x86"
-    elif search("64", architecture, IGNORECASE):
-        return "x86_64"
     return "unknown"
 
 

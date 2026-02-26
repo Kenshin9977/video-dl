@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from os.path import isdir, isfile
+from typing import Any
 
 import tomlkit
 from darkdetect import isDark
@@ -42,7 +45,7 @@ class VideodlConfig:
         self.config[USER_OPTIONS][key] = value
         self._save()
 
-    def _create_default(self) -> dict:
+    def _create_default(self) -> dict[str, Any]:
         detected_browser = get_default_browser()
         config = {
             USER_OPTIONS: {
@@ -66,13 +69,13 @@ class VideodlConfig:
         self._save(config)
         return config
 
-    def _save(self, config: dict | None = None):
+    def _save(self, config: dict[str, Any] | None = None):
         config = config or self.config
         with open(CONFIG_FILENAME, mode="w", encoding="utf-8") as fp:
             tomlkit.dump(config, fp)
 
-    def _load(self) -> dict:
-        config = None
+    def _load(self) -> dict[str, Any]:
+        config: dict[str, Any] | None = None
         try:
             with open(CONFIG_FILENAME, encoding="utf-8") as fp:
                 config = tomlkit.load(fp)
@@ -84,7 +87,7 @@ class VideodlConfig:
             config = self._create_default()
         return config
 
-    def _config_is_valid(self, config: dict) -> bool:
+    def _config_is_valid(self, config: dict[str, Any]) -> bool:
         try:
             opts = config[USER_OPTIONS]
             if opts[CK_LANGUAGE] not in get_available_languages_name():

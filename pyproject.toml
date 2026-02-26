@@ -38,6 +38,8 @@ quote-style = "double"
 [tool.mypy]
 python_version = "3.12"
 warn_unused_configs = true
+warn_return_any = true
+check_untyped_defs = true
 ignore_missing_imports = true
 exclude = ["build", "dist", "venv", "\\.venv"]
 disable_error_code = ["no-any-return", "var-annotated"]

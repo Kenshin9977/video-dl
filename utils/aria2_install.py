@@ -52,7 +52,7 @@ def aria2c_progress_page(page: ft.Page) -> None:
         if total_size > 0:
             percent = downloaded / total_size
             progress_bar.value = percent
-            progress_bar.label = f"{percent * 100:.2f}%"
+            progress_bar.label = f"{percent * 100:.2f}%"  # type: ignore[attr-defined]
             page.update()
 
     def install_aria2c():
@@ -89,7 +89,7 @@ def aria2c_progress_page(page: ft.Page) -> None:
                 os.rename(extracted_exe, target_exe)
 
             progress_bar.value = 1.0
-            progress_bar.label = "Download complete"
+            progress_bar.label = "Download complete"  # type: ignore[attr-defined]
             page.update()
 
         except Exception as e:

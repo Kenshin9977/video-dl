@@ -15,13 +15,13 @@ FROZEN = getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")
 MODULE_DIR = pathlib.Path(__file__).resolve().parent
 
 
-def _get_install_dir():
+def _get_install_dir() -> pathlib.Path:
     if FROZEN:
         return pathlib.Path(sys.executable).parent
     return MODULE_DIR.parent
 
 
-def _get_update_cache_dir():
+def _get_update_cache_dir() -> pathlib.Path:
     if sys.platform == "win32":
         base = pathlib.Path.home() / "AppData" / "Local"
     elif sys.platform == "darwin":
@@ -31,7 +31,7 @@ def _get_update_cache_dir():
     return base / APP_NAME / "update_cache"
 
 
-def check_for_updates():
+def check_for_updates() -> bool:
     try:
         from tufup.client import Client
 

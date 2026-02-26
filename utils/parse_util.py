@@ -1,7 +1,8 @@
+from typing import Any
 from urllib.parse import urlparse
 
 
-def simple_traverse(obj, path, default=None):
+def simple_traverse(obj: Any, path: tuple, default: Any = None) -> Any:
     """
     Traverse a nested dictionary or list using the given path.
 
@@ -20,7 +21,7 @@ def simple_traverse(obj, path, default=None):
     return obj
 
 
-def validate_url(url):
+def validate_url(url: str) -> bool:
     try:
         result = urlparse(url)
         return bool(result.scheme and result.netloc)

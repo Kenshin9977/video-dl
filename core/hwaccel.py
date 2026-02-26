@@ -76,7 +76,7 @@ ENCODERS = {
 _available_encoders = None
 
 
-def _get_available_encoders():
+def _get_available_encoders() -> set[str]:
     """Parse `ffmpeg -encoders` once and cache the set of available encoder names."""
     global _available_encoders
     if _available_encoders is not None:
@@ -84,8 +84,9 @@ def _get_available_encoders():
 
     _available_encoders = set()
     try:
+        ffmpeg_path = FF_PATH.get("ffmpeg", "ffmpeg")
         result = subprocess.run(
-            [FF_PATH.get("ffmpeg"), "-encoders", "-hide_banner"],
+            [ffmpeg_path, "-encoders", "-hide_banner"],
             capture_output=True,
             text=True,
             timeout=10,

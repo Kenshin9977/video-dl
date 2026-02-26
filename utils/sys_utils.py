@@ -52,7 +52,7 @@ def get_ff_components_path() -> dict:
 
 
 def get_ff_windows(ffmpeg_name, ffprobe_name):
-    ff_bin_path = os.path.join(os.getenv("LOCALAPPDATA"), "video-dl")
+    ff_bin_path = os.path.join(os.getenv("LOCALAPPDATA", ""), "video-dl")
     ffmpeg_path = os.path.join(ff_bin_path, ffmpeg_name)
     ffprobe_path = os.path.join(ff_bin_path, ffprobe_name)
 

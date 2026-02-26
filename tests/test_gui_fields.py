@@ -1,8 +1,6 @@
 import sys
 from unittest.mock import MagicMock
 
-import pytest
-
 # Mock heavy dependencies before importing gui.app
 for mod in [
     "flet",
@@ -31,30 +29,6 @@ class MockControl:
 
     def __init__(self, value):
         self.value = value
-
-
-class TestTimecodeIsValid:
-    @pytest.mark.parametrize(
-        ("h", "m", "s", "expected"),
-        [
-            ("00", "00", "00", (0, 0, 0)),
-            ("01", "30", "45", (1, 30, 45)),
-            ("99", "59", "59", (99, 59, 59)),
-            # Invalid: minutes >= 60
-            ("00", "60", "00", (-1, -1, -1)),
-            # Invalid: seconds >= 60
-            ("00", "00", "60", (-1, -1, -1)),
-            # Invalid: non-numeric
-            ("aa", "00", "00", (-1, -1, -1)),
-            ("00", "bb", "00", (-1, -1, -1)),
-            ("00", "00", "cc", (-1, -1, -1)),
-            # Empty strings
-            ("", "00", "00", (-1, -1, -1)),
-        ],
-    )
-    def test_timecode_is_valid(self, h, m, s, expected):
-        ctrls = [MockControl(h), MockControl(m), MockControl(s)]
-        assert VideodlApp._timecode_is_valid(ctrls) == expected
 
 
 class TestTimecodesAreValid:

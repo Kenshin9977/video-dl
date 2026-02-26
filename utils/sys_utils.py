@@ -26,7 +26,7 @@ from utils.quickjs_install import (
 )
 
 APP_NAME = "video-dl"
-APP_VERSION = "1.1.15"
+APP_VERSION = "2.0.0"
 PLATFORM = system()
 
 logger = logging.getLogger("videodl")

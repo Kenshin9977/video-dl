@@ -1022,7 +1022,7 @@ class VideodlApp:
         )
 
         def copy_to_clipboard(_e):
-            self.page.set_clipboard(detail)
+            self.page.clipboard = detail
 
         def open_log_folder(_e):
             path = str(LOG_DIR)
@@ -1132,7 +1132,7 @@ class VideodlApp:
                 completed_urls.append(url)
             except Exception as e:
                 report = build_error_report(e)
-                logger.error(report.detail or report.short_message)
+                logger.error(report.short_message)
                 self._show_error(report)
                 error_occurred = True
                 if report.should_break:

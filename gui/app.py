@@ -1040,7 +1040,7 @@ class VideodlApp:
             actions=[
                 ft.TextButton(gt(GF.error_copy), on_click=copy_to_clipboard),
                 ft.TextButton(gt(GF.error_open_log), on_click=open_log_folder),
-                ft.TextButton(gt(GF.error_close), on_click=lambda _e: self.page.close(dialog)),
+                ft.TextButton(gt(GF.error_close), on_click=lambda _e: self.page.pop_dialog()),
             ],
         )
         self.page.show_dialog(dialog)

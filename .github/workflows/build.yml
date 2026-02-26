@@ -1,0 +1,64 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            spec: specs/Windows-video-dl.spec
+            artifact: video-dl-windows.exe
+            output: dist/video-dl.exe
+          - os: ubuntu-22.04
+            spec: specs/Linux-video-dl.spec
+            artifact: video-dl-linux
+            output: dist/video-dl
+          - os: macos-latest
+            spec: specs/macOS-video-dl.spec
+            artifact: video-dl-macos
+            output: dist/video-dl
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Build binary
+        run: pyinstaller ${{ matrix.spec }}
+
+      - name: Rename artifact
+        shell: bash
+        run: mv "${{ matrix.output }}" "${{ matrix.artifact }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*

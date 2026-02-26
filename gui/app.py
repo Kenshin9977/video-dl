@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 import os
 import subprocess
@@ -37,7 +36,9 @@ from flet import (
 )
 from quantiphy import InvalidNumber, Quantity
 
-from core.download import create_ydl, download, download_from_info, get_download_info
+from yt_dlp.utils import DownloadCancelled as YtdlpDownloadCancelled
+
+from core.download import create_ydl, download
 from core.exceptions import (
     DownloadCancelled,
     FFmpegNoValidEncoderFound,
@@ -379,6 +380,9 @@ class VideodlApp:
         self.process_progress_percent: float = 0
         self._ui_dirty = threading.Event()
         self._download_done = threading.Event()
+        self._cancel_requested = threading.Event()
+        self._preparing = False
+        self._download_counter = ""
         self._url_queue: list[str] = []
         self.queue_button = Button(
             content=Icon(Icons.ADD),
@@ -559,9 +563,12 @@ class VideodlApp:
             )
 
     def _update_download_bar(self, d: dict):
+        if self._cancel_requested.is_set():
+            raise YtdlpDownloadCancelled
         # Hide preparation status once actual download starts
         force = False
-        if self.download_status_text.visible:
+        if self._preparing:
+            self._preparing = False
             self.download_status_text.visible = False
             force = True
         (
@@ -605,8 +612,8 @@ class VideodlApp:
         last_progress_percent: float,
         force_update: bool = False,
     ):
-        if self.cancel_button.disabled:
-            raise DownloadCancelled
+        if self._cancel_requested.is_set():
+            return time_last_update, last_speed, last_progress_percent
 
         speed = self._parse_speed(d, bytes_fieldname)
         downloaded = self._parse_quantity(d.get(bytes_fieldname))
@@ -628,7 +635,9 @@ class VideodlApp:
             n_current = simple_traverse(d, ("info_dict", "playlist_autonumber"))
             n_entries = simple_traverse(d, ("info_dict", "n_entries"))
             progress_str = f"{action} {int(progress_float * 100)}% {speed}"
-            if n_current and n_entries > 1:
+            if self._download_counter and bytes_fieldname == "downloaded_bytes":
+                progress_str += f" {self._download_counter}"
+            elif n_current and n_entries > 1:
                 progress_str += f"({n_current}/{n_entries})"
             progress_text.value = progress_str
             self._ui_dirty.set()
@@ -1160,12 +1169,14 @@ class VideodlApp:
         self.download_button.disabled = True
         self.cancel_button.disabled = False
         self.cancel_button.visible = True
+        self._preparing = True
         self._show_status(gt(GF.preparing), Colors.ON_SURFACE_VARIANT)
         self.download_progress.visible = True
         self.process_progress.visible = True
         self._resize_window()
         self._ui_dirty.clear()
         self._download_done.clear()
+        self._cancel_requested.clear()
         self.page.update()
         self.page.run_task(self._run_download_async)
 
@@ -1177,32 +1188,26 @@ class VideodlApp:
         error_occurred = False
         completed_urls = []
         ydl = await asyncio.to_thread(create_ydl, self)
-        uses_aria2c = "external_downloader" in self.ydl_opts and "aria2c" in str(self.ydl_opts["external_downloader"])
         for i, url in enumerate(urls):
             self.download_progress_bar.value = 0
             self.process_progress_bar.value = 0
-            counter = f" ({i + 1}/{total})" if total > 1 else ""
-            if total > 1:
-                self.download_progress_text.value = f"{gt(GF.download)}{counter}"
-            else:
-                self.download_progress_text.value = gt(GF.download)
+            self._download_counter = f"({i + 1}/{total})" if total > 1 else ""
+            self.download_progress_text.value = gt(GF.download)
             self.process_progress_text.value = gt(GF.process)
             self.download_last_update = datetime.now()
             self.process_last_update = datetime.now()
             self.download_progress_percent = 0
             self.process_progress_percent = 0
+            self._preparing = total == 1
             if total > 1:
                 label = url or self.media_link.value
                 self._show_status(f"{i + 1}/{total} — {label}", Colors.ON_SURFACE_VARIANT)
                 self._ui_dirty.set()
             try:
-                if uses_aria2c:
-                    await self._download_with_file_progress(ydl, url, counter)
-                else:
-                    await asyncio.to_thread(download, self, ydl, url)
+                await asyncio.to_thread(download, self, ydl, url)
                 completed_urls.append(url)
             except DownloadCancelled:
-                logger.error(traceback.format_exc())
+                logger.info("Download cancelled by user")
                 self._show_status(gt(GF.dl_cancel), "yellow")
                 error_occurred = True
                 break
@@ -1218,7 +1223,8 @@ class VideodlApp:
                 continue
             except Exception as e:
                 logger.error(traceback.format_exc())
-                self._show_status(f"{gt(GF.dl_error)} {e}", "red")
+                err_msg = str(e).removeprefix("ERROR: ").split(";")[0]
+                self._show_status(f"{gt(GF.dl_error)} {err_msg}", "red")
                 error_occurred = True
                 continue
         if not error_occurred:
@@ -1232,54 +1238,6 @@ class VideodlApp:
         self._download_done.set()
         await ui_task
         self._reset_after_download()
-
-    async def _download_with_file_progress(self, ydl, url, counter):
-        """Download with aria2c while polling file size for progress."""
-        target_url = url or self.media_link.value
-        info, expected_size, tmpfile = await asyncio.to_thread(get_download_info, ydl, target_url)
-        if info is None:
-            raise PlaylistNotFound
-
-        # Determine files to monitor for size
-        part_paths = []
-        if tmpfile:
-            part_paths.append(tmpfile + ".part")
-            part_paths.append(tmpfile)
-            # For merged formats (video+audio), also check .f<id>.part files
-            base, _ext = os.path.splitext(tmpfile)
-            if info.get("requested_formats"):
-                for fmt in info["requested_formats"]:
-                    fid = fmt.get("format_id", "")
-                    fext = fmt.get("ext", "tmp")
-                    part_paths.append(f"{base}.f{fid}.{fext}.part")
-                    part_paths.append(f"{base}.f{fid}.{fext}")
-
-        stop_polling = threading.Event()
-
-        async def poll_file_size():
-            while not stop_polling.is_set():
-                if expected_size > 0:
-                    current = 0
-                    for p in part_paths:
-                        with contextlib.suppress(OSError):
-                            current += os.path.getsize(p)
-                    progress = min(current / expected_size, 0.99)
-                    self.download_progress_bar.value = progress
-                    size_str = ""
-                    with contextlib.suppress(InvalidNumber, TypeError):
-                        size_str = f" {Quantity(current, 'B')}"
-                    self.download_progress_text.value = f"{gt(GF.download)}{counter} {int(progress * 100)}%{size_str}"
-                    self._ui_dirty.set()
-                await asyncio.sleep(0.5)
-
-        poll_task = asyncio.create_task(poll_file_size())
-        try:
-            await asyncio.to_thread(download_from_info, self, ydl, info)
-        finally:
-            stop_polling.set()
-            poll_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await poll_task
 
     async def _ui_refresh_loop(self):
         """Poll for UI changes from the download thread and flush them."""
@@ -1311,6 +1269,7 @@ class VideodlApp:
         self.process_progress.visible = False
         self.download_progress_text.value = gt(GF.download)
         self.process_progress_text.value = gt(GF.process)
+        self._download_counter = ""
         self._resize_window()
         self.page.update()
 
@@ -1324,12 +1283,8 @@ class VideodlApp:
             subprocess.Popen(["xdg-open", path])
 
     def _cancel_clicked(self, e):
+        self._cancel_requested.set()
         self.cancel_button.disabled = True
-        self.cancel_button.visible = False
-        self.download_progress.visible = False
-        self.process_progress.visible = False
-        self.download_button.disabled = False
-        self._resize_window()
         self.page.update()
 
     def build_gui(self):

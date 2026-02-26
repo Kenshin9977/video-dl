@@ -7,8 +7,10 @@ import re
 from yt_dlp import YoutubeDL
 from yt_dlp.postprocessor import FFmpegPostProcessor
 
+from yt_dlp.utils import DownloadCancelled as YtdlpDownloadCancelled
+
 from core.encode import post_process_dl
-from core.exceptions import PlaylistNotFound
+from core.exceptions import DownloadCancelled, PlaylistNotFound
 from i18n.lang import GuiField as GF
 from i18n.lang import get_text as gt
 from sys_vars import FF_PATH
@@ -63,29 +65,13 @@ def create_ydl(videodl_app):
 
 def download(videodl_app, ydl, url=None):
     target_url = url or videodl_app.media_link.value
-    infos_ydl = ydl.extract_info(target_url)
+    try:
+        infos_ydl = ydl.extract_info(target_url)
+    except YtdlpDownloadCancelled:
+        raise DownloadCancelled
+    if videodl_app._cancel_requested.is_set():
+        raise DownloadCancelled
     _finish_download(videodl_app, ydl, infos_ydl)
-
-
-def get_download_info(ydl, url):
-    """Extract info without downloading, return expected size and temp path."""
-    info = ydl.extract_info(url, download=False)
-    if info is None:
-        return None, None, None
-    if info.get("_type") == "playlist":
-        total_size = sum((e.get("filesize") or e.get("filesize_approx") or 0) for e in (info.get("entries") or []))
-    else:
-        total_size = info.get("filesize") or info.get("filesize_approx") or 0
-        if not total_size and info.get("requested_formats"):
-            total_size = sum((f.get("filesize") or f.get("filesize_approx") or 0) for f in info["requested_formats"])
-    tmpfile = ydl.prepare_filename(info)
-    return info, total_size, tmpfile
-
-
-def download_from_info(videodl_app, ydl, info):
-    """Download from a pre-extracted info dict (no double extract)."""
-    ydl.process_ie_result(info, download=True)
-    _finish_download(videodl_app, ydl, info)
 
 
 def _finish_download(videodl_app, ydl, infos_ydl):
@@ -97,6 +83,8 @@ def _finish_download(videodl_app, ydl, infos_ydl):
     videodl_app._ui_dirty.set()
     if infos_ydl.get("_type") == "playlist":
         for infos_ydl_entry in infos_ydl["entries"]:
+            if videodl_app._cancel_requested.is_set():
+                raise DownloadCancelled
             post_download(
                 videodl_app._get_effective_vcodec(),
                 ydl,
@@ -105,6 +93,8 @@ def _finish_download(videodl_app, ydl, infos_ydl):
             )
     else:
         post_download(videodl_app._get_effective_vcodec(), ydl, infos_ydl, videodl_app)
+    if videodl_app._cancel_requested.is_set():
+        raise DownloadCancelled
 
 
 def post_download(target_vcodec: str, ydl: YoutubeDL, infos_ydl: dict, videodl_app) -> None:

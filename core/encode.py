@@ -166,6 +166,10 @@ def _ffmpeg_video(
     ffmpeg_command.extend(["-progress", "pipe:1", "-y", tmp_path])
     action = get_text(GuiField.ff_remux) if acodec_nle_friendly and vcodec_is_target else get_text(GuiField.ff_reencode)
     _progress_ffmpeg(ffmpeg_command, action, path, videodl_app, duration)
+    if videodl_app._cancel_requested.is_set():
+        if os.path.isfile(tmp_path):
+            os.remove(tmp_path)
+        return
     if not os.path.isfile(tmp_path):
         raise FileNotFoundError(ffmpeg_command)
     os.remove(path)
@@ -198,6 +202,10 @@ def _progress_ffmpeg(cmd, action, filepath, videodl_app, duration):
     }
 
     def hook(status, info):
+        if videodl_app._cancel_requested.is_set():
+            if tracker.ffmpeg_proc and tracker.ffmpeg_proc.poll() is None:
+                tracker.ffmpeg_proc.kill()
+            return
         status["processed_bytes"] = status.get("outputted", 0)
         status["action"] = action
         videodl_app._update_process_bar(status)
@@ -210,5 +218,7 @@ def _progress_ffmpeg(cmd, action, filepath, videodl_app, duration):
         output_filename=cmd[-1],
     )
     _, stderr, retcode = tracker.run_ffmpeg_subprocess()
+    if videodl_app._cancel_requested.is_set():
+        return
     if retcode != 0:
         raise ValueError(f"FFmpeg failed with return code {retcode}: {stderr}")

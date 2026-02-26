@@ -170,9 +170,9 @@ def get_text(field: GuiField) -> str:
             Language.german: "Max. Qualität",
         },
         GuiField.quality_tooltip: {
-            Language.english: "Best available quality up to this resolution",
-            Language.french: "Meilleure qualité disponible jusqu'à cette résolution",
-            Language.german: "Beste verfügbare Qualität bis zu dieser Auflösung",
+            Language.english: "Tries to get at most this resolution if available, not guaranteed",
+            Language.french: "Essaie d'obtenir au plus cette résolution si disponible, non garanti",
+            Language.german: "Versucht höchstens diese Auflösung zu erhalten, falls verfügbar, nicht garantiert",
         },
         GuiField.framerate: {
             Language.english: "Max fps",
@@ -180,9 +180,9 @@ def get_text(field: GuiField) -> str:
             Language.german: "Max. Bildfrequenz",
         },
         GuiField.framerate_tooltip: {
-            Language.english: "Best available framerate up to this value",
-            Language.french: "Meilleure fréquence d'images disponible jusqu'à cette valeur",
-            Language.german: "Beste verfügbare Bildfrequenz bis zu diesem Wert",
+            Language.english: "Tries to get at most this framerate if available, not guaranteed",
+            Language.french: "Essaie d'obtenir au plus cette fréquence d'images si disponible, non garanti",
+            Language.german: "Versucht höchstens diese Bildfrequenz zu erhalten, falls verfügbar, nicht garantiert",
         },
         GuiField.vcodec: {
             Language.english: "Target video codec",

@@ -138,9 +138,30 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: List release files
-        run: ls -la artifacts/
+      - name: Separate binaries from tufup files
+        run: |
+          mkdir -p binaries tufup
+          mv artifacts/video-dl-windows.exe binaries/
+          mv artifacts/video-dl-linux binaries/
+          mv artifacts/video-dl-macos.dmg binaries/
+          mv artifacts/* tufup/ 2>/dev/null || true
+          echo "=== Binaries ===" && ls -la binaries/
+          echo "=== Tufup ===" && ls -la tufup/
 
       - uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*
+          files: |
+            binaries/*
+            tufup/*
+          body: |
+            ## Download
+
+            | Windows | macOS | Linux |
+            |:-------:|:-----:|:-----:|
+            | [video-dl-windows.exe](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-windows.exe) | [video-dl-macos.dmg](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-macos.dmg) | [video-dl-linux](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-linux) |
+
+            <details>
+            <summary>Auto-update files (internal)</summary>
+
+            The remaining files in this release are used by the built-in auto-updater (tufup). You can safely ignore them.
+            </details>

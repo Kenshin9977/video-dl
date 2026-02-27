@@ -1,7 +1,6 @@
 from unittest.mock import patch
 
 import pytest
-
 from utils.sys_architecture import get_system_architecture
 
 

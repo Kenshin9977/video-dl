@@ -9,6 +9,21 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 import flet as ft
+from core.download import create_ydl, download
+from core.error_report import ErrorReport, build_error_report
+from core.progress import compute_progress, parse_quantity, parse_speed, timecodes_are_valid
+from core.ydl_opts import (
+    build_av_opts,
+    build_browser_opts,
+    build_ffmpeg_opts,
+    build_file_opts,
+    build_original_opts,
+    build_sponsor_block_opts,
+    build_subtitles_opts,
+    determine_encode_state,
+    filter_formats,
+    get_effective_vcodec,
+)
 from darkdetect import isDark
 from flet import (
     Button,
@@ -35,23 +50,19 @@ from flet import (
     ThemeMode,
     dropdown,
 )
-from yt_dlp.utils import DownloadCancelled as YtdlpDownloadCancelled
-
-from core.download import create_ydl, download
-from core.error_report import ErrorReport, build_error_report
-from core.progress import compute_progress, parse_quantity, parse_speed, timecodes_are_valid
-from core.ydl_opts import (
-    build_av_opts,
-    build_browser_opts,
-    build_ffmpeg_opts,
-    build_file_opts,
-    build_original_opts,
-    build_sponsor_block_opts,
-    build_subtitles_opts,
-    determine_encode_state,
-    filter_formats,
-    get_effective_vcodec,
+from i18n.lang import GuiField as GF
+from i18n.lang import (
+    get_available_languages_name,
+    get_current_language_name,
+    set_current_language,
 )
+from i18n.lang import get_text as gt
+from sys_vars import ARIA2C_PATH, FF_PATH, QJS_PATH
+from utils.parse_util import simple_traverse, validate_url
+from utils.sponsor_block_dict import CATEGORIES
+from utils.sys_utils import APP_VERSION, PLATFORM, get_default_download_path
+from videodl_logger import LOG_DIR
+
 from gui.config import (
     CK_ACODEC,
     CK_AUDIO_ONLY,
@@ -72,18 +83,7 @@ from gui.config import (
     VideodlConfig,
 )
 from gui.options import ACODECS, BROWSERS, FRAMERATE, QUALITY, VCODECS
-from i18n.lang import GuiField as GF
-from i18n.lang import (
-    get_available_languages_name,
-    get_current_language_name,
-    set_current_language,
-)
-from i18n.lang import get_text as gt
-from sys_vars import ARIA2C_PATH, FF_PATH, QJS_PATH
-from videodl_logger import LOG_DIR
-from utils.parse_util import simple_traverse, validate_url
-from utils.sponsor_block_dict import CATEGORIES
-from utils.sys_utils import APP_VERSION, PLATFORM, get_default_download_path
+from yt_dlp.utils import DownloadCancelled as YtdlpDownloadCancelled
 
 if TYPE_CHECKING:
     from flet import Event, Page

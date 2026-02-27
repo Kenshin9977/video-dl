@@ -3,9 +3,10 @@ from __future__ import annotations
 import traceback
 from dataclasses import dataclass
 
-from core.exceptions import DownloadCancelled, FFmpegNoValidEncoderFound, PlaylistNotFound
 from i18n.lang import GuiField as GF
 from i18n.lang import get_text as gt
+
+from core.exceptions import DownloadCancelled, FFmpegNoValidEncoderFound, PlaylistNotFound
 
 
 @dataclass(frozen=True, slots=True)

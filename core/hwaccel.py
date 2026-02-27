@@ -1,8 +1,9 @@
 import logging
 import subprocess
 
-from core.exceptions import FFmpegNoValidEncoderFound
 from sys_vars import FF_PATH
+
+from core.exceptions import FFmpegNoValidEncoderFound
 
 logger = logging.getLogger("videodl")
 

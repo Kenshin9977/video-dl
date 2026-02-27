@@ -57,6 +57,6 @@ class TestBuildErrorReport:
         assert isinstance(report, ErrorReport)
         try:
             report.color = "green"  # type: ignore[misc]
-            assert False, "should have raised"
+            raise AssertionError("should have raised")
         except AttributeError:
             pass

@@ -20,7 +20,6 @@ from tufup.repo import (
     DEFAULT_REPO_DIR_NAME,
     Repository,
 )
-
 from utils.sys_utils import APP_NAME, APP_VERSION
 
 logging.basicConfig(level=logging.INFO)

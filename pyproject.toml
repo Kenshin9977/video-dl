@@ -21,6 +21,13 @@ dev = [
     "ruff",
 ]
 
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["core*", "gui*", "i18n*", "updater*", "utils*", "tools*"]
+
 [project.scripts]
 video-dl = "main:main"
 

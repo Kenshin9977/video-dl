@@ -68,7 +68,7 @@ app = BUNDLE(
     icon=os.path.join(ROOTDIR, 'icon.png'),
     bundle_identifier='com.kenshin.video-dl',
     info_plist={
-        'CFBundleShortVersionString': '2.1.2',
+        'CFBundleShortVersionString': '2.1.3',
         'CFBundleName': 'video-dl',
         'NSHighResolutionCapable': True,
     },

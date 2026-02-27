@@ -1,14 +1,15 @@
 # -*- mode: python ; coding: utf-8 -*-
-
+import os
+ROOTDIR = os.path.abspath(os.path.join(SPECPATH, '..'))
 
 block_cipher = None
 
 
 a = Analysis(
-    ['main.py'],
+    [os.path.join(ROOTDIR, 'main.py')],
     pathex=[],
     binaries=[],
-    datas=[('root.json', '.')],
+    datas=[(os.path.join(ROOTDIR, 'root.json'), '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -48,5 +49,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='icon.ico',
+    icon=os.path.join(ROOTDIR, 'icon.ico'),
 )

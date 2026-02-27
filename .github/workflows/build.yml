@@ -35,6 +35,20 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]"
 
+      - name: Generate macOS icon
+        if: runner.os == 'macOS'
+        run: |
+          ICONSET=$(mktemp -d)/icon.iconset
+          mkdir -p "$ICONSET"
+          for s in 16 32 128 256 512; do
+            sips -z $s $s icon.png --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
+          done
+          for s in 16 32 128 256; do
+            s2=$((s * 2))
+            sips -z $s2 $s2 icon.png --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
+          done
+          iconutil -c icns "$ICONSET" -o icon.icns
+
       - name: Build binary
         run: pyinstaller ${{ matrix.spec }}
 

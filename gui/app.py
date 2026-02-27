@@ -1268,5 +1268,34 @@ def videodl_fletgui(page: Page):
     videodl_app.load_config()
 
 
+def _patch_flet_icon_macos():
+    """Replace Flet.app dock icon with our own before Flet launches it."""
+    import shutil
+    from platform import system
+
+    if system() != "Darwin":
+        return
+
+    app_icon = os.path.join(os.path.dirname(__file__), "..", "icon.icns")
+    if not os.path.isfile(app_icon):
+        return
+
+    try:
+        import flet_desktop
+
+        storage = flet_desktop.__get_client_storage_dir()
+        if not storage.exists():
+            # Force Flet to extract its app bundle so we can patch the icon
+            flet_desktop.__locate_and_unpack_flet_view("", None, False)
+        for entry in os.listdir(storage):
+            if entry.endswith(".app"):
+                icns_dst = storage / entry / "Contents" / "Resources" / "AppIcon.icns"
+                shutil.copy2(app_icon, icns_dst)
+                break
+    except Exception:
+        pass
+
+
 def videodl_gui():
+    _patch_flet_icon_macos()
     ft.run(videodl_fletgui, assets_dir="assets")

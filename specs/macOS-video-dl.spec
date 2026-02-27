@@ -12,7 +12,10 @@ a = Analysis(
     [os.path.join(ROOTDIR, 'main.py')],
     pathex=[],
     binaries=[],
-    datas=[(os.path.join(ROOTDIR, 'root.json'), '.')] + flet_data + flet_desktop_data,
+    datas=[
+        (os.path.join(ROOTDIR, 'root.json'), '.'),
+        (os.path.join(ROOTDIR, 'icon.icns'), '.'),
+    ] + flet_data + flet_desktop_data,
     hiddenimports=['flet_desktop'],
     hookspath=[],
     hooksconfig={},
@@ -71,5 +74,6 @@ app = BUNDLE(
         'CFBundleShortVersionString': '2.1.4',
         'CFBundleName': 'video-dl',
         'NSHighResolutionCapable': True,
+        'LSUIElement': True,
     },
 )

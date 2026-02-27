@@ -17,6 +17,7 @@ import sys
 
 import PyInstaller.__main__
 from tufup.repo import DEFAULT_KEYS_DIR_NAME, DEFAULT_REPO_DIR_NAME, Repository
+
 from utils.sys_architecture import ARCHITECTURE
 from utils.sys_utils import APP_NAME, APP_VERSION, PLATFORM
 

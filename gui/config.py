@@ -5,13 +5,13 @@ from typing import Any
 
 import tomlkit
 from darkdetect import isDark
+from tomlkit.exceptions import ParseError
+
+from gui.options import ACODECS, BROWSERS, FRAMERATE, QUALITY, VCODECS
 from i18n.lang import GuiField as GF
 from i18n.lang import get_available_languages_name, get_current_language_name, set_current_language
 from i18n.lang import get_text as gt
-from tomlkit.exceptions import ParseError
 from utils.sys_utils import get_default_browser, get_default_download_path
-
-from gui.options import ACODECS, BROWSERS, FRAMERATE, QUALITY, VCODECS
 
 CONFIG_FILENAME = "videodl-config.toml"
 USER_OPTIONS = "User options"

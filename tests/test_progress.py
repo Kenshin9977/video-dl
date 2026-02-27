@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import pytest
-from core.progress import compute_progress, parse_quantity, parse_speed, timecodes_are_valid, validate_timecode
 from quantiphy import Quantity
+
+from core.progress import compute_progress, parse_quantity, parse_speed, timecodes_are_valid, validate_timecode
 
 
 class TestParseSpeed:

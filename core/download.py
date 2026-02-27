@@ -4,15 +4,15 @@ import logging
 import os
 import re
 
-from i18n.lang import GuiField as GF
-from i18n.lang import get_text as gt
-from sys_vars import FF_PATH
-
-from core.encode import post_process_dl
-from core.exceptions import DownloadCancelled, PlaylistNotFound
 from yt_dlp import YoutubeDL
 from yt_dlp.postprocessor import FFmpegPostProcessor
 from yt_dlp.utils import DownloadCancelled as YtdlpDownloadCancelled
+
+from core.encode import post_process_dl
+from core.exceptions import DownloadCancelled, PlaylistNotFound
+from i18n.lang import GuiField as GF
+from i18n.lang import get_text as gt
+from sys_vars import FF_PATH
 
 logger = logging.getLogger("videodl")
 

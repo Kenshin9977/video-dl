@@ -39,6 +39,9 @@ target-version = "py312"
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 ignore = ["E501"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["core", "gui", "i18n", "updater", "utils", "tools", "sys_vars", "videodl_logger"]
+
 [tool.ruff.format]
 quote-style = "double"
 

@@ -5,11 +5,11 @@ import logging
 import os
 import subprocess
 
-from i18n.lang import GuiField, get_text
-from sys_vars import FF_PATH
+from yt_dlp.postprocessor.ffmpeg import FFmpegProgressTracker
 
 from core.hwaccel import fastest_encoder
-from yt_dlp.postprocessor.ffmpeg import FFmpegProgressTracker
+from i18n.lang import GuiField, get_text
+from sys_vars import FF_PATH
 
 NLE_COMPATIBLE_VCODECS = {"avc1", "h264", "hevc", "h265", "prores"}
 NLE_COMPATIBLE_ACODECS = {"aac", "mp3", "mp4a", "pcm_s16le", "pcm_s24le"}

@@ -1,4 +1,5 @@
 import pytest
+
 from utils.parse_util import simple_traverse, validate_url
 
 

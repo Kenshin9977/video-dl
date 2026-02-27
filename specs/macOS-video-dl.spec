@@ -68,7 +68,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='video-dl.app',
-    icon=os.path.join(ROOTDIR, 'icon.png'),
+    icon=os.path.join(ROOTDIR, 'icon.icns'),
     bundle_identifier='com.kenshin.video-dl',
     info_plist={
         'CFBundleShortVersionString': '2.1.5',

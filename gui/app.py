@@ -5,6 +5,7 @@ import logging
 import os
 import subprocess
 import threading
+from pathlib import Path
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -1268,34 +1269,102 @@ def videodl_fletgui(page: Page):
     videodl_app.load_config()
 
 
-def _patch_flet_icon_macos():
-    """Replace Flet.app dock icon with our own before Flet launches it."""
+def _patch_flet_macos_bundle():
+    """Patch the Flet.app bundle to use video-dl's icon and identity on macOS.
+
+    The patched bundle is placed in a dedicated directory so that macOS icon
+    caching (keyed on the bundle path) never shows a stale Flet icon.
+    We then set FLET_VIEW_PATH so Flet picks up our bundle instead of the
+    default one.
+    """
+    import plistlib
     import shutil
-    from platform import system
 
-    if system() != "Darwin":
+    import flet_desktop
+
+    version = flet_desktop.version.version
+    view_dir = Path.home() / '.flet' / 'client' / 'video-dl-view'
+    patched_app = view_dir / 'video-dl.app'
+
+    # Already patched for this Flet version?
+    stamp_file = view_dir / '.patched-version'
+    if patched_app.exists() and stamp_file.exists():
+        try:
+            if stamp_file.read_text().strip() == version:
+                os.environ['FLET_VIEW_PATH'] = str(view_dir)
+                return
+        except OSError:
+            pass
+
+    # Clean previous patch
+    if view_dir.exists():
+        shutil.rmtree(view_dir)
+    view_dir.mkdir(parents=True, exist_ok=True)
+
+    # Ensure Flet.app is extracted in the default location
+    flet_dir = Path.home() / '.flet' / 'client' / f'flet-desktop-{version}'
+    original_app = flet_dir / 'Flet.app'
+    if not original_app.exists():
+        bin_dir = flet_desktop.get_package_bin_dir()
+        tar_file = os.path.join(bin_dir, 'flet-macos.tar.gz')
+        if os.path.exists(tar_file):
+            import tarfile
+
+            from flet.utils import safe_tar_extractall
+
+            flet_dir.mkdir(parents=True, exist_ok=True)
+            with tarfile.open(str(tar_file), 'r:gz') as tar_arch:
+                safe_tar_extractall(tar_arch, str(flet_dir))
+
+    if not original_app.exists():
         return
 
-    app_icon = os.path.join(os.path.dirname(__file__), "..", "icon.icns")
-    if not os.path.isfile(app_icon):
-        return
+    # Copy to our dedicated directory
+    shutil.copytree(original_app, patched_app, symlinks=True)
 
-    try:
-        import flet_desktop
+    # Remove Assets.car — it contains Flutter's compiled AppIcon which macOS
+    # reads in priority over AppIcon.icns.
+    assets_car = patched_app / 'Contents' / 'Resources' / 'Assets.car'
+    if assets_car.exists():
+        assets_car.unlink()
 
-        storage = flet_desktop.__get_client_storage_dir()
-        if not storage.exists():
-            # Force Flet to extract its app bundle so we can patch the icon
-            flet_desktop.__locate_and_unpack_flet_view("", None, False)
-        for entry in os.listdir(storage):
-            if entry.endswith(".app"):
-                icns_dst = storage / entry / "Contents" / "Resources" / "AppIcon.icns"
-                shutil.copy2(app_icon, icns_dst)
-                break
-    except Exception:
-        pass
+    # Patch icon — check both dev layout and PyInstaller bundle
+    icon_path = os.path.join(os.path.dirname(__file__), '..', 'icon.icns')
+    if not os.path.isfile(icon_path):
+        icon_path = os.path.join(getattr(sys, '_MEIPASS', ''), 'icon.icns')
+    if os.path.isfile(icon_path):
+        dest_icon = patched_app / 'Contents' / 'Resources' / 'AppIcon.icns'
+        shutil.copy2(icon_path, dest_icon)
+
+    # Patch Info.plist
+    plist_path = patched_app / 'Contents' / 'Info.plist'
+    with open(plist_path, 'rb') as f:
+        pl = plistlib.load(f)
+    pl['CFBundleIdentifier'] = 'com.kenshin.video-dl.view'
+    pl['CFBundleName'] = 'video-dl'
+    pl['CFBundleDisplayName'] = 'video-dl'
+    pl['CFBundleIconFile'] = 'AppIcon.icns'
+    pl.pop('CFBundleIconName', None)
+    with open(plist_path, 'wb') as f:
+        plistlib.dump(pl, f)
+
+    # Rename inner bundle dir from Flet.app if needed (already named video-dl.app)
+
+    # Re-sign
+    subprocess.run(
+        ['codesign', '-s', '-', '--force', '--all-architectures',
+         '--timestamp', '--deep', str(patched_app)],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+
+    # Write version stamp
+    stamp_file.write_text(version)
+
+    # Point Flet to our patched bundle
+    os.environ['FLET_VIEW_PATH'] = str(view_dir)
 
 
 def videodl_gui():
-    _patch_flet_icon_macos()
-    ft.run(videodl_fletgui, assets_dir="assets")
+    if PLATFORM == 'Darwin':
+        _patch_flet_macos_bundle()
+    ft.run(videodl_fletgui, assets_dir='assets')

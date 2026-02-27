@@ -19,12 +19,11 @@ All the requirements are embedded within the installer. FFmpeg is automatically 
 * Homebrew has the `ffmpeg` package which includes `ffprobe`: `brew install ffmpeg`
 
 ## Downloads
-The installer for Windows is available in the [releases](https://github.com/Kenshin9977/video-dl/releases) section.
-The program isn't signed yet, so your browser will probably warn you when downloading it.
+Binaries for Windows, macOS and Linux are available in the [releases](https://github.com/Kenshin9977/video-dl/releases) section.
 
 ## Usage
 
-Simply run the binary. The program isn't signed yet, so on Windows and macOS you'll have a window popping up telling you the program isn't safe.
+Simply run the binary.
 
 Launch video-dl, enter a valid URL of a supported website, select the options you want then click "Download".
 Each option should be self explanatory. If it isn't, don't hesitate to create an issue so that I can fix that.
@@ -83,6 +82,17 @@ python MACOS-video-dl.py py2app
 ```bash
 pyinstaller specs/Linux-video-dl.spec
 ```
+
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+- Committers and reviewers: [Kenshin9977](https://github.com/Kenshin9977)
+- Approvers: [Kenshin9977](https://github.com/Kenshin9977)
+
+## Privacy policy
+
+This program will not transfer any information to other networked systems unless specifically requested by the user (e.g. downloading a video from a URL provided by the user).
 
 ## Software used
 

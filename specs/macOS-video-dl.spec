@@ -5,13 +5,14 @@ ROOTDIR = os.path.abspath(os.path.join(SPECPATH, '..'))
 
 block_cipher = None
 
+flet_data = collect_data_files('flet')
 flet_desktop_data = collect_data_files('flet_desktop')
 
 a = Analysis(
     [os.path.join(ROOTDIR, 'main.py')],
     pathex=[],
     binaries=[],
-    datas=[(os.path.join(ROOTDIR, 'root.json'), '.')] + flet_desktop_data,
+    datas=[(os.path.join(ROOTDIR, 'root.json'), '.')] + flet_data + flet_desktop_data,
     hiddenimports=['flet_desktop'],
     hookspath=[],
     hooksconfig={},
@@ -34,17 +35,13 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
     [],
+    exclude_binaries=True,
     name='video-dl',
     debug=False,
     bootloader_ignore_signals=False,
     strip=True,
     upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -52,4 +49,27 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=os.path.join(ROOTDIR, 'icon.png'),
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=True,
+    upx=True,
+    upx_exclude=[],
+    name='video-dl',
+)
+
+app = BUNDLE(
+    coll,
+    name='video-dl.app',
+    icon=os.path.join(ROOTDIR, 'icon.png'),
+    bundle_identifier='com.kenshin.video-dl',
+    info_plist={
+        'CFBundleShortVersionString': '2.0.0',
+        'CFBundleName': 'video-dl',
+        'NSHighResolutionCapable': True,
+    },
 )

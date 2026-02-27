@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 ARTIFACT_MAP = {
     "video-dl-windows.exe": "video-dl-windows",
     "video-dl-linux": "video-dl-linux",
-    "video-dl-macos": "video-dl-macos",
+    "video-dl-macos.dmg": "video-dl-macos",
 }
 
 

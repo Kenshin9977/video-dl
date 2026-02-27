@@ -5,12 +5,13 @@ ROOTDIR = os.path.abspath(os.path.join(SPECPATH, '..'))
 
 block_cipher = None
 
+flet_data = collect_data_files('flet')
 flet_desktop_data = collect_data_files('flet_desktop')
 
 a = Analysis(
     [os.path.join(ROOTDIR, 'main.py')],
     pathex=[],
-    datas=[(os.path.join(ROOTDIR, 'root.json'), '.')] + flet_desktop_data,
+    datas=[(os.path.join(ROOTDIR, 'root.json'), '.')] + flet_data + flet_desktop_data,
     hiddenimports=['flet_desktop'],
     hookspath=[],
     hooksconfig={},

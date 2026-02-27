@@ -16,15 +16,12 @@ jobs:
           - os: windows-latest
             spec: specs/Windows-video-dl.spec
             artifact: video-dl-windows.exe
-            output: dist/video-dl.exe
           - os: ubuntu-22.04
             spec: specs/Linux-video-dl.spec
             artifact: video-dl-linux
-            output: dist/video-dl
           - os: macos-latest
             spec: specs/macOS-video-dl.spec
-            artifact: video-dl-macos
-            output: dist/video-dl
+            artifact: video-dl-macos.dmg
 
     runs-on: ${{ matrix.os }}
 
@@ -41,9 +38,23 @@ jobs:
       - name: Build binary
         run: pyinstaller ${{ matrix.spec }}
 
-      - name: Rename artifact
+      - name: Package artifact (Windows)
+        if: runner.os == 'Windows'
         shell: bash
-        run: mv "${{ matrix.output }}" "${{ matrix.artifact }}"
+        run: mv dist/video-dl.exe "${{ matrix.artifact }}"
+
+      - name: Package artifact (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: mv dist/video-dl "${{ matrix.artifact }}"
+
+      - name: Package artifact (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          hdiutil create -volname "video-dl" \
+            -srcfolder dist/video-dl.app \
+            -ov -format UDZO \
+            "${{ matrix.artifact }}"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -110,7 +121,7 @@ jobs:
         run: |
           mkdir -p signed
           cp repository/metadata/*.json signed/
-          cp repository/targets/*.tar.gz signed/ 2>/dev/null || true
+          cp repository/targets/*-${{ steps.version.outputs.version }}.tar.gz signed/ 2>/dev/null || true
           tar -czf signed/tufup-repo.tar.gz -C . repository/
 
       - uses: actions/upload-artifact@v4

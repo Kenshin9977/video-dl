@@ -17,6 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "mypy",
+    "Pillow",
     "pyinstaller",
     "pytest",
     "ruff",

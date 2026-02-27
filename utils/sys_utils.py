@@ -26,7 +26,7 @@ from utils.quickjs_install import (
 )
 
 APP_NAME = "video-dl"
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.1.0"
 PLATFORM = system()
 
 _PLATFORM_SUFFIX_MAP = {"Windows": "windows", "Linux": "linux", "Darwin": "macos"}

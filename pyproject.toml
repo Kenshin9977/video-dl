@@ -5,7 +5,8 @@ description = "A Flet-based GUI for yt-dlp with hardware-accelerated encoding"
 requires-python = ">=3.12"
 dependencies = [
     "darkdetect",
-    "flet>=0.80",
+    "flet>=0.81",
+    "flet-desktop>=0.81",
     "quantiphy",
     "tomlkit",
     "tufup>=0.10",

@@ -1260,7 +1260,7 @@ class VideodlApp:
 
 
 def videodl_fletgui(page: Page):
-    icon_path = os.path.join(os.path.dirname(__file__), "icon.ico")
+    icon_path = os.path.join(os.path.dirname(__file__), "..", "icon.ico")
     if os.path.isfile(icon_path):
         page.window.icon = icon_path
     videodl_app = VideodlApp(page)

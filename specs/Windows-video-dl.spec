@@ -1,15 +1,17 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
+from PyInstaller.utils.hooks import collect_data_files
 ROOTDIR = os.path.abspath(os.path.join(SPECPATH, '..'))
 
 block_cipher = None
 
+flet_desktop_data = collect_data_files('flet_desktop')
 
 a = Analysis(
     [os.path.join(ROOTDIR, 'main.py')],
     pathex=[],
-    datas=[(os.path.join(ROOTDIR, 'root.json'), '.')],
-    hiddenimports=[],
+    datas=[(os.path.join(ROOTDIR, 'root.json'), '.')] + flet_desktop_data,
+    hiddenimports=['flet_desktop'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

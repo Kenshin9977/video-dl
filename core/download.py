@@ -8,11 +8,12 @@ from yt_dlp import YoutubeDL
 from yt_dlp.postprocessor import FFmpegPostProcessor
 from yt_dlp.utils import DownloadCancelled as YtdlpDownloadCancelled
 
+from core.callbacks import CancelToken, ProgressCallback, StatusCallback
+from core.config_types import DownloadConfig
 from core.encode import post_process_dl
 from core.exceptions import DownloadCancelled, PlaylistNotFound
 from i18n.lang import GuiField as GF
 from i18n.lang import get_text as gt
-from sys_vars import FF_PATH
 
 logger = logging.getLogger("videodl")
 
@@ -24,18 +25,15 @@ _STATUS_PATTERNS = [
 
 
 class _YdlUiLogger:
-    """Bridges yt-dlp log messages to a Flet status text widget."""
+    """Bridges yt-dlp log messages to a StatusCallback."""
 
-    def __init__(self, status_text, mark_dirty):
-        self._status_text = status_text
-        self._mark_dirty = mark_dirty
+    def __init__(self, status_cb: StatusCallback):
+        self._status_cb = status_cb
 
     def _update_status(self, msg):
         for pattern, gui_field in _STATUS_PATTERNS:
             if pattern.search(msg):
-                self._status_text.value = gt(gui_field)
-                self._status_text.visible = True
-                self._mark_dirty()
+                self._status_cb.on_status(gt(gui_field))
                 return
 
     def debug(self, msg):
@@ -53,59 +51,83 @@ class _YdlUiLogger:
         logger.error(msg)
 
 
-def create_ydl(videodl_app):
+def create_ydl(
+    ydl_opts: dict,
+    status_cb: StatusCallback,
+    ff_path: dict[str, str],
+) -> YoutubeDL:
     """Create a reusable YoutubeDL instance (cookies extracted once)."""
-    ydl_opts = videodl_app._gen_ydl_opts()
     logger.debug("ydl options %s", ydl_opts)
-    ydl_opts["logger"] = _YdlUiLogger(videodl_app.download_status_text, videodl_app._mark_ui_dirty)
-    FFmpegPostProcessor._ffmpeg_location.set(FF_PATH.get("ffmpeg"))
+    ydl_opts["logger"] = _YdlUiLogger(status_cb)
+    FFmpegPostProcessor._ffmpeg_location.set(ff_path.get("ffmpeg"))
     return YoutubeDL(ydl_opts)
 
 
-def download(videodl_app, ydl, url=None):
-    target_url = url or videodl_app.media_link.value
+def download(
+    ydl: YoutubeDL,
+    config: DownloadConfig,
+    cancel: CancelToken,
+    progress_cb: ProgressCallback,
+) -> None:
     try:
-        infos_ydl = ydl.extract_info(target_url)
+        infos_ydl = ydl.extract_info(config.url)
     except YtdlpDownloadCancelled:
         raise DownloadCancelled from None
-    if videodl_app._cancel_requested.is_set():
+    if cancel.is_cancelled():
         raise DownloadCancelled
-    _finish_download(videodl_app, ydl, infos_ydl)
+    _finish_download(ydl, infos_ydl, config, cancel, progress_cb)
 
 
-def _finish_download(videodl_app, ydl, infos_ydl):
+def _finish_download(
+    ydl: YoutubeDL,
+    infos_ydl: dict | None,
+    config: DownloadConfig,
+    cancel: CancelToken,
+    progress_cb: ProgressCallback,
+) -> None:
     if infos_ydl is None:
         raise PlaylistNotFound
-    if videodl_app.audio_only.value:
+    if config.audio_only:
         return
-    videodl_app.download_progress.controls[0].value = f"{gt(GF.download)} 100%"
-    videodl_app._mark_ui_dirty()
+    progress_cb.on_download_progress({"status": "finished", "progress_float": 1.0})
     if infos_ydl.get("_type") == "playlist":
         for infos_ydl_entry in infos_ydl["entries"]:
-            if videodl_app._cancel_requested.is_set():
+            if cancel.is_cancelled():
                 raise DownloadCancelled
             post_download(
-                videodl_app._get_effective_vcodec(),
+                config.target_vcodec,
                 ydl,
                 infos_ydl_entry,
-                videodl_app,
+                cancel,
+                progress_cb,
+                config.ff_path,
             )
     else:
-        post_download(videodl_app._get_effective_vcodec(), ydl, infos_ydl, videodl_app)
-    if videodl_app._cancel_requested.is_set():
+        post_download(config.target_vcodec, ydl, infos_ydl, cancel, progress_cb, config.ff_path)
+    if cancel.is_cancelled():
         raise DownloadCancelled
 
 
-def post_download(target_vcodec: str, ydl: YoutubeDL, infos_ydl: dict, videodl_app) -> None:
+def post_download(
+    target_vcodec: str,
+    ydl: YoutubeDL,
+    infos_ydl: dict,
+    cancel: CancelToken,
+    progress_cb: ProgressCallback,
+    ff_path: dict[str, str] | None = None,
+) -> None:
     """
-    Execute all needed processes after a youtube video download
+    Execute all needed processes after a youtube video download.
 
     Args:
-        opts (dict): Options entered by the user
-        ydl (YoutubeDL): YoutubeDL instance
-        infos_ydl (dict): Video's infos fetched by yt-dlp
+        target_vcodec: Video codec target ("Best", "NLE", "x264", etc.)
+        ydl: YoutubeDL instance
+        infos_ydl: Video's infos fetched by yt-dlp
+        cancel: Cancellation token
+        progress_cb: Progress callback
+        ff_path: FFmpeg/FFprobe paths
     """
     ext = infos_ydl["ext"]
     media_filename_formated = ydl.prepare_filename(infos_ydl)
     full_path = f"{os.path.splitext(media_filename_formated)[0]}.{ext}"
-    post_process_dl(full_path, target_vcodec, videodl_app)
+    post_process_dl(full_path, target_vcodec, cancel, progress_cb, ff_path)

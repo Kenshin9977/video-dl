@@ -16,6 +16,7 @@ for _mod_name in [
     "core.error_report",
     "core.progress",
     "core.ydl_opts",
+    "i18n.lang",
     "utils.parse_util",
     "utils.sys_architecture",
 ]:

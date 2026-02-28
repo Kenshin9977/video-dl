@@ -23,6 +23,11 @@ def main():
 
     app_has_been_updated = check_for_updates()
     if not app_has_been_updated:
+        logger.debug("Initializing binary paths")
+        from sys_vars import init_paths
+
+        init_paths()
+
         logger.debug("GUI startup")
         from gui.app import videodl_gui
 

@@ -2,34 +2,28 @@ from __future__ import annotations
 
 import os
 from os.path import isdir, isfile
-from platform import system
 from typing import Any
 
 import tomlkit
-from darkdetect import isDark
 from tomlkit.exceptions import ParseError
 
+import runtime
 from gui.options import ACODECS, BROWSERS, FRAMERATE, QUALITY, VCODECS
 from i18n.lang import GuiField as GF
 from i18n.lang import get_available_languages_name, get_current_language_name, set_current_language
 from i18n.lang import get_text as gt
 from utils.sys_utils import get_default_browser, get_default_download_path
 
+try:
+    from darkdetect import isDark
+except ImportError:
 
-def _get_config_dir():
-    plat = system()
-    if plat == "Windows":
-        base = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
-    elif plat == "Darwin":
-        base = os.path.join(os.path.expanduser("~"), "Library", "Application Support")
-    else:
-        base = os.environ.get("XDG_CONFIG_HOME", os.path.join(os.path.expanduser("~"), ".config"))
-    config_dir = os.path.join(base, "video-dl")
-    os.makedirs(config_dir, exist_ok=True)
-    return config_dir
+    def isDark():
+        return True
 
 
-CONFIG_FILENAME = os.path.join(_get_config_dir(), "videodl-config.toml")
+_paths = runtime.get_paths()
+CONFIG_FILENAME = os.path.join(_paths.get_config_dir(), "videodl-config.toml")
 USER_OPTIONS = "User options"
 
 # Config key constants — used by config.py and app.py

@@ -4,12 +4,16 @@ import json
 import logging
 import os
 import subprocess
+from typing import TYPE_CHECKING
 
 from yt_dlp.postprocessor.ffmpeg import FFmpegProgressTracker
 
 from core.hwaccel import fastest_encoder
 from i18n.lang import GuiField, get_text
-from sys_vars import FF_PATH
+
+if TYPE_CHECKING:
+    from core.callbacks import CancelToken, ProgressCallback
+    from runtime.base import ProcessRunner
 
 NLE_COMPATIBLE_VCODECS = {"avc1", "h264", "hevc", "h265", "prores"}
 NLE_COMPATIBLE_ACODECS = {"aac", "mp3", "mp4a", "pcm_s16le", "pcm_s24le"}
@@ -32,19 +36,33 @@ def needs_reencode(vcodec: str, acodec: str) -> tuple[bool, bool]:
     return v_needs, a_needs
 
 
-def post_process_dl(full_name: str, target_vcodec: str, videodl_app) -> None:
+def post_process_dl(
+    full_name: str,
+    target_vcodec: str,
+    cancel: CancelToken,
+    progress_cb: ProgressCallback,
+    ff_path: dict[str, str] | None = None,
+) -> None:
     """
     Remux to ensure compatibility with NLEs or reencode to the target video
     codec the downloaded file through ffmpeg.
 
     Args:
-        full_name (str): Full path of the file downloaded
-        target_vcodec (str): Video codec target ("Best", "NLE", "x264", etc.)
+        full_name: Full path of the file downloaded
+        target_vcodec: Video codec target ("Best", "NLE", "x264", etc.)
+        cancel: Cancellation token
+        progress_cb: Progress callback
+        ff_path: FFmpeg/FFprobe paths (lazy-loaded from sys_vars if None)
     """
     if target_vcodec == "Best":
         return
 
-    probe_data = ffprobe(full_name, cmd=FF_PATH.get("ffprobe"))  # type: ignore[arg-type]
+    if ff_path is None:
+        from sys_vars import FF_PATH
+
+        ff_path = FF_PATH
+
+    probe_data = ffprobe(full_name, cmd=ff_path.get("ffprobe"))  # type: ignore[arg-type]
     file_infos = probe_data["streams"]
     duration = int(float(probe_data["format"]["duration"]))
     acodec, vcodec = "na", "na"
@@ -83,27 +101,40 @@ def post_process_dl(full_name: str, target_vcodec: str, videodl_app) -> None:
         vcodec_is_target,
         big_dimension,
         target_vcodec,
-        videodl_app,
+        cancel,
+        progress_cb,
         duration,
+        ff_path,
     )
 
 
-def ffprobe(filename: str, cmd: str = "ffprobe") -> dict:
+def ffprobe(
+    filename: str,
+    cmd: str = "ffprobe",
+    process_runner: ProcessRunner | None = None,
+) -> dict:
     """
     Run ffprobe on the specified file and return a JSON representation of the
     output.
 
     Args:
-        filename (str): Path of the file to process
-        cmd (str, optional): ffprobe path. Defaults to 'ffprobe'.
+        filename: Path of the file to process
+        cmd: ffprobe path. Defaults to 'ffprobe'.
+        process_runner: Optional ProcessRunner (falls back to subprocess)
 
     Raises:
         ValueError: When the command errors out
 
     Returns:
-        dict: File's infos
+        File's infos
     """
     args = [cmd, "-show_format", "-show_streams", "-of", "json", filename]
+
+    if process_runner is not None:
+        result = process_runner.popen_communicate(args)
+        if result.returncode != 0:
+            raise ValueError("ffprobe", result.stdout, result.stderr)
+        return json.loads(result.stdout)
 
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = p.communicate()
@@ -118,28 +149,33 @@ def _ffmpeg_video(
     vcodec_is_target: bool,
     big_dimension: bool,
     target_vcodec: str,
-    videodl_app,
+    cancel: CancelToken,
+    progress_cb: ProgressCallback,
     duration: int,
+    ff_path: dict[str, str] | None = None,
 ) -> None:
     """
-    Generate the ffmpeg command arguments and run it if the checkbox AudioOnly
-    is unchecked.
+    Generate the ffmpeg command arguments and run it.
 
     Args:
-        path (str): Downloaded file's path
-        acodec_nle_friendly (bool): Whether or not the audio codec is nle
-            friendly
-        vcodec_is_target (bool): Whether or not the video codec is the same
-            as the targeted one
-        big_dimension (bool): Whether the video is larger than 1080p
-        target_vcodec (str): The video codec to convert to (if necessary)
-        videodl_app (VideodlApp): GUIs object
-        duration (int): File duration in seconds (from ffprobe)
+        path: Downloaded file's path
+        acodec_nle_friendly: Whether the audio codec is NLE friendly
+        vcodec_is_target: Whether the video codec matches the target
+        big_dimension: Whether the video is larger than 1080p
+        target_vcodec: The video codec to convert to (if necessary)
+        cancel: Cancellation token
+        progress_cb: Progress callback
+        duration: File duration in seconds (from ffprobe)
+        ff_path: FFmpeg/FFprobe paths
 
     Raises:
-        FileNotFoundError: If the resulted file doesn't exist because ffmpeg
-            failed
+        FileNotFoundError: If the output file doesn't exist because ffmpeg failed
     """
+    if ff_path is None:
+        from sys_vars import FF_PATH
+
+        ff_path = FF_PATH
+
     ffmpeg_acodec = "aac" if not acodec_nle_friendly else "copy"
     new_ext = ".mov" if target_vcodec == "ProRes" else ".mp4"
     if vcodec_is_target:
@@ -148,7 +184,7 @@ def _ffmpeg_video(
         ffmpeg_vcodec, quality_options = fastest_encoder(path, target_vcodec)
     tmp_path = f"{os.path.splitext(path)[0]}.tmp{new_ext}"
     ffmpeg_command = [
-        FF_PATH.get("ffmpeg"),
+        ff_path.get("ffmpeg"),
         "-hide_banner",
         "-i",
         path,
@@ -165,8 +201,8 @@ def _ffmpeg_video(
         ffmpeg_command.extend(["-profile:v", "0", "-qscale:v", "4"])
     ffmpeg_command.extend(["-progress", "pipe:1", "-y", tmp_path])
     action = get_text(GuiField.ff_remux) if acodec_nle_friendly and vcodec_is_target else get_text(GuiField.ff_reencode)
-    _progress_ffmpeg(ffmpeg_command, action, path, videodl_app, duration)
-    if videodl_app._cancel_requested.is_set():
+    _progress_ffmpeg(ffmpeg_command, action, path, cancel, progress_cb, duration)
+    if cancel.is_cancelled():
         if os.path.isfile(tmp_path):
             os.remove(tmp_path)
         return
@@ -184,16 +220,24 @@ class _MinimalYDL:
         logging.debug(msg)
 
 
-def _progress_ffmpeg(cmd, action, filepath, videodl_app, duration):
+def _progress_ffmpeg(
+    cmd: list,
+    action: str,
+    filepath: str,
+    cancel: CancelToken,
+    progress_cb: ProgressCallback,
+    duration: int,
+) -> None:
     """
     Run ffmpeg with progress tracking using FFmpegProgressTracker.
 
     Args:
-        cmd (list): FFmpeg command arguments (must include -progress pipe:1)
-        action (str): Display label (e.g. "Remuxing" or "Re-encoding")
-        filepath (str): Input file path (for filesize lookup)
-        videodl_app: GUI app instance with _update_process_bar method
-        duration (int): File duration in seconds (already probed)
+        cmd: FFmpeg command arguments (must include -progress pipe:1)
+        action: Display label (e.g. "Remuxing" or "Re-encoding")
+        filepath: Input file path (for filesize lookup)
+        cancel: Cancellation token
+        progress_cb: Progress callback
+        duration: File duration in seconds (already probed)
     """
     filesize = os.path.getsize(filepath)
     info_dict = {
@@ -202,13 +246,13 @@ def _progress_ffmpeg(cmd, action, filepath, videodl_app, duration):
     }
 
     def hook(status, info):
-        if videodl_app._cancel_requested.is_set():
+        if cancel.is_cancelled():
             if tracker.ffmpeg_proc and tracker.ffmpeg_proc.poll() is None:
                 tracker.ffmpeg_proc.kill()
             return
         status["processed_bytes"] = status.get("outputted", 0)
         status["action"] = action
-        videodl_app._update_process_bar(status)
+        progress_cb.on_process_progress(status)
 
     tracker = FFmpegProgressTracker(
         info_dict,
@@ -218,7 +262,7 @@ def _progress_ffmpeg(cmd, action, filepath, videodl_app, duration):
         output_filename=cmd[-1],
     )
     _, stderr, retcode = tracker.run_ffmpeg_subprocess()
-    if videodl_app._cancel_requested.is_set():
+    if cancel.is_cancelled():
         return
     if retcode != 0:
         raise ValueError(f"FFmpeg failed with return code {retcode}: {stderr}")

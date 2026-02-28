@@ -23,4 +23,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
-      - run: pytest
+      - run: pytest --cov=core --cov=gui --cov=i18n --cov=utils --cov-report=term-missing

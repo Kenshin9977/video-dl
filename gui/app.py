@@ -11,7 +11,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import flet as ft
-from darkdetect import isDark
+
+try:
+    from darkdetect import isDark
+except ImportError:
+
+    def isDark():
+        return True
+
+
 from flet import (
     Button,
     Checkbox,
@@ -39,6 +47,7 @@ from flet import (
 )
 from yt_dlp.utils import DownloadCancelled as YtdlpDownloadCancelled
 
+import runtime
 from core.download import create_ydl, download
 from core.error_report import ErrorReport, build_error_report
 from core.progress import compute_progress, parse_quantity, parse_speed, timecodes_are_valid
@@ -97,20 +106,81 @@ logger = logging.getLogger("videodl")
 DISABLED_COLOR = Colors.ON_INVERSE_SURFACE
 
 
+# ---------------------------------------------------------------------------
+# Protocol adapters — bridge gui widgets to core/ callback protocols
+# ---------------------------------------------------------------------------
+class _AppCancelToken:
+    """Wraps a threading.Event as a CancelToken for core/ functions."""
+
+    def __init__(self, event: threading.Event):
+        self._event = event
+
+    def is_cancelled(self) -> bool:
+        return self._event.is_set()
+
+
+class _AppProgressCallback:
+    """Routes progress updates from core/ to the GUI progress bars."""
+
+    def __init__(self, app):
+        self._app = app
+
+    def on_download_progress(self, status: dict) -> None:
+        self._app._update_download_bar(status)
+
+    def on_process_progress(self, status: dict) -> None:
+        self._app._update_process_bar(status)
+
+
+class _AppStatusCallback:
+    """Routes status messages from core/ to the GUI status text."""
+
+    def __init__(self, app):
+        self._app = app
+
+    def on_status(self, message: str) -> None:
+        self._app.download_status_text.value = message
+        self._app.download_status_text.visible = True
+        self._app._mark_ui_dirty()
+
+
 class VideodlApp:
-    def __init__(self, page: Page):
+    def __init__(self, page: Page, *, mobile: bool = False):
         is_dark = bool(isDark())
         self.page = page
+        self._mobile = mobile
         self.page.title = "Video-dl"
+        _violet = "#7C3AED"
+        self.page.theme = ft.Theme(
+            color_scheme_seed=_violet,
+            color_scheme=ft.ColorScheme(primary=_violet),
+        )
+        self.page.dark_theme = ft.Theme(
+            color_scheme_seed=_violet,
+            color_scheme=ft.ColorScheme(
+                primary="#A78BFA",
+                on_primary="#1A0536",
+                primary_container="#3B1A6E",
+                surface="#0C0C0C",
+                surface_dim="#080808",
+                surface_bright="#181818",
+                surface_container="#111111",
+                surface_container_low="#0E0E0E",
+                surface_container_lowest="#060606",
+                surface_container_high="#1A1A1A",
+                surface_container_highest="#222222",
+            ),
+        )
         self.page.theme_mode = ThemeMode.DARK if is_dark else ThemeMode.LIGHT
         self._height_collapsed = 460
         self._height_advanced = 290
         self._height_download = 120
-        self.page.window.height = self._height_collapsed
-        self.page.window.min_height = self._height_collapsed
-        window_width = int(gt(GF.width))  # gt returns int for GF.width
-        self.page.window.width = window_width
-        self.page.window.min_width = window_width
+        if not self._mobile:
+            self.page.window.height = self._height_collapsed
+            self.page.window.min_height = self._height_collapsed
+            window_width = int(gt(GF.width))  # gt returns int for GF.width
+            self.page.window.width = window_width
+            self.page.window.min_width = window_width
         self.download_disabled_reason = None
         self.default_indices_value = "1,2,4-10,12"
         self.file_picker = FilePicker()
@@ -175,7 +245,8 @@ class VideodlApp:
         self.indices_selected = TextField(
             label=gt(GF.indices_selected),
             value=self.default_indices_value,
-            width=200,
+            width=None if self._mobile else 200,
+            expand=self._mobile,
             disabled=True,
             text_style=TextStyle(color=DISABLED_COLOR),
         )
@@ -183,7 +254,8 @@ class VideodlApp:
             label=gt(GF.quality),
             data=CK_VQUALITY,
             value="1080p",
-            width=120,
+            width=None if self._mobile else 120,
+            expand=self._mobile,
             dense=True,
             tooltip=gt(GF.quality_tooltip),
             on_select=self._option_change,
@@ -193,7 +265,8 @@ class VideodlApp:
             label=gt(GF.framerate),
             data=CK_FRAMERATE,
             value="60",
-            width=120,
+            width=None if self._mobile else 120,
+            expand=self._mobile,
             dense=True,
             tooltip=gt(GF.framerate_tooltip),
             on_select=self._option_change,
@@ -227,17 +300,20 @@ class VideodlApp:
             label=gt(GF.login_from),
             data=CK_COOKIES,
             value=gt(GF.login_from_none),
-            width=150,
+            width=None if self._mobile else 150,
+            expand=self._mobile,
             dense=True,
             tooltip=gt(GF.login_from_tooltip),
             on_select=self._option_change,
             options=[dropdown.Option(browser) for browser in BROWSERS],
+            visible=not self._mobile,
         )
         self.video_codec = Dropdown(
             label=gt(GF.vcodec),
             data=CK_VCODEC,
             value="Auto",
-            width=150,
+            width=None if self._mobile else 150,
+            expand=self._mobile,
             tooltip=gt(GF.vcodec_auto_tooltip),
             on_select=self._codec_change,
             options=[dropdown.Option(vcodec) for vcodec in VCODECS],
@@ -246,7 +322,8 @@ class VideodlApp:
             label=gt(GF.acodec),
             data=CK_ACODEC,
             value="Auto",
-            width=150,
+            width=None if self._mobile else 150,
+            expand=self._mobile,
             tooltip=gt(GF.acodec_auto_tooltip),
             on_select=self._codec_change,
             options=[dropdown.Option(acodec) for acodec in ACODECS],
@@ -266,21 +343,23 @@ class VideodlApp:
         )
         self.original_video_dropdown = Dropdown(
             label=gt(GF.original_video_placeholder),
-            width=180,
+            width=None if self._mobile else 180,
+            expand=self._mobile,
             dense=True,
             disabled=True,
             options=[],
         )
         self.original_audio_dropdown = Dropdown(
             label=gt(GF.original_audio_placeholder),
-            width=180,
+            width=None if self._mobile else 180,
+            expand=self._mobile,
             dense=True,
             disabled=True,
             options=[],
         )
         self._video_formats = []
         self._audio_formats = []
-        border_color = "white" if is_dark else "black"
+        border_color = None  # Material 3 theme handles border colors
 
         def _timecode_field() -> TextField:
             return TextField(
@@ -387,8 +466,8 @@ class VideodlApp:
         )
         self.download_progress_text = Text(gt(GF.download))
         self.process_progress_text = Text(gt(GF.process))
-        self.download_progress_bar = ProgressBar(width=350)
-        self.process_progress_bar = ProgressBar(width=350, color="red")
+        self.download_progress_bar = ProgressBar(width=None if self._mobile else 350, expand=self._mobile)
+        self.process_progress_bar = ProgressBar(width=None if self._mobile else 350, expand=self._mobile, color="red")
         self.download_progress = Column(
             [self.download_progress_text, self.download_progress_bar],
             visible=False,
@@ -518,6 +597,11 @@ class VideodlApp:
             self.ydl_opts.setdefault("postprocessors", []).extend(sb_opts["postprocessors"])
 
     def _update_download_bar(self, d: dict):
+        # Handle "finished" signal from core/_finish_download
+        if d.get("status") == "finished" and "downloaded_bytes" not in d:
+            self.download_progress.controls[0].value = f"{gt(GF.download)} 100%"
+            self._mark_ui_dirty()
+            return
         if self._cancel_requested.is_set():
             raise YtdlpDownloadCancelled
         # Hide preparation status once actual download starts
@@ -662,9 +746,10 @@ class VideodlApp:
         self.cancel_button.content = gt(GF.cancel_button)
         self.download_progress_text.value = gt(GF.download)
         self.process_progress_text.value = gt(GF.process)
-        new_width = int(gt(GF.width))
-        self.page.window.width = new_width
-        self.page.window.min_width = new_width
+        if not self._mobile:
+            new_width = int(gt(GF.width))
+            self.page.window.width = new_width
+            self.page.window.min_width = new_width
         if self.download_disabled_reason is not None:
             self.download_button.tooltip = gt(self.download_disabled_reason)
 
@@ -675,10 +760,9 @@ class VideodlApp:
         self.page.update()
 
     def _change_attribute_based_on_theme(self, dark: bool):
-        new_theme, border = (ThemeMode.DARK, "white") if dark else (ThemeMode.LIGHT, "black")
-        self.page.theme_mode = new_theme
+        self.page.theme_mode = ThemeMode.DARK if dark else ThemeMode.LIGHT
         for control in self.start_controls + self.end_controls:
-            control.border_color = border
+            control.border_color = None
 
     def _playlist_checkbox_change(self, e):
         playlist: bool = e.control.value
@@ -818,6 +902,8 @@ class VideodlApp:
         return h
 
     def _resize_window(self):
+        if self._mobile:
+            return
         h = self._compute_window_height()
         self.page.window.height = h
         self.page.window.min_height = h
@@ -975,7 +1061,7 @@ class VideodlApp:
 
     def _validate_and_update_timecodes(self):
         valid = self._timecodes_are_valid()
-        color = ("white" if self.page.theme_mode == "dark" else "black") if valid else "red"
+        color = None if valid else "red"
         for ctrl in self.start_controls + self.end_controls:
             ctrl.border_color = color
         if not valid:
@@ -1028,13 +1114,7 @@ class VideodlApp:
             await Clipboard().set(detail)
 
         def open_log_folder(_e):
-            path = str(LOG_DIR)
-            if PLATFORM == "Darwin":
-                subprocess.Popen(["open", path])
-            elif PLATFORM == "Windows":
-                os.startfile(path)  # type: ignore[attr-defined]
-            else:
-                subprocess.Popen(["xdg-open", path])
+            runtime.get_paths().open_folder(str(LOG_DIR))
 
         dialog = ft.AlertDialog(
             title=Text(self._error_report.short_message),
@@ -1107,6 +1187,8 @@ class VideodlApp:
         self.page.run_task(self._run_download_async)
 
     async def _run_download_async(self):
+        from core.config_types import DownloadConfig
+
         self._loop = asyncio.get_running_loop()
         ui_task = asyncio.create_task(self._ui_refresh_loop())
         main_url = self.media_link.value if validate_url(self.media_link.value) else None
@@ -1114,7 +1196,12 @@ class VideodlApp:
         total = len(urls)
         error_occurred = False
         completed_urls = []
-        ydl = await asyncio.to_thread(create_ydl, self)
+        cancel_token = _AppCancelToken(self._cancel_requested)
+        progress_cb = _AppProgressCallback(self)
+        status_cb = _AppStatusCallback(self)
+        ydl_opts = self._gen_ydl_opts()
+        ydl = await asyncio.to_thread(create_ydl, ydl_opts, status_cb, FF_PATH)
+        target_vcodec = self._get_effective_vcodec()
         for i, url in enumerate(urls):
             self.download_progress_bar.value = 0
             self.process_progress_bar.value = 0
@@ -1130,8 +1217,15 @@ class VideodlApp:
                 label = url or self.media_link.value
                 self._show_status(f"{i + 1}/{total} — {label}", Colors.ON_SURFACE_VARIANT)
                 self._ui_dirty.set()
+            config = DownloadConfig(
+                url=url or self.media_link.value,
+                audio_only=bool(self.audio_only.value),
+                target_vcodec=target_vcodec,
+                ff_path=FF_PATH,
+                ydl_opts=ydl_opts,
+            )
             try:
-                await asyncio.to_thread(download, self, ydl, url)
+                await asyncio.to_thread(download, ydl, config, cancel_token, progress_cb)
                 completed_urls.append(url)
             except Exception as e:
                 report = build_error_report(e)
@@ -1191,13 +1285,7 @@ class VideodlApp:
         self.page.update()
 
     def _open_folder_clicked(self, e):
-        path = self.download_path_text.value
-        if PLATFORM == "Darwin":
-            subprocess.Popen(["open", path])
-        elif PLATFORM == "Windows":
-            os.startfile(path)  # type: ignore[attr-defined]  # Windows-only
-        else:
-            subprocess.Popen(["xdg-open", path])
+        runtime.get_paths().open_folder(self.download_path_text.value)
 
     def _cancel_clicked(self, e):
         self._cancel_requested.set()
@@ -1205,7 +1293,7 @@ class VideodlApp:
         self.page.update()
 
     def build_gui(self):
-        self.page.add(
+        controls = [
             Row(
                 controls=[self.language_button, self.theme, self.version_number],
                 alignment=MainAxisAlignment.SPACE_BETWEEN,
@@ -1222,12 +1310,17 @@ class VideodlApp:
                     self.cancel_button,
                     self.download_status_banner,
                     self.download_status_text,
-                    self.open_folder_button,
+                    *([] if self._mobile else [self.open_folder_button]),
                 ]
             ),
             self.download_progress,
             self.process_progress,
-        )
+        ]
+        if self._mobile:
+            self.page.add(Column(controls=controls, scroll=ft.ScrollMode.AUTO, expand=True))
+            self.page.padding = ft.padding.all(12)
+        else:
+            self.page.add(*controls)
 
     def load_config(self):
         options = self.tomlconfig.config[USER_OPTIONS]
@@ -1369,3 +1462,14 @@ def videodl_gui():
     if PLATFORM == "Darwin":
         _patch_flet_macos_bundle()
     ft.run(videodl_fletgui, assets_dir="assets")
+
+
+def _videodl_fletgui_mobile(page: Page):
+    videodl_app = VideodlApp(page, mobile=True)
+    videodl_app.build_gui()
+    videodl_app.load_config()
+
+
+def videodl_gui_android():
+    """Android entry point — fullscreen, no window sizing, no macOS patching."""
+    ft.run(_videodl_fletgui_mobile, assets_dir="assets")

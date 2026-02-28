@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 import logging
 import subprocess
+from typing import TYPE_CHECKING
 
 from core.exceptions import FFmpegNoValidEncoderFound
-from sys_vars import FF_PATH
+
+if TYPE_CHECKING:
+    from runtime.base import ProcessRunner
 
 logger = logging.getLogger("videodl")
 
@@ -76,7 +81,10 @@ ENCODERS = {
 _available_encoders = None
 
 
-def _get_available_encoders() -> set[str]:
+def _get_available_encoders(
+    ff_path: dict[str, str] | None = None,
+    process_runner: ProcessRunner | None = None,
+) -> set[str]:
     """Parse `ffmpeg -encoders` once and cache the set of available encoder names."""
     global _available_encoders
     if _available_encoders is not None:
@@ -84,14 +92,21 @@ def _get_available_encoders() -> set[str]:
 
     _available_encoders = set()
     try:
-        ffmpeg_path = FF_PATH.get("ffmpeg", "ffmpeg")
-        result = subprocess.run(
-            [ffmpeg_path, "-encoders", "-hide_banner"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        for line in result.stdout.splitlines():
+        if ff_path is None:
+            from sys_vars import FF_PATH
+
+            ff_path = FF_PATH
+        ffmpeg_path = ff_path.get("ffmpeg", "ffmpeg")
+        args = [ffmpeg_path, "-encoders", "-hide_banner"]
+
+        if process_runner is not None:
+            result = process_runner.run(args, capture_output=True, text=True, timeout=10)
+            stdout = result.stdout
+        else:
+            r = subprocess.run(args, capture_output=True, text=True, timeout=10)
+            stdout = r.stdout
+
+        for line in stdout.splitlines():
             # Format: " V....D h264_nvenc  NVIDIA NVENC ..."
             # 6 flag chars, then space, then encoder name
             parts = line.strip().split()

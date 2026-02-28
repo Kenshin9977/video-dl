@@ -20,6 +20,7 @@ dev = [
     "Pillow",
     "pyinstaller",
     "pytest",
+    "pytest-cov",
     "ruff",
 ]
 
@@ -28,7 +29,7 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["core*", "gui*", "i18n*", "updater*", "utils*", "tools*"]
+include = ["core*", "gui*", "i18n*", "runtime*", "updater*", "utils*", "tools*"]
 
 [project.scripts]
 video-dl = "main:main"
@@ -42,7 +43,7 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 ignore = ["E501"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["core", "gui", "i18n", "updater", "utils", "tools", "sys_vars", "videodl_logger"]
+known-first-party = ["core", "gui", "i18n", "runtime", "updater", "utils", "tools", "sys_vars", "videodl_logger"]
 
 [tool.ruff.format]
 quote-style = "double"

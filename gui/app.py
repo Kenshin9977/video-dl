@@ -94,13 +94,21 @@ from sys_vars import ARIA2C_PATH, FF_PATH, QJS_PATH
 from utils.parse_util import simple_traverse, validate_url
 from utils.sponsor_block_dict import CATEGORIES
 from utils.sys_utils import APP_VERSION, PLATFORM, get_default_download_path
-from videodl_logger import LOG_DIR
+from videodl_logger import get_log_dir
 
 if TYPE_CHECKING:
     from flet import Event, Page
 
 
 logger = logging.getLogger("videodl")
+
+
+def _urls_share_host(urls: list[str | None]) -> bool:
+    """Return True if all non-None URLs point to the same hostname."""
+    from urllib.parse import urlparse
+
+    hosts = {urlparse(u).hostname for u in urls if u}
+    return len(hosts) == 1
 
 
 DISABLED_COLOR = Colors.ON_INVERSE_SURFACE
@@ -209,6 +217,7 @@ class VideodlApp:
             content=Icon(Icons.FOLDER_OPEN),
             tooltip=gt(GF.destination_folder),
             on_click=self._pick_directory,
+            visible=not mobile,  # Disabled on Android (Scoped Storage restrictions)
         )
         self._current_language_name = get_current_language_name()
         self.language_button = PopupMenuButton(
@@ -368,6 +377,8 @@ class VideodlApp:
                 dense=True,
                 width=60,
                 disabled=True,
+                keyboard_type=ft.KeyboardType.NUMBER,
+                input_filter=ft.InputFilter(regex_string=r"[0-9]", allow=True),
                 on_change=self._timecode_change,
                 border_color=border_color,
                 counter_style=TextStyle(size=0, color=DISABLED_COLOR),
@@ -390,6 +401,43 @@ class VideodlApp:
         self.end_m = _timecode_field()
         self.end_s = _timecode_field()
         self.end_controls = [self.end_h, self.end_m, self.end_s]
+
+        if mobile:
+            # Mobile: tap to open a timer wheel picker (CupertinoTimerPicker)
+            self._start_time_display = ft.OutlinedButton(
+                text="00:00:00",
+                icon=Icons.ACCESS_TIME,
+                disabled=True,
+                on_click=self._open_start_timer_picker,
+            )
+            self._end_time_display = ft.OutlinedButton(
+                text="00:00:00",
+                icon=Icons.ACCESS_TIME,
+                disabled=True,
+                on_click=self._open_end_timer_picker,
+            )
+            timecode_rows = [
+                Row(controls=[self.start_checkbox, self._start_time_display]),
+                Row(controls=[self.end_checkbox, self._end_time_display]),
+            ]
+        else:
+            timecode_rows = [
+                Row(
+                    controls=[
+                        self.start_checkbox,
+                        self.start_h, Text(":"), self.start_m, Text(":"), self.start_s,
+                    ],
+                    height=50,
+                ),
+                Row(
+                    controls=[
+                        self.end_checkbox,
+                        self.end_h, Text(":"), self.end_m, Text(":"), self.end_s,
+                    ],
+                    height=50,
+                ),
+            ]
+
         self.advanced_section = ExpansionTile(
             title=gt(GF.advanced),
             expanded=False,
@@ -414,28 +462,7 @@ class VideodlApp:
                 ft.Container(height=8),
                 Row(controls=[self.playlist, self.indices, self.indices_selected]),
                 Row(controls=[self.subtitles, self.cookies]),
-                Row(
-                    controls=[
-                        self.start_checkbox,
-                        self.start_h,
-                        Text(":"),
-                        self.start_m,
-                        Text(":"),
-                        self.start_s,
-                    ],
-                    height=50,
-                ),
-                Row(
-                    controls=[
-                        self.end_checkbox,
-                        self.end_h,
-                        Text(":"),
-                        self.end_m,
-                        Text(":"),
-                        self.end_s,
-                    ],
-                    height=50,
-                ),
+                *timecode_rows,
             ],
         )
         self.download_button = Button(
@@ -1038,12 +1065,16 @@ class VideodlApp:
         start: bool = e.control.value
         for ctrl in self.start_controls:
             ctrl.disabled = not start
+        if self._mobile:
+            self._start_time_display.disabled = not start
         self._validate_and_update_timecodes()
 
     def _end_checkbox_change(self, e):
         end: bool = e.control.value
         for ctrl in self.end_controls:
             ctrl.disabled = not end
+        if self._mobile:
+            self._end_time_display.disabled = not end
         self._validate_and_update_timecodes()
 
     def _enable_download_button(self):
@@ -1074,6 +1105,45 @@ class VideodlApp:
 
     def _textfield_focus(self, e: Event[TextField]):
         e.control.focus()
+
+    def _open_start_timer_picker(self, e):
+        self._open_timer_picker("start")
+
+    def _open_end_timer_picker(self, e):
+        self._open_timer_picker("end")
+
+    def _open_timer_picker(self, which: str):
+        """Open a CupertinoTimerPicker in a BottomSheet for start/end timecode."""
+        controls = self.start_controls if which == "start" else self.end_controls
+        display = self._start_time_display if which == "start" else self._end_time_display
+        # Current value in seconds
+        h, m, s = (int(c.value or "0") for c in controls)
+        initial_seconds = h * 3600 + m * 60 + s
+
+        def on_change(ev):
+            secs = int(ev.data)
+            hh = secs // 3600
+            mm = (secs % 3600) // 60
+            ss = secs % 60
+            controls[0].value = f"{hh:02d}"
+            controls[1].value = f"{mm:02d}"
+            controls[2].value = f"{ss:02d}"
+            display.text = f"{hh:02d}:{mm:02d}:{ss:02d}"
+            self._validate_and_update_timecodes()
+
+        picker = ft.CupertinoTimerPicker(
+            value=initial_seconds,
+            second_interval=1,
+            minute_interval=1,
+            mode=ft.CupertinoTimerPickerMode.HOUR_MINUTE_SECONDS,
+            on_change=on_change,
+        )
+        sheet = ft.CupertinoBottomSheet(
+            content=picker,
+            height=216,
+            padding=ft.padding.only(top=6),
+        )
+        self.page.open(sheet)
 
     def _mark_ui_dirty(self):
         """Signal the UI refresh loop. Safe to call from any thread."""
@@ -1114,7 +1184,7 @@ class VideodlApp:
             await Clipboard().set(detail)
 
         def open_log_folder(_e):
-            runtime.get_paths().open_folder(str(LOG_DIR))
+            runtime.get_paths().open_folder(str(get_log_dir()))
 
         dialog = ft.AlertDialog(
             title=Text(self._error_report.short_message),
@@ -1202,7 +1272,13 @@ class VideodlApp:
         ydl_opts = self._gen_ydl_opts()
         ydl = await asyncio.to_thread(create_ydl, ydl_opts, status_cb, FF_PATH)
         target_vcodec = self._get_effective_vcodec()
+        same_host = total > 1 and _urls_share_host(urls)
         for i, url in enumerate(urls):
+            if cancel_token.is_cancelled():
+                break
+            # Delay between requests to the same host to avoid rate limiting
+            if same_host and i > 0:
+                await asyncio.sleep(2)
             self.download_progress_bar.value = 0
             self.process_progress_bar.value = 0
             self._download_counter = f"({i + 1}/{total})" if total > 1 else ""
@@ -1227,6 +1303,10 @@ class VideodlApp:
             try:
                 await asyncio.to_thread(download, ydl, config, cancel_token, progress_cb)
                 completed_urls.append(url)
+                if url in self._url_queue:
+                    self._url_queue.remove(url)
+                    self._update_queue_badge()
+                    self._ui_dirty.set()
             except Exception as e:
                 report = build_error_report(e)
                 logger.error(report.short_message)
@@ -1271,6 +1351,9 @@ class VideodlApp:
             ctrl.disabled = not self.start_checkbox.value
         for ctrl in self.end_controls:
             ctrl.disabled = not self.end_checkbox.value
+        if self._mobile:
+            self._start_time_display.disabled = not self.start_checkbox.value
+            self._end_time_display.disabled = not self.end_checkbox.value
         self.cancel_button.disabled = True
         self.cancel_button.visible = False
         self.download_button.disabled = False
@@ -1293,6 +1376,17 @@ class VideodlApp:
         self.page.update()
 
     def build_gui(self):
+        if self._mobile:
+            options_rows = [
+                Row(controls=[self.nle_ready]),
+                Row(controls=[self.quality, self.framerate]),
+                Row(controls=[self.audio_only, self.song_only]),
+            ]
+        else:
+            options_rows = [
+                Row(controls=[self.nle_ready, self.quality, self.framerate]),
+                Row(controls=[self.audio_only, self.song_only]),
+            ]
         controls = [
             Row(
                 controls=[self.language_button, self.theme, self.version_number],
@@ -1301,8 +1395,7 @@ class VideodlApp:
             Row(controls=[self.media_link, self.queue_button]),
             self.video_preview,
             Row(controls=[self.download_path_text, self.download_path]),
-            Row(controls=[self.nle_ready, self.quality, self.framerate]),
-            Row(controls=[self.audio_only, self.song_only]),
+            *options_rows,
             self.advanced_section,
             Row(
                 controls=[
@@ -1317,8 +1410,14 @@ class VideodlApp:
             self.process_progress,
         ]
         if self._mobile:
-            self.page.add(Column(controls=controls, scroll=ft.ScrollMode.AUTO, expand=True))
-            self.page.padding = ft.padding.all(12)
+            self.page.padding = 0
+            self.page.add(
+                ft.SafeArea(
+                    content=Column(controls=controls, scroll=ft.ScrollMode.AUTO, expand=True),
+                    minimum_padding=12,
+                    expand=True,
+                )
+            )
         else:
             self.page.add(*controls)
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import traceback
 from dataclasses import dataclass
 
-from core.exceptions import DownloadCancelled, FFmpegNoValidEncoderFound, PlaylistNotFound
+from core.exceptions import DownloadCancelled, DownloadTimeout, FFmpegNoValidEncoderFound, PlaylistNotFound
 from i18n.lang import GuiField as GF
 from i18n.lang import get_text as gt
 
@@ -30,6 +30,14 @@ def build_error_report(exc: BaseException) -> ErrorReport:
     if isinstance(exc, PlaylistNotFound):
         return ErrorReport(
             short_message=gt(GF.playlist_not_found),
+            detail="",
+            color="yellow",
+            should_break=False,
+            has_detail=False,
+        )
+    if isinstance(exc, DownloadTimeout):
+        return ErrorReport(
+            short_message=f"{gt(GF.dl_error)} Timeout: {exc.url}",
             detail="",
             color="yellow",
             should_break=False,

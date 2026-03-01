@@ -29,6 +29,29 @@ _VCODEC_NAME_TO_TARGET = {
 _TARGET_TO_VCODEC_NAME = {"x264": "avc1", "x265": "hevc", "ProRes": "prores", "AV1": "av1"}
 
 
+def _adapt_crf(quality_options: list[str], min_dimension: int) -> list[str]:
+    """Adjust CRF/quality value based on video resolution.
+
+    Higher resolution gets lower CRF (better quality) because compression
+    artifacts are more visible. Lower resolution gets higher CRF since
+    quality differences are less noticeable at smaller sizes.
+    """
+    try:
+        crf_idx = quality_options.index("-crf")
+    except ValueError:
+        return quality_options
+    base_crf = int(quality_options[crf_idx + 1])
+    if min_dimension > 1080:
+        adjusted = max(base_crf - 2, 15)
+    elif min_dimension <= 720:
+        adjusted = min(base_crf + 3, 30)
+    else:
+        adjusted = base_crf
+    result = list(quality_options)
+    result[crf_idx + 1] = str(adjusted)
+    return result
+
+
 def needs_reencode(vcodec: str, acodec: str) -> tuple[bool, bool]:
     """Return (video_needs_reencode, audio_needs_reencode)."""
     v_needs = vcodec.lower() not in NLE_COMPATIBLE_VCODECS
@@ -66,13 +89,13 @@ def post_process_dl(
     file_infos = probe_data["streams"]
     duration = int(float(probe_data["format"]["duration"]))
     acodec, vcodec = "na", "na"
-    big_dimension = False
+    min_dimension = 0
     for stream in file_infos:
         if stream["codec_type"] == "audio":
             acodec = stream["codec_name"]
         elif stream["codec_type"] == "video":
             vcodec = stream["codec_name"]
-            big_dimension = min(stream["width"], stream["height"]) > 1080
+            min_dimension = min(stream["width"], stream["height"])
 
     if target_vcodec == "Original":
         # Remux only — copy both streams into mp4 container
@@ -99,7 +122,7 @@ def post_process_dl(
         full_name,
         acodec_nle_friendly,
         vcodec_is_target,
-        big_dimension,
+        min_dimension,
         target_vcodec,
         cancel,
         progress_cb,
@@ -147,7 +170,7 @@ def _ffmpeg_video(
     path: str,
     acodec_nle_friendly: bool,
     vcodec_is_target: bool,
-    big_dimension: bool,
+    min_dimension: int,
     target_vcodec: str,
     cancel: CancelToken,
     progress_cb: ProgressCallback,
@@ -161,7 +184,7 @@ def _ffmpeg_video(
         path: Downloaded file's path
         acodec_nle_friendly: Whether the audio codec is NLE friendly
         vcodec_is_target: Whether the video codec matches the target
-        big_dimension: Whether the video is larger than 1080p
+        min_dimension: Smallest dimension (width or height) of the video
         target_vcodec: The video codec to convert to (if necessary)
         cancel: Cancellation token
         progress_cb: Progress callback
@@ -182,23 +205,35 @@ def _ffmpeg_video(
         ffmpeg_vcodec, quality_options = "copy", []
     else:
         ffmpeg_vcodec, quality_options = fastest_encoder(path, target_vcodec)
+        quality_options = _adapt_crf(quality_options, min_dimension)
     tmp_path = f"{os.path.splitext(path)[0]}.tmp{new_ext}"
+    use_mediacodec_hwaccel = ffmpeg_vcodec.endswith("_mediacodec")
     ffmpeg_command = [
         ff_path.get("ffmpeg"),
         "-hide_banner",
+    ]
+    if use_mediacodec_hwaccel:
+        ffmpeg_command.extend(["-hwaccel", "mediacodec", "-hwaccel_output_format", "mediacodec"])
+    ffmpeg_command.extend([
         "-i",
         path,
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a:0",
         "-c:a",
         ffmpeg_acodec,
         "-c:v",
         ffmpeg_vcodec,
         "-metadata",
         "creation_time=now",
-    ]
-    if big_dimension:
+    ])
+    if not vcodec_is_target:
         ffmpeg_command.extend(quality_options)
     elif target_vcodec == "ProRes":
         ffmpeg_command.extend(["-profile:v", "0", "-qscale:v", "4"])
+    if new_ext == ".mp4":
+        ffmpeg_command.extend(["-movflags", "+faststart"])
     ffmpeg_command.extend(["-progress", "pipe:1", "-y", tmp_path])
     action = get_text(GuiField.ff_remux) if acodec_nle_friendly and vcodec_is_target else get_text(GuiField.ff_reencode)
     _progress_ffmpeg(ffmpeg_command, action, path, cancel, progress_cb, duration)
@@ -247,8 +282,13 @@ def _progress_ffmpeg(
 
     def hook(status, info):
         if cancel.is_cancelled():
-            if tracker.ffmpeg_proc and tracker.ffmpeg_proc.poll() is None:
-                tracker.ffmpeg_proc.kill()
+            proc = tracker.ffmpeg_proc
+            if proc and proc.poll() is None:
+                try:
+                    proc.stdin.write("q")
+                    proc.stdin.flush()
+                except Exception:
+                    proc.kill()
             return
         status["processed_bytes"] = status.get("outputted", 0)
         status["action"] = action
@@ -259,6 +299,7 @@ def _progress_ffmpeg(
         cmd,
         hook,
         ydl=_MinimalYDL(),
+        stdin=subprocess.PIPE,
         output_filename=cmd[-1],
     )
     _, stderr, retcode = tracker.run_ffmpeg_subprocess()

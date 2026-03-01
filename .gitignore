@@ -48,3 +48,8 @@ main.spec
 keystore/
 my_repo/
 repository/
+.coverage
+.tufup-repo-config
+android_libs/
+assets/bin/
+video_dl.egg-info/

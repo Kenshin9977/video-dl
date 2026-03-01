@@ -22,9 +22,16 @@ except ImportError:
         return True
 
 
-_paths = runtime.get_paths()
-CONFIG_FILENAME = os.path.join(_paths.get_config_dir(), "videodl-config.toml")
+_config_filename: str | None = None
 USER_OPTIONS = "User options"
+
+
+def _get_config_filename() -> str:
+    global _config_filename
+    if _config_filename is None:
+        _paths = runtime.get_paths()
+        _config_filename = os.path.join(_paths.get_config_dir(), "videodl-config.toml")
+    return _config_filename
 
 # Config key constants — used by config.py and app.py
 CK_LANGUAGE = "Language"
@@ -46,7 +53,7 @@ CK_COOKIES = "Cookies"
 
 class VideodlConfig:
     def __init__(self):
-        if isfile(CONFIG_FILENAME):
+        if isfile(_get_config_filename()):
             self.config = self._load()
         else:
             self.config = self._create_default()
@@ -81,13 +88,13 @@ class VideodlConfig:
 
     def _save(self, config: dict[str, Any] | None = None):
         config = config or self.config
-        with open(CONFIG_FILENAME, mode="w", encoding="utf-8") as fp:
+        with open(_get_config_filename(), mode="w", encoding="utf-8") as fp:
             tomlkit.dump(config, fp)
 
     def _load(self) -> dict[str, Any]:
         config: dict[str, Any] | None = None
         try:
-            with open(CONFIG_FILENAME, encoding="utf-8") as fp:
+            with open(_get_config_filename(), encoding="utf-8") as fp:
                 config = tomlkit.load(fp)
             if not self._config_is_valid(config):
                 config = None

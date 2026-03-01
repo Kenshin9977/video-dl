@@ -4,24 +4,29 @@ version = "2.1.6"
 description = "A Flet-based GUI for yt-dlp with hardware-accelerated encoding"
 requires-python = ">=3.12"
 dependencies = [
-    "darkdetect",
     "flet>=0.81",
-    "flet-desktop>=0.81",
     "quantiphy",
     "tomlkit",
-    "tufup>=0.10",
     "yt-dlp-ejs",
     "yt-dlp-enhanced-progress",
 ]
 
 [project.optional-dependencies]
+desktop = [
+    "darkdetect",
+    "flet-desktop>=0.81",
+    "tufup>=0.10",
+]
 dev = [
+    "darkdetect",
+    "flet-desktop>=0.81",
     "mypy",
     "Pillow",
     "pyinstaller",
     "pytest",
     "pytest-cov",
     "ruff",
+    "tufup>=0.10",
 ]
 
 [build-system]

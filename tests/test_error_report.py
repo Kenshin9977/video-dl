@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from core.error_report import ErrorReport, build_error_report
-from core.exceptions import DownloadCancelled, FFmpegNoValidEncoderFound, PlaylistNotFound
+from core.exceptions import DownloadCancelled, DownloadTimeout, FFmpegNoValidEncoderFound, PlaylistNotFound
 
 
 class TestBuildErrorReport:
@@ -51,6 +51,14 @@ class TestBuildErrorReport:
             report = build_error_report(e)
         assert "Traceback" in report.detail
         assert "TypeError: bad type" in report.detail
+
+    def test_download_timeout(self):
+        report = build_error_report(DownloadTimeout("https://example.com/video"))
+        assert report.color == "yellow"
+        assert report.should_break is False
+        assert report.has_detail is False
+        assert "Timeout" in report.short_message
+        assert "example.com" in report.short_message
 
     def test_report_is_frozen(self):
         report = build_error_report(DownloadCancelled())

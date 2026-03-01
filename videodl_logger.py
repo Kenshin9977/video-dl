@@ -3,9 +3,15 @@ import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+import runtime
+
 APP_LOGGER_NAME = "videodl"
-LOG_DIR = Path.home() / ".videodl" / "logs"
-LOG_FILE = LOG_DIR / "videodl.log"
+
+
+def get_log_dir() -> Path:
+    if runtime.is_android():
+        return Path(runtime.get_paths().get_config_dir()) / "logs"
+    return Path.home() / ".videodl" / "logs"
 
 
 def videodl_logger(debug: bool = False, verbose: bool = False) -> None:
@@ -39,9 +45,11 @@ def videodl_logger(debug: bool = False, verbose: bool = False) -> None:
         app_logger.setLevel(logging.INFO)
 
     # Always write to a rotating log file
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_dir = get_log_dir()
+    log_file = log_dir / "videodl.log"
+    log_dir.mkdir(parents=True, exist_ok=True)
     file_level = logging.DEBUG if (debug or verbose) else logging.INFO
-    file_handler = RotatingFileHandler(LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=2)
+    file_handler = RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=2)
     file_handler.setLevel(file_level)
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)

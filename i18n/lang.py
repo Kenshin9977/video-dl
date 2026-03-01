@@ -92,22 +92,46 @@ def _get_language() -> Language:
     """
     Tries to determine the system language, fallbacks to english.
     """
-    # This dictionary maps the language of a locale to its associated enum
+    import contextlib
+    import os
+
     lang_map = {
         "en": Language.english,
         "fr": Language.french,
         "de": Language.german,
     }
 
-    import contextlib
+    system_language = None
 
+    # Standard locale detection (works on desktop)
     with contextlib.suppress(Exception):
         locale.setlocale(locale.LC_ALL, "")
     system_language = locale.getlocale()[0]
 
+    # Fallback: environment variables (works on Android where locale is broken)
+    if system_language is None:
+        for env_var in ("LANG", "LANGUAGE", "LC_ALL", "LC_MESSAGES"):
+            val = os.environ.get(env_var, "")
+            if val and val != "C" and val != "POSIX":
+                system_language = val
+                break
+
+    # Fallback: Android system property
+    if system_language is None:
+        with contextlib.suppress(Exception):
+            import subprocess
+            result = subprocess.run(
+                ["getprop", "persist.sys.locale"],
+                capture_output=True, text=True, timeout=2,
+            )
+            prop = result.stdout.strip()
+            if prop:
+                system_language = prop
+
     if system_language is None:
         return Language.english
 
+    system_language = system_language.lower().replace("-", "_")
     for available_language in lang_map:
         if available_language in system_language:
             return lang_map[available_language]

@@ -996,31 +996,38 @@ name = "video-dl"
 version = "2.1.6"
 source = { editable = "." }
 dependencies = [
-    { name = "darkdetect" },
     { name = "flet" },
-    { name = "flet-desktop" },
     { name = "quantiphy" },
     { name = "tomlkit" },
-    { name = "tufup" },
     { name = "yt-dlp-ejs" },
     { name = "yt-dlp-enhanced-progress" },
 ]
 
 [package.optional-dependencies]
+desktop = [
+    { name = "darkdetect" },
+    { name = "flet-desktop" },
+    { name = "tufup" },
+]
 dev = [
+    { name = "darkdetect" },
+    { name = "flet-desktop" },
     { name = "mypy" },
     { name = "pillow" },
     { name = "pyinstaller" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "tufup" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "darkdetect" },
+    { name = "darkdetect", marker = "extra == 'desktop'" },
+    { name = "darkdetect", marker = "extra == 'dev'" },
     { name = "flet", specifier = ">=0.81" },
-    { name = "flet-desktop", specifier = ">=0.81" },
+    { name = "flet-desktop", marker = "extra == 'desktop'", specifier = ">=0.81" },
+    { name = "flet-desktop", marker = "extra == 'dev'", specifier = ">=0.81" },
     { name = "mypy", marker = "extra == 'dev'" },
     { name = "pillow", marker = "extra == 'dev'" },
     { name = "pyinstaller", marker = "extra == 'dev'" },
@@ -1029,11 +1036,12 @@ requires-dist = [
     { name = "quantiphy" },
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "tomlkit" },
-    { name = "tufup", specifier = ">=0.10" },
+    { name = "tufup", marker = "extra == 'desktop'", specifier = ">=0.10" },
+    { name = "tufup", marker = "extra == 'dev'", specifier = ">=0.10" },
     { name = "yt-dlp-ejs" },
     { name = "yt-dlp-enhanced-progress" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["desktop", "dev"]
 
 [[package]]
 name = "yt-dlp-ejs"

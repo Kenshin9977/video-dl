@@ -342,6 +342,11 @@ def get_default_download_path() -> str:
     Returns:
         str: Default download folder path
     """
+    import runtime
+
+    if runtime.is_android():
+        return runtime.get_paths().get_default_download_dir()
+
     if system() != "Windows":
         download_path = os.path.join(os.path.expanduser("~"), "Downloads")
         if os.path.isdir(download_path):

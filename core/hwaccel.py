@@ -34,6 +34,7 @@ ENCODERS = {
         "AMF": ("h264_amf", ["-quality", "quality"]),
         "Apple": ("h264_videotoolbox", ["-q:v", "35"]),
         "Raspberry": ("h264_v4l2m2m", []),
+        "MediaCodec": ("h264_mediacodec", ["-b:v", "8M"]),
         "CPU": ("libx264", ["-crf", "20"]),
     },
     "x265": {
@@ -58,6 +59,7 @@ ENCODERS = {
         "AMF": ("hevc_amf", ["-quality", "quality"]),
         "Apple": ("hevc_videotoolbox", ["-q:v", "35"]),
         "Raspberry": ("hevc_v4l2m2m", []),
+        "MediaCodec": ("hevc_mediacodec", ["-b:v", "6M"]),
         "CPU": ("libx265", ["-crf", "20"]),
     },
     "ProRes": {
@@ -66,6 +68,7 @@ ENCODERS = {
         "AMF": (None, []),
         "Apple": ("prores_videotoolbox", ["-profile:v", "0", "-qscale:v", "4"]),
         "Raspberry": (None, []),
+        "MediaCodec": (None, []),
         "CPU": ("prores_ks", ["-profile:v", "0", "-qscale:v", "4"]),
     },
     "AV1": {
@@ -73,6 +76,7 @@ ENCODERS = {
         "NVENC": ("av1_nvenc", []),
         "AMF": (None, []),
         "Apple": (None, []),
+        "MediaCodec": (None, []),
         "CPU": ("libsvtav1", ["-crf", "23"]),
     },
 }

@@ -8,18 +8,21 @@ if TYPE_CHECKING:
 _is_android: bool | None = None
 
 
+def set_android(value: bool = True) -> None:
+    """Explicitly mark the runtime as Android. Call before any get_paths()/get_process_runner()."""
+    global _is_android
+    _is_android = value
+
+
 def is_android() -> bool:
-    """Detect if running on Android (Flet + pyjnius)."""
+    """Detect if running on Android."""
     global _is_android
     if _is_android is not None:
         return _is_android
-    try:
-        from jnius import autoclass
+    # Auto-detect: check for Android-specific path
+    import os
 
-        autoclass("org.kivy.android.PythonActivity")
-        _is_android = True
-    except Exception:
-        _is_android = False
+    _is_android = os.path.isdir("/data/data") and os.path.isdir("/system/app")
     return _is_android
 
 

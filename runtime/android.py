@@ -63,12 +63,35 @@ class AndroidPaths:
         logger.debug(f"open_folder not supported on Android: {path}")
 
     def get_ff_path(self) -> dict[str, str]:
-        """Return ffmpeg/ffprobe paths — assumes bundled in app's native lib dir."""
-        # Flet bundles .so files in the app's native library directory
-        native_lib = os.environ.get("FLET_APP_STORAGE_DATA", "")
-        if native_lib:
-            native_lib = os.path.dirname(native_lib)  # go up from files/ to app dir
-        return {
-            "ffmpeg": "ffmpeg",  # fallback to PATH for now
-            "ffprobe": "ffprobe",
-        }
+        """Return ffmpeg/ffprobe paths from the bundled android_libs directory.
+
+        The gpl-shared build needs LD_LIBRARY_PATH set so the .so libs are found.
+        """
+        # Flet copies the python app into FLET_APP_STORAGE_DATA/app
+        base = os.environ.get("FLET_APP_STORAGE_DATA", "")
+        candidates = []
+        if base:
+            candidates.append(os.path.join(base, "app", "android_libs", "arm64-v8a"))
+        # Fallback: look relative to this file (for local testing)
+        candidates.append(
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), "android_libs", "arm64-v8a")
+        )
+
+        lib_dir = ""
+        for d in candidates:
+            if os.path.isfile(os.path.join(d, "ffmpeg")):
+                lib_dir = d
+                break
+
+        if lib_dir:
+            # Ensure shared libs are discoverable by the dynamic linker
+            ld_path = os.environ.get("LD_LIBRARY_PATH", "")
+            if lib_dir not in ld_path:
+                os.environ["LD_LIBRARY_PATH"] = lib_dir + (":" + ld_path if ld_path else "")
+            return {
+                "ffmpeg": os.path.join(lib_dir, "ffmpeg"),
+                "ffprobe": os.path.join(lib_dir, "ffprobe"),
+            }
+
+        logger.warning("FFmpeg binaries not found in bundled android_libs")
+        return {"ffmpeg": "ffmpeg", "ffprobe": "ffprobe"}

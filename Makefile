@@ -105,7 +105,7 @@ format: fix ## Alias for fix
 # --------------------------------------------------------------------------
 # Build
 # --------------------------------------------------------------------------
-.PHONY: apk aab deploy-android check-android
+.PHONY: apk aab deploy-android check-android fetch-ffmpeg-android
 
 check-android:
 	@if [ -z "$(JAVA_HOME_DETECTED)" ]; then \
@@ -119,6 +119,26 @@ check-android:
 	fi
 	@echo "Java $(JAVA_VERSION): $(JAVA_HOME_DETECTED)"
 	@echo "Android SDK: $(ANDROID_SDK)"
+
+FFMPEG_ANDROID_REPO := Kenshin9977/FFmpeg-Builds
+FFMPEG_ANDROID_ASSET := ffmpeg-master-latest-androidarm64-gpl-shared.tar.xz
+ANDROID_LIBS := android_libs/arm64-v8a
+
+fetch-ffmpeg-android: ## Download FFmpeg Android ARM64 build from fork
+	@echo "Downloading $(FFMPEG_ANDROID_ASSET)..."
+	gh release download latest --repo $(FFMPEG_ANDROID_REPO) \
+		--pattern "$(FFMPEG_ANDROID_ASSET)" --dir /tmp --clobber
+	rm -rf $(ANDROID_LIBS)
+	mkdir -p $(ANDROID_LIBS)
+	tar xf /tmp/$(FFMPEG_ANDROID_ASSET) -C /tmp
+	cp /tmp/ffmpeg-master-latest-androidarm64-gpl-shared/bin/ffmpeg \
+		/tmp/ffmpeg-master-latest-androidarm64-gpl-shared/bin/ffprobe \
+		$(ANDROID_LIBS)/
+	cp /tmp/ffmpeg-master-latest-androidarm64-gpl-shared/lib/*.so $(ANDROID_LIBS)/
+	cp /tmp/ffmpeg-master-latest-androidarm64-gpl-shared/LICENSE.txt android_libs/
+	rm -rf /tmp/ffmpeg-master-latest-androidarm64-gpl-shared /tmp/$(FFMPEG_ANDROID_ASSET)
+	@echo "FFmpeg Android binaries ready in $(ANDROID_LIBS)/"
+	@ls -lh $(ANDROID_LIBS)/
 
 # Signing — keystore location (override with KEYSTORE=…)
 KEYSTORE := $(HOME)/video-dl-release.jks
@@ -145,6 +165,9 @@ FLET_SIGN_OPTS := \
 	--android-signing-key-alias "$(KEYSTORE_ALIAS)"
 
 apk: check-android ## Build release APK
+	@if [ ! -f "$(ANDROID_LIBS)/ffmpeg" ]; then \
+		echo "FFmpeg Android binaries missing. Run: make fetch-ffmpeg-android"; exit 1; \
+	fi
 	JAVA_HOME="$(JAVA_HOME_DETECTED)" ANDROID_SDK_ROOT="$(ANDROID_SDK)" \
 		$(RUN) flet build apk $(FLET_BUILD_OPTS)
 

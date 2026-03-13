@@ -23,6 +23,8 @@ _mock_yt_utils.DownloadCancelled = _FakeYtdlpDownloadCancelled
 for _mod in [
     "yt_dlp",
     "yt_dlp.YoutubeDL",
+    "yt_dlp.downloader",
+    "yt_dlp.downloader.external",
     "yt_dlp.postprocessor",
     "yt_dlp.postprocessor.FFmpegPostProcessor",
     "yt_dlp.postprocessor.ffmpeg",

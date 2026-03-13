@@ -75,6 +75,112 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}
 
+  android:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_LIBS: android_libs/arm64-v8a
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK
+        run: sdkmanager "ndk;27.2.12479018"
+
+      - name: Install Python dependencies
+        run: pip install -e "." flet
+
+      - name: Fetch FFmpeg
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$ANDROID_LIBS"
+          gh release download latest --repo Kenshin9977/FFmpeg-Builds \
+            --pattern "ffmpeg-master-latest-androidarm64-gpl-shared.tar.xz" --dir /tmp --clobber
+          tar xf /tmp/ffmpeg-master-latest-androidarm64-gpl-shared.tar.xz -C /tmp
+          cp /tmp/ffmpeg-master-latest-androidarm64-gpl-shared/bin/ffmpeg \
+             /tmp/ffmpeg-master-latest-androidarm64-gpl-shared/bin/ffprobe \
+             "$ANDROID_LIBS/"
+          cp /tmp/ffmpeg-master-latest-androidarm64-gpl-shared/lib/*.so "$ANDROID_LIBS/"
+
+      - name: Fetch aria2c
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download --repo Kenshin9977/aria2 \
+            --pattern "aria2c-android-aarch64" --dir /tmp --clobber
+          cp /tmp/aria2c-android-aarch64 "$ANDROID_LIBS/aria2c"
+          chmod +x "$ANDROID_LIBS/aria2c"
+
+      - name: Build QuickJS for ARM64
+        run: |
+          NDK_BIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          git clone --depth 1 https://github.com/bellard/quickjs.git /tmp/quickjs-bellard
+          cd /tmp/quickjs-bellard
+          CC="$NDK_BIN/clang --target=aarch64-linux-android24 --sysroot=$NDK_BIN/../sysroot"
+          CFLAGS="-D_GNU_SOURCE -DCONFIG_VERSION=\"$(cat VERSION)\" -O2 -flto -funsigned-char -fwrapv"
+          for f in qjs quickjs quickjs-libc cutils dtoa libregexp libunicode; do
+            $CC $CFLAGS -c -o $f.o $f.c
+          done
+          echo 'const unsigned char qjsc_repl[] = {0}; const unsigned int qjsc_repl_size = 0;' > repl_stub.c
+          $CC $CFLAGS -c -o repl_stub.o repl_stub.c
+          $CC -static -flto -o qjs qjs.o quickjs.o quickjs-libc.o cutils.o dtoa.o libregexp.o libunicode.o repl_stub.o -lm -ldl
+          $NDK_BIN/llvm-strip qjs
+          cp qjs "$GITHUB_WORKSPACE/$ANDROID_LIBS/qjs"
+
+      - name: Fetch EJS solver lib
+        run: |
+          EJS_DIR=$(python -c "import yt_dlp, os; print(os.path.join(os.path.dirname(yt_dlp.__file__), 'extractor/youtube/jsc/_builtin/vendor'))")
+          curl -fSL -o "$EJS_DIR/yt.solver.lib.js" \
+            https://github.com/yt-dlp/ejs/releases/download/0.5.0/yt.solver.lib.js
+
+      - name: Inject native libs
+        run: |
+          JNILIBS=build/flutter/android/app/src/main/jniLibs/arm64-v8a
+          mkdir -p "$JNILIBS"
+          cp "$ANDROID_LIBS/ffmpeg" "$JNILIBS/libffmpeg.so"
+          cp "$ANDROID_LIBS/ffprobe" "$JNILIBS/libffprobe.so"
+          cp "$ANDROID_LIBS"/lib*.so "$JNILIBS/"
+          cp "$ANDROID_LIBS/qjs" "$JNILIBS/libqjs.so"
+          cp "$ANDROID_LIBS/aria2c" "$JNILIBS/libaria2c.so"
+
+      - name: Build APK
+        run: |
+          flet build apk \
+            --project video-dl \
+            --org com.videodl \
+            --product "Video-dl" \
+            --description "Download and encode videos" \
+            --module-name main_android \
+            --compile-app --compile-packages --cleanup-packages \
+            --skip-flutter-doctor \
+            --split-per-abi \
+            --exclude .venv venv dist .git .mypy_cache .ruff_cache .pytest_cache \
+              __pycache__ .coverage "*.log" "*.egg-info" tests docs \
+              htmlcov .tox build Makefile "*.icns" "*.ico" "*.spec" \
+              check_results.txt test_outdir android_libs \
+            --android-permissions INTERNET=True WRITE_EXTERNAL_STORAGE=True READ_EXTERNAL_STORAGE=True MANAGE_EXTERNAL_STORAGE=True \
+            --android-adaptive-icon-background "#7C3AED"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apks
+          path: build/apk/*.apk
+
   sign:
     needs: build
     runs-on: ubuntu-latest
@@ -86,7 +192,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -e "."
+        run: pip install -e ".[dev]"
 
       - uses: actions/download-artifact@v4
         with:
@@ -144,7 +250,7 @@ jobs:
           path: signed/
 
   release:
-    needs: [build, sign]
+    needs: [build, android, sign]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -152,12 +258,13 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Separate binaries from tufup files
+      - name: Organize release assets
         run: |
           mkdir -p binaries tufup
-          mv artifacts/video-dl-windows.exe binaries/
-          mv artifacts/video-dl-linux binaries/
-          mv artifacts/video-dl-macos.dmg binaries/
+          mv artifacts/video-dl-windows.exe binaries/ 2>/dev/null || true
+          mv artifacts/video-dl-linux binaries/ 2>/dev/null || true
+          mv artifacts/video-dl-macos.dmg binaries/ 2>/dev/null || true
+          mv artifacts/*.apk binaries/ 2>/dev/null || true
           mv artifacts/* tufup/ 2>/dev/null || true
           echo "=== Binaries ===" && ls -la binaries/
           echo "=== Tufup ===" && ls -la tufup/
@@ -173,6 +280,8 @@ jobs:
             | Windows | macOS | Linux |
             |:-------:|:-----:|:-----:|
             | [video-dl-windows.exe](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-windows.exe) | [video-dl-macos.dmg](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-macos.dmg) | [video-dl-linux](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-linux) |
+
+            Android APKs are included in the release assets below.
 
             <details>
             <summary>Auto-update files (internal)</summary>

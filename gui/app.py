@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import subprocess
@@ -1196,10 +1197,8 @@ class VideodlApp:
         state = {'secs': initial_seconds}
 
         def on_change(ev):
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 state['secs'] = int(ev.data)
-            except (ValueError, TypeError):
-                pass
 
         def on_dismiss(ev):
             secs = state['secs']
@@ -1229,7 +1228,7 @@ class VideodlApp:
     def _safe_update(self):
         """Call page.update() on the main thread. Safe from any thread."""
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # Already on the main loop — update directly
             self.page.update()
         except RuntimeError:

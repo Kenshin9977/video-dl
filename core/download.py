@@ -1,20 +1,20 @@
 from __future__ import annotations
 
+import contextvars
 import logging
 import os
 import re
 import signal
 import subprocess
-import contextvars
 import threading
 import time
 
-import runtime
 from yt_dlp import YoutubeDL
 from yt_dlp.downloader.external import FFmpegFD
 from yt_dlp.postprocessor import FFmpegPostProcessor
 from yt_dlp.utils import DownloadCancelled as YtdlpDownloadCancelled
 
+import runtime
 from core.callbacks import CancelToken, ProgressCallback, StatusCallback
 from core.config_types import DownloadConfig
 from core.encode import post_process_dl
@@ -166,9 +166,9 @@ def download(
 
         def target():
             try:
-                result.append(ydl.extract_info(config.url))
+                result.append(ydl.extract_info(config.url))  # noqa: B023
             except BaseException as e:
-                error.append(e)
+                error.append(e)  # noqa: B023
 
         ctx = contextvars.copy_context()
         t = threading.Thread(target=ctx.run, args=(target,), daemon=True)

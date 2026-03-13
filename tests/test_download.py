@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import os
 import signal
 import subprocess
 import sys
-import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -43,14 +41,14 @@ sys.modules.pop("core.download", None)
 
 from core.download import (  # noqa: E402
     _STATUS_PATTERNS,
-    _StallDetector,
-    _YdlUiLogger,
+    MAX_RETRIES,
     _finish_download,
     _get_child_pids,
     _kill_new_children,
+    _StallDetector,
+    _YdlUiLogger,
     download,
     post_download,
-    MAX_RETRIES,
 )
 from core.exceptions import DownloadCancelled, DownloadTimeout, PlaylistNotFound  # noqa: E402
 
@@ -411,9 +409,8 @@ class TestDownload:
         config = _make_config()
         config.url = "https://example.com/video"
 
-        with patch.object(_StallDetector, "__init__", patched_init):
-            with pytest.raises(DownloadTimeout):
-                download(ydl, config, cancel, MagicMock())
+        with patch.object(_StallDetector, "__init__", patched_init), pytest.raises(DownloadTimeout):
+            download(ydl, config, cancel, MagicMock())
 
         assert call_count[0] == MAX_RETRIES
 

@@ -4,6 +4,7 @@ import logging
 import subprocess
 from typing import TYPE_CHECKING
 
+import runtime
 from core.exceptions import FFmpegNoValidEncoderFound
 
 if TYPE_CHECKING:
@@ -141,8 +142,11 @@ def fastest_encoder(path: str, target_vcodec: str) -> tuple[str, list[str]]:
         FFmpegNoValidEncoderFound: If no encoder is available for the target
     """
     available = _get_available_encoders()
+    skip_platforms = {"Raspberry"} if runtime.is_android() else set()
     for platform_name, (vcodec, quality_options) in ENCODERS[target_vcodec].items():  # type: ignore[attr-defined]
         if not vcodec:
+            continue
+        if platform_name in skip_platforms:
             continue
         if vcodec in available:
             logger.info(f"Selected encoder: {vcodec} ({platform_name}) for {target_vcodec}")

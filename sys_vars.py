@@ -22,9 +22,21 @@ def init_paths() -> None:
 
 
 def init_paths_android(android_paths) -> None:
-    """Initialize binary paths on Android — FFmpeg bundled in APK, no QuickJS/aria2c."""
-    global FF_PATH, _initialized
+    """Initialize binary paths on Android — native libs bundled in APK."""
+    global FF_PATH, QJS_PATH, ARIA2C_PATH, _initialized
     if _initialized:
         return
+    import os
+
     FF_PATH = android_paths.get_ff_path()
+    # qjs and aria2c are bundled as .so in the same native lib dir
+    ffmpeg_path = FF_PATH.get("ffmpeg", "")
+    if ffmpeg_path and ffmpeg_path != "ffmpeg":
+        native_dir = os.path.dirname(ffmpeg_path)
+        qjs = os.path.join(native_dir, "libqjs.so")
+        if os.path.isfile(qjs):
+            QJS_PATH = qjs
+        aria2c = os.path.join(native_dir, "libaria2c.so")
+        if os.path.isfile(aria2c):
+            ARIA2C_PATH = aria2c
     _initialized = True

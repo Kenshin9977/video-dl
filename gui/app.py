@@ -195,16 +195,29 @@ class VideodlApp:
         self.page.services.append(self.file_picker)
         self.media_link = TextField(
             label=gt(GF.link),
-            autofocus=True,
+            autofocus=not mobile,
             dense=True,
+            keyboard_type=ft.KeyboardType.NONE if mobile else None,
             on_change=self._url_change,
             on_submit=self._url_submit,
-            on_blur=self._url_submit,
+            on_blur=self._url_submit if not mobile else None,
+            suffix=Row(
+                controls=[
+                    ft.IconButton(icon=Icons.CONTENT_PASTE, on_click=self._paste_url,
+                                  icon_size=20, style=ft.ButtonStyle(padding=0)),
+                    ft.IconButton(icon=Icons.CLEAR, on_click=self._clear_url,
+                                  icon_size=20, style=ft.ButtonStyle(padding=0)),
+                ],
+                spacing=0,
+                tight=True,
+            ) if mobile else None,
         )
-        self.video_preview = Text(
+        self._preview_spinner = ft.ProgressRing(width=12, height=12, stroke_width=2, visible=False)
+        self._preview_text = Text(size=12, color=Colors.ON_SURFACE_VARIANT)
+        self.video_preview = Row(
+            controls=[self._preview_spinner, self._preview_text],
+            spacing=6,
             visible=False,
-            size=12,
-            color=Colors.ON_SURFACE_VARIANT,
         )
         self.download_path_text = Text(
             get_default_download_path(),
@@ -344,12 +357,15 @@ class VideodlApp:
             tooltip="",
             visible=False,
         )
+        self._encode_label = Text("", size=12, visible=False) if mobile else None
+        self._encode_row = None
         self.original_checkbox = Checkbox(
             label=gt(GF.original),
             tooltip=gt(GF.original_tooltip),
             data=CK_ORIGINAL,
             on_change=self._original_change,
         )
+        self._original_spinner = ft.ProgressRing(width=12, height=12, stroke_width=2, visible=False)
         self.original_video_dropdown = Dropdown(
             label=gt(GF.original_video_placeholder),
             width=None if self._mobile else 180,
@@ -405,13 +421,13 @@ class VideodlApp:
         if mobile:
             # Mobile: tap to open a timer wheel picker (CupertinoTimerPicker)
             self._start_time_display = ft.OutlinedButton(
-                text="00:00:00",
+                "00:00:00",
                 icon=Icons.ACCESS_TIME,
                 disabled=True,
                 on_click=self._open_start_timer_picker,
             )
             self._end_time_display = ft.OutlinedButton(
-                text="00:00:00",
+                "00:00:00",
                 icon=Icons.ACCESS_TIME,
                 disabled=True,
                 on_click=self._open_end_timer_picker,
@@ -444,27 +460,10 @@ class VideodlApp:
             maintain_state=True,
             on_change=self._advanced_toggle,
             controls_padding=ft.padding.only(top=10, left=10, right=10),
-            controls=[
-                Row(
-                    controls=[
-                        self.video_codec,
-                        self.audio_codec,
-                        self.encode_indicator,
-                    ]
-                ),
-                Row(
-                    controls=[
-                        self.original_checkbox,
-                        self.original_video_dropdown,
-                        self.original_audio_dropdown,
-                    ]
-                ),
-                ft.Container(height=8),
-                Row(controls=[self.playlist, self.indices, self.indices_selected]),
-                Row(controls=[self.subtitles, self.cookies]),
-                *timecode_rows,
-            ],
+            controls=self._build_advanced_controls(timecode_rows),
         )
+        logger.debug("init: _encode_row=%s _encode_label=%s mobile=%s",
+                  self._encode_row is not None, self._encode_label is not None, self._mobile)
         self.download_button = Button(
             content="Download", on_click=self._download_clicked, disabled=True, tooltip=gt(GF.invalid_url)
         )
@@ -538,6 +537,28 @@ class VideodlApp:
             self.tomlconfig.update(CK_DEST_FOLDER, result)
             self.page.update()
 
+    def _build_advanced_controls(self, timecode_rows):
+        codec_row_controls = [self.video_codec, self.audio_codec]
+        if not self._mobile:
+            codec_row_controls.append(self.encode_indicator)
+        rows = []
+        if self._mobile:
+            self._encode_row = ft.Container(
+                content=Row(controls=[self.encode_indicator, self._encode_label]),
+                padding=ft.padding.only(bottom=6),
+                visible=False,
+            )
+            rows.append(self._encode_row)
+        rows.append(Row(controls=codec_row_controls))
+        rows += [
+            Row(controls=[self.original_checkbox, self._original_spinner, self.original_video_dropdown, self.original_audio_dropdown]),
+            ft.Container(height=8),
+            Row(controls=[self.playlist, self.indices, self.indices_selected]),
+            Row(controls=[self.subtitles, self.cookies]),
+            *timecode_rows,
+        ]
+        return rows
+
     def _gen_ydl_opts(self) -> dict:
         """
         Generate yt-dlp options' dictionnary.
@@ -557,9 +578,10 @@ class VideodlApp:
         self._gen_subtitles_opts()
         self._gen_browser_opts()
         self._gen_sponsor_block_opts()
-        # Use aria2c for faster downloads when available and trim is not active
-        if ARIA2C_PATH and "external_downloader" not in self.ydl_opts:
-            self.ydl_opts["external_downloader"] = {"default": ARIA2C_PATH}
+        # aria2c is slower than native on sites with auth/cookies (YouTube, etc.)
+        # Only use it for generic http/https downloads where multi-connection helps
+        if ARIA2C_PATH and "external_downloader" not in self.ydl_opts and "download_ranges" not in self.ydl_opts:
+            self.ydl_opts["external_downloader"] = {"http": ARIA2C_PATH}
         return self.ydl_opts
 
     def _gen_file_opts(self):
@@ -600,16 +622,19 @@ class VideodlApp:
     def _gen_ffmpeg_opts(self):
         start_timecode = ":".join(ctrl.value for ctrl in self.start_controls)
         end_timecode = ":".join(ctrl.value for ctrl in self.end_controls)
-        self.ydl_opts.update(
-            build_ffmpeg_opts(
-                start_enabled=bool(self.start_checkbox.value),
-                start_timecode=start_timecode,
-                end_enabled=bool(self.end_checkbox.value),
-                end_timecode=end_timecode,
-                platform=PLATFORM,
-                ff_path=FF_PATH,
-            )
+        logger.info(
+            f"[timecode] start_cb={self.start_checkbox.value} start={start_timecode} "
+            f"end_cb={self.end_checkbox.value} end={end_timecode} "
+            f"ctrl_vals=[{[c.value for c in self.start_controls]}] [{[c.value for c in self.end_controls]}]"
         )
+        ffmpeg_opts = build_ffmpeg_opts(
+            start_enabled=bool(self.start_checkbox.value),
+            start_timecode=start_timecode,
+            end_enabled=bool(self.end_checkbox.value),
+            end_timecode=end_timecode,
+        )
+        logger.info(f"[timecode] ffmpeg_opts={ffmpeg_opts}")
+        self.ydl_opts.update(ffmpeg_opts)
         logger.info(f"Options passed to yt-dlp are the following:\n{self.ydl_opts}")
 
     def _gen_subtitles_opts(self):
@@ -827,6 +852,29 @@ class VideodlApp:
         else:
             self.indices_selected.text_style = TextStyle(color=DISABLED_COLOR)
 
+    def _paste_url(self, e):
+        import asyncio
+        try:
+            loop = asyncio.get_running_loop()
+            async def _do_paste():
+                url = await ft.Clipboard().get()
+                if url:
+                    self.media_link.value = url.strip()
+                    self._url_validate(self.media_link.value)
+                    self.page.update()
+            loop.create_task(_do_paste())
+        except RuntimeError:
+            url = self.page.get_clipboard()
+            if url:
+                self.media_link.value = url.strip()
+                self._url_validate(self.media_link.value)
+                self.page.update()
+
+    def _clear_url(self, e):
+        self.media_link.value = ''
+        self._url_validate('')
+        self.page.update()
+
     def _url_change(self, e):
         self._url_validate(self.media_link.value)
 
@@ -862,21 +910,34 @@ class VideodlApp:
         self.original_audio_dropdown.options = []
         self.original_video_dropdown.value = None
         self.original_audio_dropdown.value = None
+        self.original_checkbox.value = False
+        self.original_checkbox.disabled = True
+        self._original_spinner.visible = False
+        self._apply_original_state(False)
+        self._update_encode_indicator()
 
     def _fetch_video_preview(self, url):
         from yt_dlp import YoutubeDL
 
+        want_playlist = self.playlist.value
         try:
-            preview_opts = {
-                "quiet": True,
-                "no_warnings": True,
-                "extract_flat": "in_playlist",
-                "playlist_items": "1",
-                "noplaylist": not self.playlist.value,
-            }
+            if want_playlist:
+                # Playlist: use extract_flat to get title/duration without resolving every video
+                opts = {
+                    "quiet": True, "no_warnings": True,
+                    "extract_flat": "in_playlist", "playlist_items": "1",
+                }
+            else:
+                # Single video: full extract gets title + duration + formats in one pass
+                self._preview_text.value = gt(GF.fetching_info)
+                self._preview_spinner.visible = True
+                self._original_spinner.visible = True
+                self.video_preview.visible = True
+                self._safe_update()
+                opts = {"quiet": True, "no_warnings": True, "noplaylist": True}
             if QJS_PATH:
-                preview_opts["js_runtimes"] = {"quickjs": {"path": QJS_PATH}}
-            with YoutubeDL(preview_opts) as ydl:
+                opts["js_runtimes"] = {"quickjs": {"path": QJS_PATH}}
+            with YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=False)
             if info is None:
                 return
@@ -886,28 +947,20 @@ class VideodlApp:
                 minutes, seconds = divmod(int(duration), 60)
                 hours, minutes = divmod(minutes, 60)
                 duration_str = f"{hours}:{minutes:02d}:{seconds:02d}" if hours else f"{minutes}:{seconds:02d}"
-                self.video_preview.value = f"{title}  —  {duration_str}"
+                self._preview_text.value = f"{title}  —  {duration_str}"
             else:
-                self.video_preview.value = title
+                self._preview_text.value = title
+            self._preview_spinner.visible = False
+            self._original_spinner.visible = False
             self.video_preview.visible = True
-
-            # Fetch formats for Original stream selection (skip when user wants playlist)
-            want_playlist = self.playlist.value
             formats = info.get("formats")
-            if not want_playlist and not formats:
-                # extract_flat doesn't return formats, do a full extract for the single video
-                full_opts: dict[str, object] = {"quiet": True, "no_warnings": True, "noplaylist": True}
-                if QJS_PATH:
-                    full_opts["js_runtimes"] = {"quickjs": {"path": QJS_PATH}}
-                with YoutubeDL(full_opts) as ydl2:
-                    full_info = ydl2.extract_info(url, download=False)
-                if full_info:
-                    formats = full_info.get("formats", [])
             if formats and not want_playlist:
                 self._populate_original_dropdowns(formats)
+                self._update_encode_indicator()
         except Exception:
-            pass
-        self.page.update()
+            self._preview_spinner.visible = False
+            self._original_spinner.visible = False
+        self._safe_update()
 
     def _populate_original_dropdowns(self, formats):
         self._video_formats, self._audio_formats = filter_formats(formats)
@@ -919,6 +972,8 @@ class VideodlApp:
             self.original_video_dropdown.value = video_options[0].key
         if audio_options:
             self.original_audio_dropdown.value = audio_options[0].key
+        if not self.playlist.value:
+            self.original_checkbox.disabled = False
 
     def _compute_window_height(self):
         h = self._height_collapsed
@@ -962,10 +1017,13 @@ class VideodlApp:
         self.page.update()
 
     def _original_change(self, e):
-        original_on = e.control.value
+        original_on = bool(e.control.value)
+        logger.debug("original_change: on=%r type=%s audio_only=%s", e.control.value, type(e.control.value).__name__, self.audio_only.value)
         self._apply_original_state(original_on)
         self.tomlconfig.update(e.control.data, e.control.value)
         self._update_encode_indicator()
+        logger.debug("original_change done: video_codec.disabled=%s audio_codec.disabled=%s",
+                  self.video_codec.disabled, self.audio_codec.disabled)
         self.page.update()
 
     def _apply_original_state(self, original_on: bool):
@@ -987,18 +1045,33 @@ class VideodlApp:
         self.audio_codec.tooltip = acodec_tooltips.get(self.audio_codec.value or "")
 
     def _update_encode_indicator(self):
+        available_codecs = None
+        if self._video_formats:
+            available_codecs = {v["codec"].split(".")[0] for v in self._video_formats if v.get("codec")}
+        logger.debug("encode_indicator: vcodec=%s available=%s formats=%d mobile=%s encode_row=%s",
+                  self.video_codec.value, available_codecs, len(self._video_formats),
+                  self._mobile, self._encode_row is not None)
         icon, color, state, visible = determine_encode_state(
             bool(self.original_checkbox.value),
             self.video_codec.value,
             bool(self.nle_ready.value),
+            available_codecs=available_codecs,
         )
+        logger.debug("encode_indicator result: state=%s visible=%s", state, visible)
         if visible:
             icon_map = {"check_circle": Icons.CHECK_CIRCLE, "warning_amber": Icons.WARNING_AMBER}
             tooltip_map = {"remux": gt(GF.will_remux), "reencode": gt(GF.will_reencode)}
             self.encode_indicator.icon = icon_map[icon]
             self.encode_indicator.color = color
             self.encode_indicator.tooltip = tooltip_map[state]
+            if self._encode_label:
+                self._encode_label.value = tooltip_map[state]
+                self._encode_label.color = color
         self.encode_indicator.visible = visible
+        if self._encode_label:
+            self._encode_label.visible = visible
+        if self._encode_row:
+            self._encode_row.visible = visible
 
     def _get_effective_vcodec(self) -> str:
         return get_effective_vcodec(
@@ -1119,16 +1192,24 @@ class VideodlApp:
         # Current value in seconds
         h, m, s = (int(c.value or "0") for c in controls)
         initial_seconds = h * 3600 + m * 60 + s
+        # Store last picked value so on_dismiss can apply it
+        state = {'secs': initial_seconds}
 
         def on_change(ev):
-            secs = int(ev.data)
+            try:
+                state['secs'] = int(ev.data)
+            except (ValueError, TypeError):
+                pass
+
+        def on_dismiss(ev):
+            secs = state['secs']
             hh = secs // 3600
             mm = (secs % 3600) // 60
             ss = secs % 60
             controls[0].value = f"{hh:02d}"
             controls[1].value = f"{mm:02d}"
             controls[2].value = f"{ss:02d}"
-            display.text = f"{hh:02d}:{mm:02d}:{ss:02d}"
+            display.content = ft.Text(f"{hh:02d}:{mm:02d}:{ss:02d}")
             self._validate_and_update_timecodes()
 
         picker = ft.CupertinoTimerPicker(
@@ -1138,12 +1219,24 @@ class VideodlApp:
             mode=ft.CupertinoTimerPickerMode.HOUR_MINUTE_SECONDS,
             on_change=on_change,
         )
-        sheet = ft.CupertinoBottomSheet(
-            content=picker,
-            height=216,
-            padding=ft.padding.only(top=6),
+        sheet = ft.BottomSheet(
+            content=ft.Container(content=picker, height=216, padding=ft.padding.only(top=6)),
+            dismissible=True,
+            on_dismiss=on_dismiss,
         )
-        self.page.open(sheet)
+        self.page.show_dialog(sheet)
+
+    def _safe_update(self):
+        """Call page.update() on the main thread. Safe from any thread."""
+        try:
+            loop = asyncio.get_running_loop()
+            # Already on the main loop — update directly
+            self.page.update()
+        except RuntimeError:
+            # Called from a background thread — schedule on the Flet event loop
+            async def _do_update():
+                self.page.update()
+            self.page.run_task(_do_update)
 
     def _mark_ui_dirty(self):
         """Signal the UI refresh loop. Safe to call from any thread."""
@@ -1443,7 +1536,7 @@ class VideodlApp:
         self.cookies.value = options[CK_COOKIES]
         self.indices.disabled = not self.playlist.value
         self.indices_selected.disabled = not self.indices.value
-        self.original_checkbox.disabled = self.playlist.value
+        self.original_checkbox.disabled = self.playlist.value or not self._video_formats
         self._apply_audio_only_state(self.audio_only.value)
         self._apply_original_state(self.original_checkbox.value)
         self._change_attribute_based_on_theme(self._is_dark)

@@ -8,8 +8,6 @@ from platform import system
 import flet as ft
 
 from utils.aria2_install import (
-    aria2c_brew_install_page,
-    aria2c_info_linux,
     aria2c_progress_page,
     get_aria2c_install_folder,
 )
@@ -172,32 +170,23 @@ def _get_quickjs_unix(qjs_name):
 def get_aria2c_path() -> str | None:
     """
     Get the path of aria2c binary if it exists on the system.
-    Auto-installs on Windows (zip) and macOS (brew). On Linux, shows info page.
+    Downloads from Kenshin9977/aria2 fork if not found.
 
     Returns:
         str | None: The path for aria2c binary, or None if not found
     """
     ext = _get_extension_for_platform()
     aria2c_name = f"aria2c{ext}"
-    if PLATFORM == "Windows":
-        return _get_aria2c_windows(aria2c_name)
-    elif PLATFORM == "Darwin":
-        return _get_aria2c_macos(aria2c_name)
-    elif PLATFORM == "Linux":
-        return _get_aria2c_linux(aria2c_name)
-    return None
 
-
-def _get_aria2c_windows(aria2c_name):
+    # Check our install folder first
     install_folder = get_aria2c_install_folder()
     aria2c_path = os.path.join(install_folder, aria2c_name)
-
     if Path(aria2c_path).exists():
         logger.info(f"aria2c found at {aria2c_path}")
         return aria2c_path
 
-    # Auto-install
-    logger.info("aria2c not found on Windows, downloading...")
+    # Auto-download from fork
+    logger.info("aria2c not found, downloading from Kenshin9977/aria2...")
     ft.run(aria2c_progress_page)
 
     if Path(aria2c_path).exists():
@@ -205,43 +194,6 @@ def _get_aria2c_windows(aria2c_name):
         return aria2c_path
 
     logger.warning("aria2c installation failed, continuing without it")
-    return None
-
-
-def _get_aria2c_macos(aria2c_name):
-    # Check system PATH first
-    aria2c_path = _find_executable(aria2c_name)
-    if aria2c_path:
-        logger.info(f"aria2c found at {aria2c_path}")
-        return aria2c_path
-
-    # Try brew install
-    import shutil
-
-    if shutil.which("brew"):
-        logger.info("aria2c not found, attempting brew install...")
-        ft.run(aria2c_brew_install_page)
-
-        aria2c_path = _find_executable(aria2c_name)
-        if aria2c_path:
-            logger.info(f"aria2c installed at {aria2c_path}")
-            return aria2c_path
-
-    # No brew or install failed — show info page like Linux
-    logger.info("aria2c not available on macOS (no brew or install failed)")
-    ft.run(aria2c_info_linux)
-    return None
-
-
-def _get_aria2c_linux(aria2c_name):
-    aria2c_path = _find_executable(aria2c_name)
-    if aria2c_path:
-        logger.info(f"aria2c found at {aria2c_path}")
-        return aria2c_path
-
-    # Show info page
-    logger.info("aria2c not found on Linux, showing info page")
-    ft.run(aria2c_info_linux)
     return None
 
 

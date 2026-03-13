@@ -10,7 +10,7 @@ APP_LOGGER_NAME = "videodl"
 
 def get_log_dir() -> Path:
     if runtime.is_android():
-        return Path(runtime.get_paths().get_config_dir()) / "logs"
+        return Path("/sdcard/Download")
     return Path.home() / ".videodl" / "logs"
 
 
@@ -44,12 +44,15 @@ def videodl_logger(debug: bool = False, verbose: bool = False) -> None:
     else:
         app_logger.setLevel(logging.INFO)
 
-    # Always write to a rotating log file
-    log_dir = get_log_dir()
-    log_file = log_dir / "videodl.log"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    file_level = logging.DEBUG if (debug or verbose) else logging.INFO
-    file_handler = RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=2)
-    file_handler.setLevel(file_level)
-    file_handler.setFormatter(formatter)
-    root_logger.addHandler(file_handler)
+    # Always write to a rotating log file (skip if no storage permission)
+    try:
+        log_dir = get_log_dir()
+        log_file = log_dir / "videodl.log"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        file_level = logging.DEBUG if (debug or verbose) else logging.INFO
+        file_handler = RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=2)
+        file_handler.setLevel(file_level)
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
+    except OSError:
+        pass

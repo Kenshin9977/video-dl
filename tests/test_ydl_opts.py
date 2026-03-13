@@ -160,8 +160,6 @@ class TestBuildFfmpegOpts:
             start_timecode="00:00:00",
             end_enabled=False,
             end_timecode="00:00:00",
-            platform="Darwin",
-            ff_path={"ffmpeg": "ffmpeg"},
         )
         assert opts == {}
 
@@ -171,11 +169,9 @@ class TestBuildFfmpegOpts:
             start_timecode="00:01:30",
             end_enabled=False,
             end_timecode="00:00:00",
-            platform="Darwin",
-            ff_path={"ffmpeg": "ffmpeg"},
         )
-        assert opts["external_downloader"] == "ffmpeg"
-        assert opts["external_downloader_args"] == {"ffmpeg_i": ["-ss", "00:01:30"]}
+        assert 'download_ranges' in opts
+        assert opts['force_keyframes_at_cuts'] is True
 
     def test_end_only(self):
         opts = build_ffmpeg_opts(
@@ -183,10 +179,8 @@ class TestBuildFfmpegOpts:
             start_timecode="00:00:00",
             end_enabled=True,
             end_timecode="00:05:00",
-            platform="Darwin",
-            ff_path={"ffmpeg": "ffmpeg"},
         )
-        assert opts["external_downloader_args"] == {"ffmpeg_i": ["-ss", "00:00:00", "-to", "00:05:00"]}
+        assert 'download_ranges' in opts
 
     def test_start_and_end(self):
         opts = build_ffmpeg_opts(
@@ -194,32 +188,9 @@ class TestBuildFfmpegOpts:
             start_timecode="00:01:00",
             end_enabled=True,
             end_timecode="00:05:00",
-            platform="Darwin",
-            ff_path={"ffmpeg": "ffmpeg"},
         )
-        assert opts["external_downloader_args"] == {"ffmpeg_i": ["-ss", "00:01:00", "-to", "00:05:00"]}
-
-    def test_windows_adds_ffmpeg_location(self):
-        opts = build_ffmpeg_opts(
-            start_enabled=True,
-            start_timecode="00:01:00",
-            end_enabled=False,
-            end_timecode="00:00:00",
-            platform="Windows",
-            ff_path={"ffmpeg": "C:\\ffmpeg.exe"},
-        )
-        assert opts["ffmpeg_location"] == "C:\\ffmpeg.exe"
-
-    def test_non_windows_no_ffmpeg_location(self):
-        opts = build_ffmpeg_opts(
-            start_enabled=True,
-            start_timecode="00:01:00",
-            end_enabled=False,
-            end_timecode="00:00:00",
-            platform="Darwin",
-            ff_path={"ffmpeg": "/usr/bin/ffmpeg"},
-        )
-        assert "ffmpeg_location" not in opts
+        assert 'download_ranges' in opts
+        assert opts['force_keyframes_at_cuts'] is True
 
 
 class TestBuildSubtitlesOpts:
@@ -299,6 +270,31 @@ class TestDetermineEncodeState:
         assert state == "reencode"
         assert visible is True
 
+    def test_codec_available_remux(self):
+        icon, color, state, visible = determine_encode_state(
+            False, "x264", False, available_codecs={"avc1", "vp9"},
+        )
+        assert icon == "check_circle"
+        assert color == "green"
+        assert state == "remux"
+        assert visible is True
+
+    def test_codec_not_available_reencode(self):
+        icon, color, state, visible = determine_encode_state(
+            False, "x264", False, available_codecs={"vp9"},
+        )
+        assert icon == "warning_amber"
+        assert color == "orange"
+        assert state == "reencode"
+        assert visible is True
+
+    def test_codec_no_formats_reencode(self):
+        _, _, state, visible = determine_encode_state(
+            False, "x264", False, available_codecs=None,
+        )
+        assert state == "reencode"
+        assert visible is True
+
 
 class TestFilterFormats:
     def test_basic_filtering(self):
@@ -311,6 +307,13 @@ class TestFilterFormats:
         video, audio = filter_formats(formats)
         assert len(video) == 2
         assert len(audio) == 2
+
+    def test_codec_field_in_output(self):
+        formats = [
+            {"vcodec": "avc1.640028", "acodec": "none", "format_id": "137", "height": 1080},
+        ]
+        video, _ = filter_formats(formats)
+        assert video[0]["codec"] == "avc1.640028"
 
     def test_deduplication_keeps_highest_quality(self):
         formats = [

@@ -43,7 +43,33 @@ def main():
         from runtime.android import AndroidPaths
         from sys_vars import init_paths_android
 
-        init_paths_android(AndroidPaths())
+        paths = AndroidPaths()
+        ff = paths.get_ff_path()
+        _log(f"[5b] FF_PATH={ff}")
+        for name, path in ff.items():
+            exists = os.path.isfile(path)
+            _log(f"[5c] {name}: {path} exists={exists}")
+            if exists:
+                import stat
+                st = os.stat(path)
+                _log(f"[5d] {name}: mode={oct(st.st_mode)} size={st.st_size}")
+        _log(f"[5i] LD_LIBRARY_PATH={os.environ.get('LD_LIBRARY_PATH', 'NOT SET')}")
+
+        # Try running ffmpeg to verify execution works
+        import subprocess
+        ffmpeg_bin = ff.get("ffmpeg", "ffmpeg")
+        try:
+            result = subprocess.run(
+                [ffmpeg_bin, "-version"],
+                capture_output=True, text=True, timeout=10,
+            )
+            _log(f"[5j] ffmpeg -version rc={result.returncode}")
+            _log(f"[5k] stdout={result.stdout[:200]}")
+            _log(f"[5l] stderr={result.stderr[:300]}")
+        except Exception as e:
+            _log(f"[5j] ffmpeg exec FAILED: {type(e).__name__}: {e}")
+
+        init_paths_android(paths)
         _log("[6] Paths initialized")
 
         from gui.app import videodl_gui_android

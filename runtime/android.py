@@ -63,35 +63,65 @@ class AndroidPaths:
         logger.debug(f"open_folder not supported on Android: {path}")
 
     def get_ff_path(self) -> dict[str, str]:
-        """Return ffmpeg/ffprobe paths from the bundled android_libs directory.
+        """Return ffmpeg/ffprobe paths from the APK's native library directory.
 
-        The gpl-shared build needs LD_LIBRARY_PATH set so the .so libs are found.
+        Binaries are packed as libffmpeg.so / libffprobe.so in jniLibs so Android
+        extracts them into the app's nativeLibraryDir where they are executable.
         """
-        # Flet copies the python app into FLET_APP_STORAGE_DATA/app
-        base = os.environ.get("FLET_APP_STORAGE_DATA", "")
-        candidates = []
-        if base:
-            candidates.append(os.path.join(base, "app", "android_libs", "arm64-v8a"))
-        # Fallback: look relative to this file (for local testing)
-        candidates.append(
-            os.path.join(os.path.dirname(os.path.dirname(__file__)), "android_libs", "arm64-v8a")
-        )
+        # Find the native lib dir — Android extracts jniLibs .so files here
+        native_lib = self._find_native_lib_dir()
+        if native_lib:
+            ffmpeg = os.path.join(native_lib, "libffmpeg.so")
+            ffprobe = os.path.join(native_lib, "libffprobe.so")
+            if os.path.isfile(ffmpeg):
+                # Shared libs are already in the same dir, LD_LIBRARY_PATH for safety
+                ld_path = os.environ.get("LD_LIBRARY_PATH", "")
+                if native_lib not in ld_path:
+                    os.environ["LD_LIBRARY_PATH"] = native_lib + (":" + ld_path if ld_path else "")
+                return {"ffmpeg": ffmpeg, "ffprobe": ffprobe}
 
-        lib_dir = ""
-        for d in candidates:
-            if os.path.isfile(os.path.join(d, "ffmpeg")):
-                lib_dir = d
-                break
-
-        if lib_dir:
-            # Ensure shared libs are discoverable by the dynamic linker
-            ld_path = os.environ.get("LD_LIBRARY_PATH", "")
-            if lib_dir not in ld_path:
-                os.environ["LD_LIBRARY_PATH"] = lib_dir + (":" + ld_path if ld_path else "")
-            return {
-                "ffmpeg": os.path.join(lib_dir, "ffmpeg"),
-                "ffprobe": os.path.join(lib_dir, "ffprobe"),
-            }
-
-        logger.warning("FFmpeg binaries not found in bundled android_libs")
+        logger.warning("FFmpeg binaries not found in native lib dir")
         return {"ffmpeg": "ffmpeg", "ffprobe": "ffprobe"}
+
+    @staticmethod
+    def _find_native_lib_dir() -> str:
+        """Find the app's native library directory.
+
+        The native lib dir is under /data/app/~~<hash>/<app_id>-<hash>/lib/arm64/
+        which is not predictable. We find it by reading /proc/self/maps for
+        libflutter.so which is always loaded from the same directory.
+        """
+        # Method 1: parse /proc/self/maps for libflutter.so path
+        try:
+            with open("/proc/self/maps") as f:
+                for line in f:
+                    if "libflutter.so" in line:
+                        # Line format: addr perms offset dev inode path
+                        parts = line.strip().split()
+                        if len(parts) >= 6:
+                            lib_path = parts[-1]  # e.g. /data/app/.../lib/arm64/libflutter.so
+                            native_dir = os.path.dirname(lib_path)
+                            if os.path.isdir(native_dir):
+                                return native_dir
+                        break
+        except OSError:
+            pass
+
+        # Method 2: well-known symlink paths
+        app_id = "com.videodl.video_dl"
+        for candidate in [
+            f"/data/data/{app_id}/lib",
+            f"/data/user/0/{app_id}/lib",
+        ]:
+            if os.path.isdir(candidate):
+                return candidate
+
+        # Method 3: derive from FLET_APP_STORAGE_DATA
+        base = os.environ.get("FLET_APP_STORAGE_DATA", "")
+        if base:
+            app_dir = os.path.dirname(base)
+            candidate = os.path.join(app_dir, "lib")
+            if os.path.isdir(candidate):
+                return candidate
+
+        return ""

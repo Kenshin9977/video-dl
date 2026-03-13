@@ -5,10 +5,13 @@ import os
 import re
 import signal
 import subprocess
+import contextvars
 import threading
 import time
 
+import runtime
 from yt_dlp import YoutubeDL
+from yt_dlp.downloader.external import FFmpegFD
 from yt_dlp.postprocessor import FFmpegPostProcessor
 from yt_dlp.utils import DownloadCancelled as YtdlpDownloadCancelled
 
@@ -27,7 +30,7 @@ BASE_BACKOFF = 5  # seconds, doubles each retry
 
 _STATUS_PATTERNS = [
     (re.compile(r"Extracting cookies from", re.IGNORECASE), GF.extracting_cookies),
-    (re.compile(r"Solving JS challenge", re.IGNORECASE), GF.solving_js),
+    (re.compile(r"Solving JS challenge|\[jsc", re.IGNORECASE), GF.solving_js),
     (re.compile(r"Extracting URL|Downloading webpage|Downloading player", re.IGNORECASE), GF.fetching_info),
 ]
 
@@ -54,6 +57,7 @@ class _YdlUiLogger:
 
     def warning(self, msg):
         logger.warning(msg)
+        self._update_status(msg)
 
     def error(self, msg):
         logger.error(msg)
@@ -67,7 +71,17 @@ def create_ydl(
     """Create a reusable YoutubeDL instance (cookies extracted once)."""
     logger.debug("ydl options %s", ydl_opts)
     ydl_opts["logger"] = _YdlUiLogger(status_cb)
-    FFmpegPostProcessor._ffmpeg_location.set(ff_path.get("ffmpeg"))
+    ffmpeg_path = ff_path.get("ffmpeg", "ffmpeg")
+    if ffmpeg_path != "ffmpeg":
+        FFmpegPostProcessor._ffmpeg_location.set(ffmpeg_path)
+        # Patch FFmpegFD.available so it finds our custom ffmpeg binary
+        FFmpegFD.available = classmethod(lambda cls, path=None: True)
+    else:
+        FFmpegPostProcessor._ffmpeg_location.set(None)
+    if runtime.is_android() and ffmpeg_path != "ffmpeg":
+        qjs_path = os.path.join(os.path.dirname(ffmpeg_path), "libqjs.so")
+        if os.path.isfile(qjs_path):
+            ydl_opts["js_runtimes"] = {"quickjs": {"path": qjs_path}}
     return YoutubeDL(ydl_opts)
 
 
@@ -156,7 +170,8 @@ def download(
             except BaseException as e:
                 error.append(e)
 
-        t = threading.Thread(target=target, daemon=True)
+        ctx = contextvars.copy_context()
+        t = threading.Thread(target=ctx.run, args=(target,), daemon=True)
         t.start()
 
         # Poll until thread finishes or stall detected

@@ -28,7 +28,7 @@ def build_file_opts(
     if indices_enabled:
         opts["playlist_items"] = indices_value or 1
     if ff_path.get("ffmpeg") != "ffmpeg":
-        opts["ffmpeg_location"] = ff_path.get("ffmpeg")
+        opts["ffmpeg_location"] = ff_path["ffmpeg"]
     return opts
 
 
@@ -81,26 +81,28 @@ def build_original_opts(
     return {"format": format_opt, "merge_output_format": "mp4"}
 
 
+def _timecode_to_seconds(tc: str) -> float:
+    """Convert 'HH:MM:SS' to seconds."""
+    parts = tc.split(':')
+    return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+
+
 def build_ffmpeg_opts(
     *,
     start_enabled: bool,
     start_timecode: str,
     end_enabled: bool,
     end_timecode: str,
-    platform: str,
-    ff_path: dict[str, str],
 ) -> dict[str, Any]:
-    """Build yt-dlp FFmpeg trim options."""
+    """Build yt-dlp trim options using download_ranges."""
     opts: dict[str, Any] = {}
     if start_enabled or end_enabled:
-        start = start_timecode if start_enabled else "00:00:00"
-        ffmpeg_args = ["-ss", start]
-        if end_enabled:
-            ffmpeg_args.extend(["-to", end_timecode])
-        opts["external_downloader"] = "ffmpeg"
-        opts["external_downloader_args"] = {"ffmpeg_i": ffmpeg_args}
-        if platform == "Windows":
-            opts["ffmpeg_location"] = ff_path.get("ffmpeg")
+        from yt_dlp.utils._utils import download_range_func
+
+        start = _timecode_to_seconds(start_timecode) if start_enabled else 0
+        end = _timecode_to_seconds(end_timecode) if end_enabled else float('inf')
+        opts['download_ranges'] = download_range_func([], [(start, end)])
+        opts['force_keyframes_at_cuts'] = True
     return opts
 
 
@@ -113,7 +115,7 @@ def build_subtitles_opts(enabled: bool) -> dict[str, Any]:
 
 def build_browser_opts(cookies_value: str | None, none_label: str) -> dict[str, Any]:
     """Build yt-dlp cookie/browser options."""
-    if cookies_value and cookies_value != none_label:
+    if cookies_value and cookies_value != none_label and cookies_value.lower() != 'none':
         return {"cookiesfrombrowser": [cookies_value.lower()]}
     return {}
 
@@ -141,10 +143,23 @@ def get_effective_vcodec(original_on: bool, vcodec: str | None, nle_ready: bool)
     return "Best"
 
 
-def determine_encode_state(original_on: bool, vcodec: str | None, nle_ready: bool) -> tuple[str, str, str, bool]:
+# Maps UI codec names to yt-dlp codec prefixes found in format listings
+VCODEC_TO_FORMAT_PREFIX = {
+    "x264": {"avc1", "h264"},
+    "x265": {"hevc", "h265", "hev1"},
+    "AV1": {"av01", "av1"},
+    "ProRes": {"prores"},
+}
+
+
+def determine_encode_state(
+    original_on: bool, vcodec: str | None, nle_ready: bool,
+    available_codecs: set[str] | None = None,
+) -> tuple[str, str, str, bool]:
     """Determine encode indicator state: (icon, color, state, visible).
 
     state is "remux", "reencode", or "none".
+    available_codecs: set of codec prefixes from fetched video formats.
     """
     if original_on:
         return "check_circle", "green", "remux", True
@@ -152,6 +167,10 @@ def determine_encode_state(original_on: bool, vcodec: str | None, nle_ready: boo
         return "", "", "none", False
     if vcodec == "Auto" and nle_ready:
         return "check_circle", "green", "remux", True
+    if vcodec and available_codecs:
+        prefixes = VCODEC_TO_FORMAT_PREFIX.get(vcodec, set())
+        if prefixes & available_codecs:
+            return "check_circle", "green", "remux", True
     return "warning_amber", "orange", "reencode", True
 
 
@@ -184,7 +203,7 @@ def filter_formats(formats: list[dict]) -> tuple[list[dict], list[dict]]:
     video_formats = []
     for key, v in sorted(video_seen.items(), key=lambda x: x[1]["height"], reverse=True):
         label = f"{key} — {v['height']}p"
-        video_formats.append({"format_id": v["format_id"], "label": label})
+        video_formats.append({"format_id": v["format_id"], "label": label, "codec": v["codec"]})
 
     audio_formats = []
     for key, a in sorted(audio_seen.items(), key=lambda x: x[1]["abr"], reverse=True):

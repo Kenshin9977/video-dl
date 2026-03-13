@@ -1039,7 +1039,7 @@ requires-dist = [
     { name = "tufup", marker = "extra == 'desktop'", specifier = ">=0.10" },
     { name = "tufup", marker = "extra == 'dev'", specifier = ">=0.10" },
     { name = "yt-dlp-ejs" },
-    { name = "yt-dlp-enhanced-progress" },
+    { name = "yt-dlp-enhanced-progress", specifier = ">=2026.3.3" },
 ]
 provides-extras = ["desktop", "dev"]
 
@@ -1054,9 +1054,9 @@ wheels = [
 
 [[package]]
 name = "yt-dlp-enhanced-progress"
-version = "2026.2.26.132705"
+version = "2026.3.3"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/71/1e/546bb600c2dd1e5ffd260b444fa4996132e47f43507c3151042efbf4ad37/yt_dlp_enhanced_progress-2026.2.26.132705.tar.gz", hash = "sha256:0c817f5e6169f5b330f82bc8f963f661feaafbd1c27f038e4e5a505f6dd1ee93", size = 3131688, upload-time = "2026-02-26T13:45:35.786Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/76/35/42d5ce46e12154114d0e6dc6919752538e3c6bfa130354cd5853732929a6/yt_dlp_enhanced_progress-2026.3.3.tar.gz", hash = "sha256:cbe146c6eb016c1c5d3122336924bbbee423046029ca7c11fcc652718266690f", size = 2867764, upload-time = "2026-03-04T07:01:22.377Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fb/fb/a64acd8651d8d4b2bdeffbede3c02f5a6b0f6e3f42b758fe0b849ee2fd94/yt_dlp_enhanced_progress-2026.2.26.132705-py3-none-any.whl", hash = "sha256:cff0c2ad9d1b2292d35febfca53e3d44a95c5a9cd15882b61bd3a71cb1745260", size = 3319494, upload-time = "2026-02-26T13:45:34.002Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/5c/82cc53ff3bdf488767e773c897825cef445730d129870e3896ac080f24bf/yt_dlp_enhanced_progress-2026.3.3-py3-none-any.whl", hash = "sha256:14410c82ec7a36953bc5c83958a04d8648f28c91dc72c40f6a2eed6ef746bff7", size = 3065344, upload-time = "2026-03-04T07:01:20.022Z" },
 ]

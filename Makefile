@@ -105,7 +105,7 @@ format: fix ## Alias for fix
 # --------------------------------------------------------------------------
 # Build
 # --------------------------------------------------------------------------
-.PHONY: apk aab deploy-android check-android fetch-ffmpeg-android
+.PHONY: apk aab deploy-android check-android fetch-ffmpeg-android fetch-ejs-lib
 
 check-android:
 	@if [ -z "$(JAVA_HOME_DETECTED)" ]; then \
@@ -122,13 +122,19 @@ check-android:
 
 FFMPEG_ANDROID_REPO := Kenshin9977/FFmpeg-Builds
 FFMPEG_ANDROID_ASSET := ffmpeg-master-latest-androidarm64-gpl-shared.tar.xz
+ARIA2C_ANDROID_REPO := Kenshin9977/aria2
+NDK_VERSION := 28.2.13676358
+NDK_BIN := /opt/homebrew/share/android-commandlinetools/ndk/$(NDK_VERSION)/toolchains/llvm/prebuilt/darwin-x86_64/bin
+EJS_VERSION := 0.5.0
+EJS_VENDOR_DIR := .venv/lib/python3.12/site-packages/yt_dlp/extractor/youtube/jsc/_builtin/vendor
 ANDROID_LIBS := android_libs/arm64-v8a
+
+fetch-android-deps: fetch-ffmpeg-android fetch-aria2c-android fetch-quickjs-android ## Download all Android ARM64 dependencies
 
 fetch-ffmpeg-android: ## Download FFmpeg Android ARM64 build from fork
 	@echo "Downloading $(FFMPEG_ANDROID_ASSET)..."
 	gh release download latest --repo $(FFMPEG_ANDROID_REPO) \
 		--pattern "$(FFMPEG_ANDROID_ASSET)" --dir /tmp --clobber
-	rm -rf $(ANDROID_LIBS)
 	mkdir -p $(ANDROID_LIBS)
 	tar xf /tmp/$(FFMPEG_ANDROID_ASSET) -C /tmp
 	cp /tmp/ffmpeg-master-latest-androidarm64-gpl-shared/bin/ffmpeg \
@@ -138,7 +144,49 @@ fetch-ffmpeg-android: ## Download FFmpeg Android ARM64 build from fork
 	cp /tmp/ffmpeg-master-latest-androidarm64-gpl-shared/LICENSE.txt android_libs/
 	rm -rf /tmp/ffmpeg-master-latest-androidarm64-gpl-shared /tmp/$(FFMPEG_ANDROID_ASSET)
 	@echo "FFmpeg Android binaries ready in $(ANDROID_LIBS)/"
-	@ls -lh $(ANDROID_LIBS)/
+
+fetch-aria2c-android: ## Download aria2c Android ARM64 build from fork
+	@echo "Downloading aria2c for Android ARM64..."
+	gh release download --repo $(ARIA2C_ANDROID_REPO) \
+		--pattern "aria2c-android-aarch64" --dir /tmp --clobber
+	mkdir -p $(ANDROID_LIBS)
+	cp /tmp/aria2c-android-aarch64 $(ANDROID_LIBS)/aria2c
+	chmod +x $(ANDROID_LIBS)/aria2c
+	rm -f /tmp/aria2c-android-aarch64
+	@echo "aria2c ready in $(ANDROID_LIBS)/"
+
+fetch-quickjs-android: ## Cross-compile bellard/quickjs for ARM64 Android
+	@echo "Building QuickJS (bellard) for ARM64 Android..."
+	rm -rf /tmp/quickjs-bellard
+	git clone --depth 1 https://github.com/bellard/quickjs.git /tmp/quickjs-bellard
+	cd /tmp/quickjs-bellard && \
+		CC="$(NDK_BIN)/clang --target=aarch64-linux-android24 --sysroot=$(NDK_BIN)/../sysroot" && \
+		CFLAGS="-D_GNU_SOURCE -DCONFIG_VERSION=\"$$(cat VERSION)\" -O2 -flto -funsigned-char -fwrapv" && \
+		for f in qjs quickjs quickjs-libc cutils dtoa libregexp libunicode; do \
+			$$CC $$CFLAGS -c -o $$f.o $$f.c; \
+		done && \
+		echo 'const unsigned char qjsc_repl[] = {0}; const unsigned int qjsc_repl_size = 0;' > repl_stub.c && \
+		$$CC $$CFLAGS -c -o repl_stub.o repl_stub.c && \
+		$$CC -static -flto -o qjs qjs.o quickjs.o quickjs-libc.o cutils.o dtoa.o libregexp.o libunicode.o repl_stub.o -lm -ldl && \
+		$(NDK_BIN)/llvm-strip qjs
+	mkdir -p $(ANDROID_LIBS)
+	cp /tmp/quickjs-bellard/qjs $(ANDROID_LIBS)/qjs
+	chmod +x $(ANDROID_LIBS)/qjs
+	rm -rf /tmp/quickjs-bellard
+	@echo "QuickJS ready in $(ANDROID_LIBS)/"
+
+fetch-ejs-lib: ## Download EJS lib script into yt-dlp vendor dir for N challenge solving
+	curl -fSL -o $(EJS_VENDOR_DIR)/yt.solver.lib.js \
+		https://github.com/yt-dlp/ejs/releases/download/$(EJS_VERSION)/yt.solver.lib.js
+	@# Also inject into build cache so flet doesn't use stale site-packages
+	@for arch in arm64-v8a armeabi-v7a x86 x86_64; do \
+		dir="build/site-packages/$$arch/yt_dlp/extractor/youtube/jsc/_builtin/vendor"; \
+		if [ -d "$$dir" ]; then \
+			cp $(EJS_VENDOR_DIR)/yt.solver.lib.js "$$dir/"; \
+			echo "  Injected into $$dir/"; \
+		fi; \
+	done
+	@echo "EJS lib script ready."
 
 # Signing — keystore location (override with KEYSTORE=…)
 KEYSTORE := $(HOME)/video-dl-release.jks
@@ -156,7 +204,7 @@ FLET_BUILD_OPTS := \
 	--exclude .venv venv dist .git .mypy_cache .ruff_cache .pytest_cache \
 		__pycache__ .coverage "*.log" "*.egg-info" tests docs \
 		htmlcov .tox build Makefile "*.icns" "*.ico" "*.spec" \
-		check_results.txt test_outdir \
+		check_results.txt test_outdir android_libs \
 	--android-permissions INTERNET=True WRITE_EXTERNAL_STORAGE=True READ_EXTERNAL_STORAGE=True MANAGE_EXTERNAL_STORAGE=True \
 	--android-adaptive-icon-background "\#7C3AED"
 
@@ -164,10 +212,28 @@ FLET_SIGN_OPTS := \
 	--android-signing-key-store "$(KEYSTORE)" \
 	--android-signing-key-alias "$(KEYSTORE_ALIAS)"
 
-apk: check-android ## Build release APK
+JNILIBS_DIR := build/flutter/android/app/src/main/jniLibs/arm64-v8a
+
+inject-native-libs: ## Copy FFmpeg + quickjs binaries as .so into jniLibs for APK native lib dir
 	@if [ ! -f "$(ANDROID_LIBS)/ffmpeg" ]; then \
 		echo "FFmpeg Android binaries missing. Run: make fetch-ffmpeg-android"; exit 1; \
 	fi
+	mkdir -p $(JNILIBS_DIR)
+	cp $(ANDROID_LIBS)/ffmpeg $(JNILIBS_DIR)/libffmpeg.so
+	cp $(ANDROID_LIBS)/ffprobe $(JNILIBS_DIR)/libffprobe.so
+	cp $(ANDROID_LIBS)/libavcodec.so $(JNILIBS_DIR)/
+	cp $(ANDROID_LIBS)/libavdevice.so $(JNILIBS_DIR)/
+	cp $(ANDROID_LIBS)/libavfilter.so $(JNILIBS_DIR)/
+	cp $(ANDROID_LIBS)/libavformat.so $(JNILIBS_DIR)/
+	cp $(ANDROID_LIBS)/libavutil.so $(JNILIBS_DIR)/
+	cp $(ANDROID_LIBS)/libswresample.so $(JNILIBS_DIR)/
+	cp $(ANDROID_LIBS)/libswscale.so $(JNILIBS_DIR)/
+	cp $(ANDROID_LIBS)/libc++_shared.so $(JNILIBS_DIR)/
+	cp $(ANDROID_LIBS)/qjs $(JNILIBS_DIR)/libqjs.so
+	cp $(ANDROID_LIBS)/aria2c $(JNILIBS_DIR)/libaria2c.so
+	@echo "Native libs injected into $(JNILIBS_DIR)/"
+
+apk: check-android inject-native-libs fetch-ejs-lib ## Build release APK
 	JAVA_HOME="$(JAVA_HOME_DETECTED)" ANDROID_SDK_ROOT="$(ANDROID_SDK)" \
 		$(RUN) flet build apk $(FLET_BUILD_OPTS)
 

@@ -281,7 +281,9 @@ jobs:
             |:-------:|:-----:|:-----:|
             | [video-dl-windows.exe](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-windows.exe) | [video-dl-macos.dmg](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-macos.dmg) | [video-dl-linux](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-linux) |
 
-            Android APKs are included in the release assets below.
+            | Android (ARM64) | Android (ARM 32-bit) | Android (x86_64) |
+            |:---------------:|:--------------------:|:-----------------:|
+            | [video-dl-arm64-v8a.apk](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-arm64-v8a.apk) | [video-dl-armeabi-v7a.apk](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-armeabi-v7a.apk) | [video-dl-x86_64.apk](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-x86_64.apk) |
 
             <details>
             <summary>Auto-update files (internal)</summary>

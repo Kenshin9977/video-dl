@@ -60,6 +60,26 @@ class TestBuildErrorReport:
         assert "Timeout" in report.short_message
         assert "example.com" in report.short_message
 
+    def test_chrome_cookies_locked(self):
+        try:
+            raise RuntimeError("Could not copy Chrome cookie database. See https://github.com/yt-dlp/yt-dlp/issues/7271")
+        except RuntimeError as e:
+            report = build_error_report(e)
+        assert report.color == "red"
+        assert report.should_break is True
+        assert report.has_detail is True
+        assert "Chrome" in report.short_message
+
+    def test_unable_to_extract(self):
+        try:
+            raise RuntimeError("ERROR: [PornHub] abc123: Unable to extract title")
+        except RuntimeError as e:
+            report = build_error_report(e)
+        assert report.color == "yellow"
+        assert report.should_break is False
+        assert report.has_detail is True
+        assert "login" in report.short_message.lower() or "cookie" in report.short_message.lower()
+
     def test_report_is_frozen(self):
         report = build_error_report(DownloadCancelled())
         assert isinstance(report, ErrorReport)

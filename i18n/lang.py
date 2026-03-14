@@ -59,6 +59,8 @@ class GuiField(enum.Enum):
     playlist_not_found = enum.auto()
     unsupported_url = enum.auto()
     no_encoder = enum.auto()
+    error_chrome_cookies_locked = enum.auto()
+    error_login_required = enum.auto()
 
     # Progress window
     download = enum.auto()
@@ -499,6 +501,35 @@ def get_text(field: GuiField) -> str:
             Language.french: ("Playlist introuvable, proablement privée. Essayez de régler l'option Cookies"),
             Language.german: (
                 "Wiedergabeliste nicht gefunden, wahrscheinlich privat. Versuchen Sie die Cookies zu setzen"
+            ),
+        },
+        GuiField.error_chrome_cookies_locked: {
+            Language.english: (
+                "Chrome's cookie database is locked. Close Chrome and retry, "
+                "or select Firefox/Edge in the Cookies option."
+            ),
+            Language.french: (
+                "La base de cookies Chrome est verrouillée. Fermez Chrome et réessayez, "
+                "ou sélectionnez Firefox/Edge dans l'option Cookies."
+            ),
+            Language.german: (
+                "Chromes Cookie-Datenbank ist gesperrt. Schließen Sie Chrome und versuchen Sie es erneut, "
+                "oder wählen Sie Firefox/Edge in der Cookies-Option."
+            ),
+        },
+        GuiField.error_login_required: {
+            Language.english: (
+                "Unable to extract video info. This video may require login. "
+                "Try setting the Cookies option."
+            ),
+            Language.french: (
+                "Impossible d'extraire les informations de la vidéo. "
+                "Cette vidéo nécessite peut-être une connexion. Essayez l'option Cookies."
+            ),
+            Language.german: (
+                "Video-Informationen konnten nicht extrahiert werden. "
+                "Dieses Video erfordert möglicherweise eine Anmeldung. "
+                "Versuchen Sie die Cookies-Option zu setzen."
             ),
         },
     }

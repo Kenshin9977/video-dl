@@ -7,6 +7,9 @@ from core.exceptions import DownloadCancelled, DownloadTimeout, FFmpegNoValidEnc
 from i18n.lang import GuiField as GF
 from i18n.lang import get_text as gt
 
+_CHROME_COOKIE_LOCKED = "Could not copy Chrome cookie database"
+_UNABLE_TO_EXTRACT = "Unable to extract"
+
 
 @dataclass(frozen=True, slots=True)
 class ErrorReport:
@@ -53,7 +56,24 @@ def build_error_report(exc: BaseException) -> ErrorReport:
         )
     tb = traceback.format_exception(type(exc), exc, exc.__traceback__)
     detail = "".join(tb)
-    err_msg = str(exc).removeprefix("ERROR: ")
+    raw = str(exc)
+    if _CHROME_COOKIE_LOCKED in raw:
+        return ErrorReport(
+            short_message=gt(GF.error_chrome_cookies_locked),
+            detail=detail,
+            color="red",
+            should_break=True,
+            has_detail=True,
+        )
+    if _UNABLE_TO_EXTRACT in raw:
+        return ErrorReport(
+            short_message=gt(GF.error_login_required),
+            detail=detail,
+            color="yellow",
+            should_break=False,
+            has_detail=True,
+        )
+    err_msg = raw.removeprefix("ERROR: ")
     short = f"{gt(GF.dl_error)} {err_msg}"
     return ErrorReport(
         short_message=short,

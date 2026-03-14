@@ -993,7 +993,7 @@ wheels = [
 
 [[package]]
 name = "video-dl"
-version = "2.1.6"
+version = "2.2.2"
 source = { editable = "." }
 dependencies = [
     { name = "flet" },

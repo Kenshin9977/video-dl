@@ -72,7 +72,7 @@ class TestBuildErrorReport:
 
     def test_unable_to_extract(self):
         try:
-            raise RuntimeError("ERROR: [PornHub] abc123: Unable to extract title")
+            raise RuntimeError("ERROR: [SomeSite] abc123: Unable to extract title")
         except RuntimeError as e:
             report = build_error_report(e)
         assert report.color == "yellow"

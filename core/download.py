@@ -3,10 +3,8 @@ from __future__ import annotations
 import contextvars
 import logging
 import os
-import pathlib
 import re
 import signal
-import sqlite3
 import subprocess
 import threading
 import time
@@ -27,9 +25,52 @@ from i18n.lang import get_text as gt
 logger = logging.getLogger("videodl")
 
 
+def _unlock_cookie_db(database_path: str) -> None:
+    """Use Windows Restart Manager to release any process lock on the cookie DB.
+
+    Adapted from https://gist.github.com/csm10495/e89e660ffee0030e8ef410b793ad6a7e
+    by Charles Machalow (MIT License).
+    """
+    from ctypes import WINFUNCTYPE, byref, c_wchar_p, windll
+    from ctypes.wintypes import DWORD, UINT, WCHAR
+
+    error_success = 0
+    error_more_data = 234
+    rm_force_shutdown = 1
+
+    @WINFUNCTYPE(None, UINT)
+    def _cb(pct: UINT) -> None:  # noqa: ARG001
+        pass
+
+    rstrtmgr = windll.LoadLibrary("Rstrtmgr")
+    session_handle = DWORD(0)
+    session_key = (WCHAR * 256)()
+
+    if DWORD(rstrtmgr.RmStartSession(byref(session_handle), DWORD(0), session_key)).value != error_success:
+        return
+    try:
+        rstrtmgr.RmRegisterResources(
+            session_handle, 1,
+            (c_wchar_p * 1)(database_path),
+            0, None, 0, None,
+        )
+        proc_info_needed = DWORD(0)
+        proc_info = DWORD(0)
+        reboot_reasons = DWORD(0)
+        result = DWORD(rstrtmgr.RmGetList(
+            session_handle, byref(proc_info_needed),
+            byref(proc_info), None, byref(reboot_reasons),
+        )).value
+        if result in (error_success, error_more_data) and proc_info_needed.value:
+            logger.debug("Unlocking cookie DB held by %d process(es)", proc_info_needed.value)
+            rstrtmgr.RmShutdown(session_handle, rm_force_shutdown, _cb)
+    finally:
+        rstrtmgr.RmEndSession(session_handle)
+
+
 def _patch_cookie_db_copy() -> None:
-    """On Windows, patch yt-dlp's _open_database_copy to fall back to SQLite
-    immutable read mode when the browser has the file locked."""
+    """On Windows, patch yt-dlp's _open_database_copy to release any browser
+    lock on the cookie DB via Windows Restart Manager, then retry."""
     if os.name != "nt":
         return
     import yt_dlp.cookies as _ydl_cookies
@@ -40,13 +81,9 @@ def _patch_cookie_db_copy() -> None:
         try:
             return _original(database_path, tmpdir)
         except OSError:
-            logger.debug(
-                "shutil.copy failed for %s, retrying with immutable SQLite read",
-                database_path,
-            )
-            uri = pathlib.Path(database_path).as_uri() + "?mode=ro&immutable=1"
-            conn = sqlite3.connect(uri, uri=True)
-            return conn.cursor()
+            logger.debug("Cookie DB locked, attempting unlock via Restart Manager")
+            _unlock_cookie_db(str(database_path))
+            return _original(database_path, tmpdir)
 
     _ydl_cookies._open_database_copy = _patched
 

@@ -97,7 +97,7 @@ def build_ffmpeg_opts(
     """Build yt-dlp trim options using download_ranges."""
     opts: dict[str, Any] = {}
     if start_enabled or end_enabled:
-        from yt_dlp.utils._utils import download_range_func
+        from yt_dlp.utils import download_range_func
 
         start = _timecode_to_seconds(start_timecode) if start_enabled else 0
         end = _timecode_to_seconds(end_timecode) if end_enabled else float('inf')

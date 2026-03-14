@@ -3,6 +3,7 @@ from __future__ import annotations
 import signal
 import subprocess
 import sys
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -44,6 +45,7 @@ sys.modules.pop("core.download", None)
 from core.download import (  # noqa: E402
     _STATUS_PATTERNS,
     MAX_RETRIES,
+    STALL_TIMEOUT,
     _finish_download,
     _get_child_pids,
     _kill_new_children,
@@ -142,7 +144,7 @@ class TestYdlUiLogger:
 
     def test_warning_does_not_update_status(self):
         logger, status_cb = self._make_logger()
-        logger.warning("Extracting cookies from Chrome")
+        logger.warning("Some random warning message")
         status_cb.on_status.assert_not_called()
 
     def test_error_does_not_update_status(self):
@@ -401,7 +403,7 @@ class TestDownload:
             call_count[0] += 1
             # Force the stall detector to report stalled
             if stall_detector_ref[0]:
-                stall_detector_ref[0]._last_activity = 0.0
+                stall_detector_ref[0]._last_activity = time.monotonic() - STALL_TIMEOUT - 1
             raise TimeoutError("connection timed out")
 
         ydl.extract_info.side_effect = fake_extract

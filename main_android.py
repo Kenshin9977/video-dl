@@ -29,7 +29,6 @@ def main():
     _log(f"[3] sys.path={sys.path[:5]}")
 
     try:
-        import logging
         import warnings
 
         warnings.filterwarnings("ignore", message="urllib3.*doesn't match a supported version")
@@ -50,7 +49,6 @@ def main():
             exists = os.path.isfile(path)
             _log(f"[5c] {name}: {path} exists={exists}")
             if exists:
-                import stat
                 st = os.stat(path)
                 _log(f"[5d] {name}: mode={oct(st.st_mode)} size={st.st_size}")
         _log(f"[5i] LD_LIBRARY_PATH={os.environ.get('LD_LIBRARY_PATH', 'NOT SET')}")

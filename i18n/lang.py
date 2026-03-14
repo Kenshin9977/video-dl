@@ -60,6 +60,7 @@ class GuiField(enum.Enum):
     unsupported_url = enum.auto()
     no_encoder = enum.auto()
     error_chrome_cookies_locked = enum.auto()
+    error_chrome_dpapi = enum.auto()
     error_login_required = enum.auto()
 
     # Progress window
@@ -515,6 +516,20 @@ def get_text(field: GuiField) -> str:
             Language.german: (
                 "Chromes Cookie-Datenbank ist gesperrt. Schließen Sie Chrome und versuchen Sie es erneut, "
                 "oder wählen Sie Firefox/Edge in der Cookies-Option."
+            ),
+        },
+        GuiField.error_chrome_dpapi: {
+            Language.english: (
+                "Chrome's cookies are encrypted with App-Bound Encryption (Chrome 127+) "
+                "and cannot be decrypted. Use Firefox or Edge in the Cookies option instead."
+            ),
+            Language.french: (
+                "Les cookies Chrome sont chiffrés avec App-Bound Encryption (Chrome 127+) "
+                "et ne peuvent pas être déchiffrés. Utilisez Firefox ou Edge dans l'option Cookies."
+            ),
+            Language.german: (
+                "Chrome-Cookies sind mit App-Bound Encryption (Chrome 127+) verschlüsselt "
+                "und können nicht entschlüsselt werden. Verwenden Sie Firefox oder Edge in der Cookies-Option."
             ),
         },
         GuiField.error_login_required: {

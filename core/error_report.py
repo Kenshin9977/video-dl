@@ -8,6 +8,7 @@ from i18n.lang import GuiField as GF
 from i18n.lang import get_text as gt
 
 _CHROME_COOKIE_LOCKED = "Could not copy Chrome cookie database"
+_CHROME_DPAPI_FAILED = "Failed to decrypt with DPAPI"
 _UNABLE_TO_EXTRACT = "Unable to extract"
 
 
@@ -57,6 +58,14 @@ def build_error_report(exc: BaseException) -> ErrorReport:
     tb = traceback.format_exception(type(exc), exc, exc.__traceback__)
     detail = "".join(tb)
     raw = str(exc)
+    if _CHROME_DPAPI_FAILED in raw:
+        return ErrorReport(
+            short_message=gt(GF.error_chrome_dpapi),
+            detail=detail,
+            color="red",
+            should_break=True,
+            has_detail=True,
+        )
     if _CHROME_COOKIE_LOCKED in raw:
         return ErrorReport(
             short_message=gt(GF.error_chrome_cookies_locked),

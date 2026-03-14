@@ -3,8 +3,10 @@ from __future__ import annotations
 import contextvars
 import logging
 import os
+import pathlib
 import re
 import signal
+import sqlite3
 import subprocess
 import threading
 import time
@@ -23,6 +25,33 @@ from i18n.lang import GuiField as GF
 from i18n.lang import get_text as gt
 
 logger = logging.getLogger("videodl")
+
+
+def _patch_cookie_db_copy() -> None:
+    """On Windows, patch yt-dlp's _open_database_copy to fall back to SQLite
+    immutable read mode when the browser has the file locked."""
+    if os.name != "nt":
+        return
+    import yt_dlp.cookies as _ydl_cookies
+
+    _original = _ydl_cookies._open_database_copy
+
+    def _patched(database_path, tmpdir):
+        try:
+            return _original(database_path, tmpdir)
+        except OSError:
+            logger.debug(
+                "shutil.copy failed for %s, retrying with immutable SQLite read",
+                database_path,
+            )
+            uri = pathlib.Path(database_path).as_uri() + "?mode=ro&immutable=1"
+            conn = sqlite3.connect(uri, uri=True)
+            return conn.cursor()
+
+    _ydl_cookies._open_database_copy = _patched
+
+
+_patch_cookie_db_copy()
 
 STALL_TIMEOUT = 120  # seconds without any progress before considered hung
 MAX_RETRIES = 3

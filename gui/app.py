@@ -1362,7 +1362,36 @@ class VideodlApp:
         progress_cb = _AppProgressCallback(self)
         status_cb = _AppStatusCallback(self)
         ydl_opts = self._gen_ydl_opts()
-        ydl = await asyncio.to_thread(create_ydl, ydl_opts, status_cb, FF_PATH)
+        try:
+            ydl = await asyncio.to_thread(create_ydl, ydl_opts, status_cb, FF_PATH)
+        except Exception as e:
+            cookie_keys = ("cookiesfrombrowser", "cookiefile")
+            has_cookies = any(k in ydl_opts for k in cookie_keys)
+            is_cookie_err = "permission" in str(e).lower() or "cookie" in str(e).lower()
+            if has_cookies and is_cookie_err:
+                logger.warning("Cookie extraction failed (%s), retrying without cookies", e)
+                for k in cookie_keys:
+                    ydl_opts.pop(k, None)
+                try:
+                    ydl = await asyncio.to_thread(create_ydl, ydl_opts, status_cb, FF_PATH)
+                except Exception as e2:
+                    report = build_error_report(e2)
+                    logger.error(report.short_message)
+                    self._show_error(report)
+                    self._download_done.set()
+                    self._ui_dirty.set()
+                    await ui_task
+                    self._reset_after_download()
+                    return
+            else:
+                report = build_error_report(e)
+                logger.error(report.short_message)
+                self._show_error(report)
+                self._download_done.set()
+                self._ui_dirty.set()
+                await ui_task
+                self._reset_after_download()
+                return
         target_vcodec = self._get_effective_vcodec()
         same_host = total > 1 and _urls_share_host(urls)
         for i, url in enumerate(urls):

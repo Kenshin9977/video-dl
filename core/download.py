@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import base64
 import contextvars
+import ctypes
+import ctypes.wintypes
+import json
 import logging
 import os
 import re
@@ -89,6 +93,171 @@ def _patch_cookie_db_copy() -> None:
 
 
 _patch_cookie_db_copy()
+
+
+class _GUID(ctypes.Structure):
+    _fields_ = [
+        ("Data1", ctypes.c_uint32),
+        ("Data2", ctypes.c_uint16),
+        ("Data3", ctypes.c_uint16),
+        ("Data4", ctypes.c_uint8 * 8),
+    ]
+
+    @classmethod
+    def from_str(cls, s: str) -> "_GUID":
+        s = s.strip("{}")
+        p = s.split("-")
+        g = cls()
+        g.Data1 = int(p[0], 16)
+        g.Data2 = int(p[1], 16)
+        g.Data3 = int(p[2], 16)
+        for i, b in enumerate(bytes.fromhex(p[3] + p[4])):
+            g.Data4[i] = b
+        return g
+
+
+def _com_decrypt_app_bound_key(ciphertext: bytes) -> bytes | None:
+    """Call IElevationService::DecryptData via COM vtable to decrypt Chrome's
+    App-Bound Encryption key (Chrome 127+).
+
+    CLSID: {708860E0-F641-4611-8895-7D867DD3675B} (Google Chrome Elevation Service)
+    IID:   {A13E07E4-E324-4C66-9B80-E7DBE3D49494} (IElevator)
+    vtable[5] = DecryptData(BSTR ciphertext, BSTR* plaintext, DWORD* last_error)
+    """
+    ole32 = ctypes.windll.ole32
+    oleaut32 = ctypes.windll.oleaut32
+    oleaut32.SysAllocStringByteLen.restype = ctypes.c_void_p
+    oleaut32.SysAllocStringByteLen.argtypes = [ctypes.c_char_p, ctypes.c_uint]
+    oleaut32.SysFreeString.argtypes = [ctypes.c_void_p]
+
+    clsid = _GUID.from_str("{708860E0-F641-4611-8895-7D867DD3675B}")
+    iid = _GUID.from_str("{A13E07E4-E324-4C66-9B80-E7DBE3D49494}")
+
+    ole32.CoInitialize(None)
+    ppv = ctypes.c_void_p(0)
+    hr = ole32.CoCreateInstance(
+        ctypes.byref(clsid), None, 4,  # CLSCTX_LOCAL_SERVER
+        ctypes.byref(iid), ctypes.byref(ppv),
+    )
+    if hr != 0 or not ppv.value:
+        logger.debug("CoCreateInstance failed: hr=0x%08X", hr & 0xFFFFFFFF)
+        return None
+
+    try:
+        buf = ctypes.create_string_buffer(ciphertext)
+        bstr_in = oleaut32.SysAllocStringByteLen(buf, len(ciphertext))
+        if not bstr_in:
+            return None
+
+        bstr_out = ctypes.c_void_p(0)
+        last_error = ctypes.wintypes.DWORD(0)
+
+        vtable_ptr = ctypes.c_size_t.from_address(ppv.value).value
+        decrypt_fn_ptr = ctypes.c_size_t.from_address(
+            vtable_ptr + 5 * ctypes.sizeof(ctypes.c_size_t)
+        ).value
+        decrypt_data = ctypes.WINFUNCTYPE(
+            ctypes.HRESULT,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.POINTER(ctypes.c_void_p),
+            ctypes.POINTER(ctypes.wintypes.DWORD),
+        )(decrypt_fn_ptr)
+
+        hr = decrypt_data(ppv.value, bstr_in, ctypes.byref(bstr_out), ctypes.byref(last_error))
+        oleaut32.SysFreeString(bstr_in)
+
+        if hr != 0 or not bstr_out.value:
+            logger.debug(
+                "IElevationService::DecryptData failed: hr=0x%08X last_error=%d",
+                hr & 0xFFFFFFFF, last_error.value,
+            )
+            return None
+
+        byte_len = ctypes.c_uint32.from_address(bstr_out.value - 4).value
+        result = bytes((ctypes.c_uint8 * byte_len).from_address(bstr_out.value))
+        oleaut32.SysFreeString(bstr_out)
+        # AES-256 key is 32 bytes; strip any leading metadata if result is longer
+        return result[-32:] if len(result) >= 32 else None
+    finally:
+        vtable_ptr = ctypes.c_size_t.from_address(ppv.value).value
+        release_ptr = ctypes.c_size_t.from_address(
+            vtable_ptr + 2 * ctypes.sizeof(ctypes.c_size_t)
+        ).value
+        ctypes.WINFUNCTYPE(ctypes.c_ulong, ctypes.c_void_p)(release_ptr)(ppv.value)
+
+
+def _get_app_bound_key(browser_root: str) -> bytes | None:
+    """Read Chrome's app_bound_encrypted_key from Local State and decrypt via COM."""
+    local_state_path = os.path.join(browser_root, "Local State")
+    if not os.path.isfile(local_state_path):
+        return None
+    try:
+        with open(local_state_path, encoding="utf-8") as f:
+            state = json.load(f)
+    except (OSError, ValueError):
+        return None
+
+    key_b64 = state.get("os_crypt", {}).get("app_bound_encrypted_key")
+    if not key_b64:
+        return None
+
+    encrypted = base64.b64decode(key_b64)
+    if not encrypted.startswith(b"APPB"):
+        return None
+
+    logger.debug("Found App-Bound Encryption key, attempting COM decryption")
+    try:
+        return _com_decrypt_app_bound_key(encrypted[4:])
+    except Exception as e:
+        logger.debug("App-Bound COM decryption failed: %s", e)
+        return None
+
+
+def _patch_v20_decryptor() -> None:
+    """Patch WindowsChromeCookieDecryptor to support Chrome 127+ v20 cookies
+    by decrypting the app-bound key via IElevationService COM."""
+    if os.name != "nt":
+        return
+    try:
+        import yt_dlp.cookies as _ydl_cookies
+
+        _orig_init = _ydl_cookies.WindowsChromeCookieDecryptor.__init__
+        _orig_decrypt = _ydl_cookies.WindowsChromeCookieDecryptor.decrypt
+        _decrypt_aes_gcm = _ydl_cookies._decrypt_aes_gcm
+
+        def _new_init(self, browser_root, ydl_logger, meta_version=None):
+            _orig_init(self, browser_root, ydl_logger, meta_version)
+            self._v20_key = _get_app_bound_key(browser_root)
+
+        def _new_decrypt(self, encrypted_value):
+            if encrypted_value[:3] == b"v20":
+                if not getattr(self, "_v20_key", None):
+                    self._logger.warning(
+                        "cannot decrypt v20 cookies: App-Bound key unavailable",
+                        only_once=True,
+                    )
+                    return None
+                nonce_len, tag_len = 12, 16
+                raw = encrypted_value[3:]
+                nonce = raw[:nonce_len]
+                ciphertext = raw[nonce_len:-tag_len]
+                auth_tag = raw[-tag_len:]
+                self._cookie_counts["v20"] = self._cookie_counts.get("v20", 0) + 1
+                return _decrypt_aes_gcm(
+                    ciphertext, self._v20_key, nonce, auth_tag, self._logger,
+                    hash_prefix=self._meta_version >= 24,
+                )
+            return _orig_decrypt(self, encrypted_value)
+
+        _ydl_cookies.WindowsChromeCookieDecryptor.__init__ = _new_init
+        _ydl_cookies.WindowsChromeCookieDecryptor.decrypt = _new_decrypt
+    except Exception as e:
+        logger.debug("Could not patch v20 cookie decryptor: %s", e)
+
+
+_patch_v20_decryptor()
+
 
 STALL_TIMEOUT = 120  # seconds without any progress before considered hung
 MAX_RETRIES = 3

@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import stat
+import threading
 import urllib.request
 from platform import system
 from zipfile import ZipFile
@@ -86,6 +87,8 @@ def quickjs_progress_page(page: ft.Page) -> None:
 
         except Exception as e:
             logger.error(f"QuickJS installation error: {e}")
+        finally:
+            page.window.destroy()
 
     def download_quickjs(platform_tag: str, download_folder) -> str:
         try:
@@ -105,8 +108,7 @@ def quickjs_progress_page(page: ft.Page) -> None:
         except Exception as e:
             raise Exception(f"Error occurred while retrieving QuickJS: {e}") from e
 
-    install_quickjs()
-    page.run_task(page.window.destroy)
+    threading.Thread(target=install_quickjs, daemon=True).start()
 
 
 def quickjs_missing(page: ft.Page):

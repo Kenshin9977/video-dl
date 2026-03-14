@@ -1,6 +1,7 @@
 import logging
 import os
 import stat
+import threading
 import time
 import urllib.request
 from platform import machine, system
@@ -91,7 +92,8 @@ def aria2c_progress_page(page: ft.Page) -> None:
             logger.error(f"aria2c installation error: {e}")
             download_text.value = f"Error: {e}"
             page.update()
+        finally:
+            time.sleep(1)
+            page.window.destroy()
 
-    install()
-    time.sleep(1)
-    page.run_task(page.window.destroy)
+    threading.Thread(target=install, daemon=True).start()

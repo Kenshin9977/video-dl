@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import sys
+import threading
 import urllib.request
 from typing import TypedDict
 from zipfile import ZipFile
@@ -65,6 +66,8 @@ def ffmpeg_progress_page(page: ft.Page) -> None:
 
         except Exception as e:
             logger.error(f"FFmpeg installation error: {e}")
+        finally:
+            page.window.destroy()
 
     def download_ffmpeg(bits_archi: str, download_folder) -> str:
         api_url = "https://api.github.com/repos/yt-dlp/FFmpeg-Builds/releases/latest"
@@ -89,8 +92,7 @@ def ffmpeg_progress_page(page: ft.Page) -> None:
             raise Exception(f"Error occurred while retrieving FFmpeg from GitHub: {e}") from e
         return ""
 
-    install_ffmpeg()
-    page.run_task(page.window.destroy)
+    threading.Thread(target=install_ffmpeg, daemon=True).start()
 
 
 class _FfmpegMissingInfo(TypedDict):

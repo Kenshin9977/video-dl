@@ -163,6 +163,7 @@ jobs:
           flet build apk \
             --project video-dl \
             --org com.videodl \
+            --icon assets/icon.png \
             --product "Video-dl" \
             --description "Download and encode videos" \
             --module-name main_android \

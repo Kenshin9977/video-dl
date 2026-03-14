@@ -15,6 +15,7 @@ a = Analysis(
     datas=[
         (os.path.join(ROOTDIR, 'root.json'), '.'),
         (os.path.join(ROOTDIR, 'icon.icns'), '.'),
+        (os.path.join(ROOTDIR, 'assets'), 'assets'),
     ] + flet_data + flet_desktop_data,
     hiddenimports=['flet_desktop'],
     hookspath=[],
@@ -43,8 +44,8 @@ exe = EXE(
     name='video-dl',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=True,
-    upx=True,
+    strip=False,
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -59,8 +60,8 @@ coll = COLLECT(
     a.binaries,
     a.zipfiles,
     a.datas,
-    strip=True,
-    upx=True,
+    strip=False,
+    upx=False,
     upx_exclude=[],
     name='video-dl',
 )
@@ -71,7 +72,7 @@ app = BUNDLE(
     icon=os.path.join(ROOTDIR, 'icon.icns'),
     bundle_identifier='com.kenshin.video-dl',
     info_plist={
-        'CFBundleShortVersionString': '2.1.6',
+        'CFBundleShortVersionString': '2.2.2',
         'CFBundleName': 'video-dl',
         'NSHighResolutionCapable': True,
         'LSUIElement': True,

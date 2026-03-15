@@ -15,8 +15,10 @@ _mock_lang = MagicMock()
 _mock_lang.GuiField = MagicMock()
 _mock_lang.get_text = MagicMock(side_effect=lambda field: f"text_{field}")
 
+
 class _FakeYtdlpDownloadCancelled(Exception):
     pass
+
 
 _mock_yt_utils = MagicMock()
 _mock_yt_utils.DownloadCancelled = _FakeYtdlpDownloadCancelled
@@ -57,7 +59,7 @@ from core.download import (  # noqa: E402
 )
 from core.exceptions import DownloadCancelled, DownloadTimeout, PlaylistNotFound  # noqa: E402
 
-# GF members are MagicMock attributes — build a lookup by identity
+# GF members are MagicMock attributes - build a lookup by identity
 _GF = _mock_lang.GuiField
 _FIELD_BY_MOCK = {
     _GF.extracting_cookies: "extracting_cookies",
@@ -202,7 +204,7 @@ class TestFinishDownload:
 
 
 # ---------------------------------------------------------------------------
-# Phase 1 — _StallDetector
+# Phase 1 - _StallDetector
 # ---------------------------------------------------------------------------
 class TestStallDetector:
     def test_not_stalled_just_after_creation(self):
@@ -232,7 +234,7 @@ class TestStallDetector:
         mock_time.monotonic.return_value = 18.0
         assert sd.is_stalled() is False  # only 9s since tick
         mock_time.monotonic.return_value = 20.0
-        assert sd.is_stalled() is True   # 11s since tick
+        assert sd.is_stalled() is True  # 11s since tick
 
     @patch("core.download.time")
     def test_custom_timeout(self, mock_time):
@@ -252,7 +254,7 @@ class TestStallDetector:
 
 
 # ---------------------------------------------------------------------------
-# Phase 2 — _get_child_pids
+# Phase 2 - _get_child_pids
 # ---------------------------------------------------------------------------
 class TestGetChildPids:
     @patch("core.download.subprocess.check_output", return_value="1234\n5678\n")
@@ -278,7 +280,7 @@ class TestGetChildPids:
 
 
 # ---------------------------------------------------------------------------
-# Phase 2 — _kill_new_children
+# Phase 2 - _kill_new_children
 # ---------------------------------------------------------------------------
 class TestKillNewChildren:
     @patch("core.download.os.kill")
@@ -303,7 +305,7 @@ class TestKillNewChildren:
 
 
 # ---------------------------------------------------------------------------
-# Phase 4 — post_download
+# Phase 4 - post_download
 # ---------------------------------------------------------------------------
 class TestPostDownload:
     @patch("core.download.post_process_dl")
@@ -329,7 +331,7 @@ class TestPostDownload:
 
 
 # ---------------------------------------------------------------------------
-# Phase 5 — download() with threading and retry
+# Phase 5 - download() with threading and retry
 # ---------------------------------------------------------------------------
 def _make_ydl(extract_result=None, extract_error=None):
     ydl = MagicMock()

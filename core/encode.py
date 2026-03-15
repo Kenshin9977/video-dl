@@ -98,7 +98,7 @@ def post_process_dl(
             min_dimension = min(stream["width"], stream["height"])
 
     if target_vcodec == "Original":
-        # Remux only — copy both streams into mp4 container
+        # Remux only - copy both streams into mp4 container
         acodec_nle_friendly = True
         vcodec_is_target = True
         target_vcodec = _VCODEC_NAME_TO_TARGET.get(vcodec.lower(), "x264")
@@ -107,11 +107,11 @@ def post_process_dl(
         resolved = _VCODEC_NAME_TO_TARGET.get(vcodec.lower(), "x264")
         acodec_nle_friendly = not a_needs
         if not v_needs:
-            # Video already NLE-compatible — remux (copy video)
+            # Video already NLE-compatible - remux (copy video)
             vcodec_is_target = True
             target_vcodec = resolved
         else:
-            # Video incompatible — re-encode to x264
+            # Video incompatible - re-encode to x264
             vcodec_is_target = False
             target_vcodec = "x264"
     else:
@@ -204,7 +204,7 @@ def _ffmpeg_video(
     if vcodec_is_target:
         ffmpeg_vcodec, quality_options = "copy", []
     else:
-        ffmpeg_vcodec, quality_options = fastest_encoder(path, target_vcodec)
+        ffmpeg_vcodec, quality_options = fastest_encoder(target_vcodec)
         quality_options = _adapt_crf(quality_options, min_dimension)
     tmp_path = f"{os.path.splitext(path)[0]}.tmp{new_ext}"
     use_mediacodec_hwaccel = ffmpeg_vcodec.endswith("_mediacodec")
@@ -214,24 +214,26 @@ def _ffmpeg_video(
     ]
     if use_mediacodec_hwaccel:
         ffmpeg_command.extend(["-hwaccel", "mediacodec", "-hwaccel_output_format", "mediacodec"])
-    ffmpeg_command.extend([
-        "-i",
-        path,
-        "-map",
-        "0:v:0",
-        "-map",
-        "0:a:0",
-        "-c:a",
-        ffmpeg_acodec,
-        "-c:v",
-        ffmpeg_vcodec,
-        "-metadata",
-        "creation_time=now",
-    ])
+    ffmpeg_command.extend(
+        [
+            "-i",
+            path,
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a:0",
+            "-c:a",
+            ffmpeg_acodec,
+            "-c:v",
+            ffmpeg_vcodec,
+            "-metadata",
+            "creation_time=now",
+        ]
+    )
     if not vcodec_is_target:
         ffmpeg_command.extend(quality_options)
     elif target_vcodec == "ProRes":
-        ffmpeg_command.extend(["-profile:v", "0", "-qscale:v", "4"])
+        ffmpeg_command.extend(["-profile:v", "0", "-qscale:v", "9"])
     if new_ext == ".mp4":
         ffmpeg_command.extend(["-movflags", "+faststart"])
     ffmpeg_command.extend(["-progress", "pipe:1", "-y", tmp_path])

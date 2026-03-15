@@ -39,9 +39,10 @@ class TestGetUpdateCacheDir:
     def test_linux(self):
         with patch("sys.platform", "linux"), patch("updater.client.APP_NAME", "video-dl"):
             result = _get_update_cache_dir()
-            assert "video-dl" in str(result)
-            assert "update_cache" in str(result)
-            assert ".local/share" in str(result)
+            assert "video-dl" in result.parts
+            assert "update_cache" in result.parts
+            assert ".local" in result.parts
+            assert "share" in result.parts
 
     def test_darwin(self):
         with patch("sys.platform", "darwin"), patch("updater.client.APP_NAME", "video-dl"):

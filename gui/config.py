@@ -33,7 +33,8 @@ def _get_config_filename() -> str:
         _config_filename = os.path.join(_paths.get_config_dir(), "videodl-config.toml")
     return _config_filename
 
-# Config key constants — used by config.py and app.py
+
+# Config key constants - used by config.py and app.py
 CK_LANGUAGE = "Language"
 CK_THEME = "Theme"
 CK_DEST_FOLDER = "Destination folder"
@@ -49,6 +50,8 @@ CK_AUDIO_ONLY = "Audio only"
 CK_SONG_ONLY = "Song only"
 CK_SUBTITLES = "Subtitles"
 CK_COOKIES = "Cookies"
+CK_COOKIES_FILE = "Cookies file"
+CK_PROXY = "Proxy"
 
 
 class VideodlConfig:
@@ -81,6 +84,8 @@ class VideodlConfig:
                 CK_SONG_ONLY: False,
                 CK_SUBTITLES: False,
                 CK_COOKIES: detected_browser or gt(GF.login_from_none),
+                CK_COOKIES_FILE: "",
+                CK_PROXY: "",
             }
         }
         self._save(config)
@@ -129,6 +134,8 @@ class VideodlConfig:
                 and isinstance(opts[CK_SONG_ONLY], bool)
                 and isinstance(opts[CK_SUBTITLES], bool)
                 and opts[CK_COOKIES] in browsers
+                and isinstance(opts.get(CK_COOKIES_FILE, ""), str)
+                and isinstance(opts.get(CK_PROXY, ""), str)
                 and VideodlConfig._logic_is_respected(opts)
             )
         except KeyError:
@@ -145,6 +152,11 @@ class VideodlConfig:
             opts[CK_ORIGINAL] = True
         if CK_ORIGINAL not in opts:
             opts[CK_ORIGINAL] = False
+        # Safari is macOS-only; reset to None on other platforms
+        import sys as _sys
+
+        if opts.get(CK_COOKIES) == "Safari" and _sys.platform != "darwin":
+            opts[CK_COOKIES] = gt(GF.login_from_none)
 
     @staticmethod
     def _logic_is_respected(opts: dict):

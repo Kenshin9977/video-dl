@@ -3,7 +3,13 @@ from __future__ import annotations
 import traceback
 from dataclasses import dataclass
 
-from core.exceptions import DownloadCancelled, DownloadTimeout, FFmpegNoValidEncoderFound, PlaylistNotFound
+from core.exceptions import (
+    DownloadCancelled,
+    DownloadTimeout,
+    FFmpegNoValidEncoderFound,
+    PlaylistNotFound,
+    v20_was_blocked,
+)
 from i18n.lang import GuiField as GF
 from i18n.lang import get_text as gt
 
@@ -75,15 +81,18 @@ def build_error_report(exc: BaseException) -> ErrorReport:
             has_detail=True,
         )
     if _UNABLE_TO_EXTRACT in raw:
+        # If Chrome v20 cookies were blocked, the real cause is App-Bound Encryption
+        msg = gt(GF.error_chrome_dpapi) if v20_was_blocked() else gt(GF.error_login_required)
         return ErrorReport(
-            short_message=gt(GF.error_login_required),
+            short_message=msg,
             detail=detail,
             color="yellow",
             should_break=False,
             has_detail=True,
         )
     err_msg = raw.removeprefix("ERROR: ")
-    short = f"{gt(GF.dl_error)} {err_msg}"
+    first_line = err_msg.splitlines()[0] if err_msg else err_msg
+    short = f"{gt(GF.dl_error)} {first_line}"
     return ErrorReport(
         short_message=short,
         detail=detail,

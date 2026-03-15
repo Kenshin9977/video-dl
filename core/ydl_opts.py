@@ -83,7 +83,7 @@ def build_original_opts(
 
 def _timecode_to_seconds(tc: str) -> float:
     """Convert 'HH:MM:SS' to seconds."""
-    parts = tc.split(':')
+    parts = tc.split(":")
     return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
 
 
@@ -100,9 +100,9 @@ def build_ffmpeg_opts(
         from yt_dlp.utils import download_range_func
 
         start = _timecode_to_seconds(start_timecode) if start_enabled else 0
-        end = _timecode_to_seconds(end_timecode) if end_enabled else float('inf')
-        opts['download_ranges'] = download_range_func([], [(start, end)])
-        opts['force_keyframes_at_cuts'] = True
+        end = _timecode_to_seconds(end_timecode) if end_enabled else float("inf")
+        opts["download_ranges"] = download_range_func([], [(start, end)])
+        opts["force_keyframes_at_cuts"] = True
     return opts
 
 
@@ -113,11 +113,22 @@ def build_subtitles_opts(enabled: bool) -> dict[str, Any]:
     return {}
 
 
-def build_browser_opts(cookies_value: str | None, none_label: str) -> dict[str, Any]:
-    """Build yt-dlp cookie/browser options."""
-    if cookies_value and cookies_value != none_label and cookies_value.lower() != 'none':
-        return {"cookiesfrombrowser": [cookies_value.lower()]}
-    return {}
+def build_browser_opts(
+    cookies_value: str | None,
+    none_label: str,
+    cookies_file: str | None = None,
+) -> dict[str, Any]:
+    """Build yt-dlp cookie/browser options.
+
+    When Chrome is selected and a cookies.txt file has been provided (exported
+    via «Get cookies.txt LOCALLY»), use that file directly. Otherwise fall back
+    to yt-dlp's native browser extraction.
+    """
+    if not cookies_value or cookies_value == none_label or cookies_value.lower() == "none":
+        return {}
+    if cookies_value.lower() == "chrome" and cookies_file and os.path.isfile(cookies_file):
+        return {"cookiesfile": cookies_file}
+    return {"cookiesfrombrowser": [cookies_value.lower()]}
 
 
 def build_sponsor_block_opts(song_only: bool, categories: Any) -> dict[str, Any]:
@@ -153,7 +164,9 @@ VCODEC_TO_FORMAT_PREFIX = {
 
 
 def determine_encode_state(
-    original_on: bool, vcodec: str | None, nle_ready: bool,
+    original_on: bool,
+    vcodec: str | None,
+    nle_ready: bool,
     available_codecs: set[str] | None = None,
 ) -> tuple[str, str, str, bool]:
     """Determine encode indicator state: (icon, color, state, visible).
@@ -202,13 +215,13 @@ def filter_formats(formats: list[dict]) -> tuple[list[dict], list[dict]]:
 
     video_formats = []
     for key, v in sorted(video_seen.items(), key=lambda x: x[1]["height"], reverse=True):
-        label = f"{key} — {v['height']}p"
+        label = f"{key} {v['height']}p"
         video_formats.append({"format_id": v["format_id"], "label": label, "codec": v["codec"]})
 
     audio_formats = []
     for key, a in sorted(audio_seen.items(), key=lambda x: x[1]["abr"], reverse=True):
         abr_str = f"{int(a['abr'])}kbps" if a["abr"] else ""
-        label = f"{key} — {abr_str}" if abr_str else key
+        label = f"{key} {abr_str}" if abr_str else key
         audio_formats.append({"format_id": a["format_id"], "label": label})
 
     return video_formats, audio_formats

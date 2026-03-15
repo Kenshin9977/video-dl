@@ -68,6 +68,7 @@ from gui.config import (
     CK_ACODEC,
     CK_AUDIO_ONLY,
     CK_COOKIES,
+    CK_COOKIES_FILE,
     CK_DEST_FOLDER,
     CK_FRAMERATE,
     CK_INDICES,
@@ -75,6 +76,7 @@ from gui.config import (
     CK_NLE_READY,
     CK_ORIGINAL,
     CK_PLAYLIST,
+    CK_PROXY,
     CK_SONG_ONLY,
     CK_SUBTITLES,
     CK_THEME,
@@ -116,7 +118,7 @@ DISABLED_COLOR = Colors.ON_INVERSE_SURFACE
 
 
 # ---------------------------------------------------------------------------
-# Protocol adapters — bridge gui widgets to core/ callback protocols
+# Protocol adapters - bridge gui widgets to core/ callback protocols
 # ---------------------------------------------------------------------------
 class _AppCancelToken:
     """Wraps a threading.Event as a CancelToken for core/ functions."""
@@ -182,8 +184,9 @@ class VideodlApp:
         )
         self.page.theme_mode = ThemeMode.DARK if is_dark else ThemeMode.LIGHT
         self._height_collapsed = 460
-        self._height_advanced = 290
+        self._height_advanced = 330
         self._height_download = 120
+        self._height_preview = 28
         if not self._mobile:
             self.page.window.height = self._height_collapsed
             self.page.window.min_height = self._height_collapsed
@@ -204,14 +207,21 @@ class VideodlApp:
             on_blur=self._url_submit if not mobile else None,
             suffix=Row(
                 controls=[
-                    ft.IconButton(icon=Icons.CONTENT_PASTE, on_click=self._paste_url,
-                                  icon_size=20, style=ft.ButtonStyle(padding=0)),
-                    ft.IconButton(icon=Icons.CLEAR, on_click=self._clear_url,
-                                  icon_size=20, style=ft.ButtonStyle(padding=0)),
+                    ft.IconButton(
+                        icon=Icons.CONTENT_PASTE,
+                        on_click=self._paste_url,
+                        icon_size=20,
+                        style=ft.ButtonStyle(padding=0),
+                    ),
+                    ft.IconButton(
+                        icon=Icons.CLEAR, on_click=self._clear_url, icon_size=20, style=ft.ButtonStyle(padding=0)
+                    ),
                 ],
                 spacing=0,
                 tight=True,
-            ) if mobile else None,
+            )
+            if mobile
+            else None,
         )
         self._preview_spinner = ft.ProgressRing(width=12, height=12, stroke_width=2, visible=False)
         self._preview_text = Text(size=12, color=Colors.ON_SURFACE_VARIANT)
@@ -328,8 +338,55 @@ class VideodlApp:
             dense=True,
             tooltip=gt(GF.login_from_tooltip),
             on_select=self._option_change,
-            options=[dropdown.Option(browser) for browser in BROWSERS],
+            options=[dropdown.Option(browser) for browser in BROWSERS if browser != "Safari" or PLATFORM == "Darwin"],
             visible=not self._mobile,
+        )
+        # Windows-only file picker shown when Chrome is selected
+        self._cookies_file_picker = FilePicker()
+        self._cookies_file_picker.on_result = self._on_cookies_file_picked
+        self.page.services.append(self._cookies_file_picker)
+        self._chrome_cookies_info = Text(
+            gt(GF.chrome_cookies_dialog_body),
+            size=11,
+        )
+        self._chrome_cookies_store_link = ft.TextButton(
+            gt(GF.chrome_cookies_store_link),
+            icon=Icons.OPEN_IN_NEW,
+            url="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc",
+        )
+        self._chrome_cookies_pick_btn = ft.TextButton(
+            gt(GF.chrome_cookies_extract_button),
+            icon=Icons.COOKIE,
+            on_click=self._pick_cookies_file,
+        )
+        self._chrome_cookies_status = Text(gt(GF.chrome_cookies_extracting), size=11, italic=True)
+        self._chrome_cookies_row = ft.Container(
+            content=ft.Column(
+                controls=[
+                    self._chrome_cookies_info,
+                    self._chrome_cookies_store_link,
+                    Row(
+                        controls=[
+                            self._chrome_cookies_pick_btn,
+                            self._chrome_cookies_status,
+                        ],
+                        spacing=4,
+                    ),
+                ],
+                spacing=4,
+                tight=True,
+            ),
+            visible=False,
+        )
+        self._proxy_field = TextField(
+            label=gt(GF.proxy),
+            hint_text=gt(GF.proxy_placeholder),
+            data=CK_PROXY,
+            value="",
+            dense=True,
+            expand=True,
+            on_blur=self._option_change,
+            on_submit=self._option_change,
         )
         self.video_codec = Dropdown(
             label=gt(GF.vcodec),
@@ -442,14 +499,22 @@ class VideodlApp:
                 Row(
                     controls=[
                         self.start_checkbox,
-                        self.start_h, Text(":"), self.start_m, Text(":"), self.start_s,
+                        self.start_h,
+                        Text(":"),
+                        self.start_m,
+                        Text(":"),
+                        self.start_s,
                     ],
                     height=50,
                 ),
                 Row(
                     controls=[
                         self.end_checkbox,
-                        self.end_h, Text(":"), self.end_m, Text(":"), self.end_s,
+                        self.end_h,
+                        Text(":"),
+                        self.end_m,
+                        Text(":"),
+                        self.end_s,
                     ],
                     height=50,
                 ),
@@ -463,8 +528,12 @@ class VideodlApp:
             controls_padding=ft.padding.only(top=10, left=10, right=10),
             controls=self._build_advanced_controls(timecode_rows),
         )
-        logger.debug("init: _encode_row=%s _encode_label=%s mobile=%s",
-                  self._encode_row is not None, self._encode_label is not None, self._mobile)
+        logger.debug(
+            "init: _encode_row=%s _encode_label=%s mobile=%s",
+            self._encode_row is not None,
+            self._encode_label is not None,
+            self._mobile,
+        )
         self.download_button = Button(
             content="Download", on_click=self._download_clicked, disabled=True, tooltip=gt(GF.invalid_url)
         )
@@ -552,10 +621,18 @@ class VideodlApp:
             rows.append(self._encode_row)
         rows.append(Row(controls=codec_row_controls))
         rows += [
-            Row(controls=[self.original_checkbox, self._original_spinner, self.original_video_dropdown, self.original_audio_dropdown]),
+            Row(
+                controls=[
+                    self.original_checkbox,
+                    self._original_spinner,
+                    self.original_video_dropdown,
+                    self.original_audio_dropdown,
+                ]
+            ),
             ft.Container(height=8),
             Row(controls=[self.playlist, self.indices, self.indices_selected]),
             Row(controls=[self.subtitles, self.cookies]),
+            Row(controls=[self._proxy_field]),
             *timecode_rows,
         ]
         return rows
@@ -578,10 +655,17 @@ class VideodlApp:
         self._gen_ffmpeg_opts()
         self._gen_subtitles_opts()
         self._gen_browser_opts()
+        self._gen_proxy_opts()
         self._gen_sponsor_block_opts()
         # aria2c is slower than native on sites with auth/cookies (YouTube, etc.)
         # Only use it for generic http/https downloads where multi-connection helps
-        if ARIA2C_PATH and "external_downloader" not in self.ydl_opts and "download_ranges" not in self.ydl_opts:
+        has_cookies = "cookiesfrombrowser" in self.ydl_opts or "cookiesfile" in self.ydl_opts
+        if (
+            ARIA2C_PATH
+            and not has_cookies
+            and "external_downloader" not in self.ydl_opts
+            and "download_ranges" not in self.ydl_opts
+        ):
             self.ydl_opts["external_downloader"] = {"http": ARIA2C_PATH}
         return self.ydl_opts
 
@@ -642,7 +726,13 @@ class VideodlApp:
         self.ydl_opts.update(build_subtitles_opts(bool(self.subtitles.value)))
 
     def _gen_browser_opts(self):
-        self.ydl_opts.update(build_browser_opts(self.cookies.value, gt(GF.login_from_none)))
+        cookies_file = self.tomlconfig.config[USER_OPTIONS].get(CK_COOKIES_FILE, "") or None
+        self.ydl_opts.update(build_browser_opts(self.cookies.value, gt(GF.login_from_none), cookies_file))
+
+    def _gen_proxy_opts(self):
+        proxy = self.tomlconfig.config[USER_OPTIONS].get(CK_PROXY, "") or ""
+        if proxy.strip():
+            self.ydl_opts["proxy"] = proxy.strip()
 
     def _gen_sponsor_block_opts(self):
         sb_opts = build_sponsor_block_opts(bool(self.song_only.value), CATEGORIES.keys())
@@ -791,6 +881,8 @@ class VideodlApp:
         self.cookies.label = gt(GF.login_from)
         self.cookies.options[0].text = gt(GF.login_from_none)
         self.cookies.tooltip = gt(GF.login_from_tooltip)
+        self._proxy_field.label = gt(GF.proxy)
+        self._proxy_field.hint_text = gt(GF.proxy_placeholder)
         self.open_folder_button.tooltip = gt(GF.open_folder)
         self.queue_button.tooltip = gt(GF.queue_button_tooltip)
         self._queue_textfield.hint_text = gt(GF.queue_dialog_hint)
@@ -855,14 +947,17 @@ class VideodlApp:
 
     def _paste_url(self, e):
         import asyncio
+
         try:
             loop = asyncio.get_running_loop()
+
             async def _do_paste():
                 url = await ft.Clipboard().get()
                 if url:
                     self.media_link.value = url.strip()
                     self._url_validate(self.media_link.value)
                     self.page.update()
+
             loop.create_task(_do_paste())
         except RuntimeError:
             url = self.page.get_clipboard()
@@ -872,8 +967,8 @@ class VideodlApp:
                 self.page.update()
 
     def _clear_url(self, e):
-        self.media_link.value = ''
-        self._url_validate('')
+        self.media_link.value = ""
+        self._url_validate("")
         self.page.update()
 
     def _url_change(self, e):
@@ -925,8 +1020,10 @@ class VideodlApp:
             if want_playlist:
                 # Playlist: use extract_flat to get title/duration without resolving every video
                 opts = {
-                    "quiet": True, "no_warnings": True,
-                    "extract_flat": "in_playlist", "playlist_items": "1",
+                    "quiet": True,
+                    "no_warnings": True,
+                    "extract_flat": "in_playlist",
+                    "playlist_items": "1",
                 }
             else:
                 # Single video: full extract gets title + duration + formats in one pass
@@ -948,7 +1045,7 @@ class VideodlApp:
                 minutes, seconds = divmod(int(duration), 60)
                 hours, minutes = divmod(minutes, 60)
                 duration_str = f"{hours}:{minutes:02d}:{seconds:02d}" if hours else f"{minutes}:{seconds:02d}"
-                self._preview_text.value = f"{title}  —  {duration_str}"
+                self._preview_text.value = f"{title} ({duration_str})"
             else:
                 self._preview_text.value = title
             self._preview_spinner.visible = False
@@ -978,8 +1075,12 @@ class VideodlApp:
 
     def _compute_window_height(self):
         h = self._height_collapsed
+        if self.video_preview.visible:
+            h += self._height_preview
         if self.advanced_section.expanded:
             h += self._height_advanced
+        if self._chrome_cookies_row.visible:
+            h += 160
         if self.download_progress.visible:
             h += self._height_download
         return h
@@ -997,6 +1098,72 @@ class VideodlApp:
 
     def _option_change(self, e):
         self.tomlconfig.update(e.control.data, e.control.value)
+        if e.control.data == CK_COOKIES:
+            self._update_chrome_cookies_row()
+
+    def _update_chrome_cookies_row(self):
+        """Show/hide the Chrome cookies file picker row based on current selection."""
+        is_chrome = PLATFORM == "Windows" and self.cookies.value == "Chrome" and not self._mobile
+        self._chrome_cookies_row.visible = is_chrome
+        if is_chrome:
+            current = self.tomlconfig.config[USER_OPTIONS].get(CK_COOKIES_FILE, "")
+            if not current or not os.path.isfile(current):
+                detected = self._auto_detect_cookies_file()
+                if detected:
+                    self.tomlconfig.update(CK_COOKIES_FILE, detected)
+            self._refresh_chrome_cookies_status()
+        if hasattr(self, "page") and self.page:
+            self._resize_window()
+            self.page.update()
+
+    def _refresh_chrome_cookies_status(self):
+        import time as _time
+
+        path = self.tomlconfig.config[USER_OPTIONS].get(CK_COOKIES_FILE, "")
+        if not path or not os.path.isfile(path):
+            self._chrome_cookies_status.value = gt(GF.chrome_cookies_extracting)
+            self._chrome_cookies_status.color = None
+            return
+        age_days = int((_time.time() - os.path.getmtime(path)) / 86400)
+        name = os.path.basename(path)
+        if age_days > 7:
+            self._chrome_cookies_status.value = gt(GF.chrome_cookies_old_warning).format(days=age_days)
+            self._chrome_cookies_status.color = Colors.ORANGE
+        else:
+            self._chrome_cookies_status.value = f"✓ {name}"
+            self._chrome_cookies_status.color = Colors.GREEN
+
+    async def _pick_cookies_file(self, _e):
+        result = await self._cookies_file_picker.pick_files(allowed_extensions=["txt"], allow_multiple=False)
+        if result:
+            path = result[0].path if isinstance(result, list) else result.files[0].path
+            self._store_cookies_file(path)
+
+    def _on_cookies_file_picked(self, e):
+        if e.files:
+            self._store_cookies_file(e.files[0].path)
+
+    def _store_cookies_file(self, path: str):
+        self.tomlconfig.update(CK_COOKIES_FILE, path)
+        self._refresh_chrome_cookies_status()
+        self._mark_ui_dirty()
+
+    def _auto_detect_cookies_file(self) -> str | None:
+        """Return the most recently modified *cookies*.txt in common download locations."""
+        import glob
+
+        search_dirs = [
+            get_default_download_path(),
+            os.path.join(os.path.expanduser("~"), "Desktop"),
+        ]
+        candidates = []
+        for d in search_dirs:
+            if os.path.isdir(d):
+                candidates.extend(glob.glob(os.path.join(d, "*cookies*.txt")))
+        if not candidates:
+            return None
+        candidates.sort(key=os.path.getmtime, reverse=True)
+        return candidates[0]
 
     def _nle_ready_change(self, e):
         nle_on = e.control.value
@@ -1019,12 +1186,20 @@ class VideodlApp:
 
     def _original_change(self, e):
         original_on = bool(e.control.value)
-        logger.debug("original_change: on=%r type=%s audio_only=%s", e.control.value, type(e.control.value).__name__, self.audio_only.value)
+        logger.debug(
+            "original_change: on=%r type=%s audio_only=%s",
+            e.control.value,
+            type(e.control.value).__name__,
+            self.audio_only.value,
+        )
         self._apply_original_state(original_on)
         self.tomlconfig.update(e.control.data, e.control.value)
         self._update_encode_indicator()
-        logger.debug("original_change done: video_codec.disabled=%s audio_codec.disabled=%s",
-                  self.video_codec.disabled, self.audio_codec.disabled)
+        logger.debug(
+            "original_change done: video_codec.disabled=%s audio_codec.disabled=%s",
+            self.video_codec.disabled,
+            self.audio_codec.disabled,
+        )
         self.page.update()
 
     def _apply_original_state(self, original_on: bool):
@@ -1049,9 +1224,14 @@ class VideodlApp:
         available_codecs = None
         if self._video_formats:
             available_codecs = {v["codec"].split(".")[0] for v in self._video_formats if v.get("codec")}
-        logger.debug("encode_indicator: vcodec=%s available=%s formats=%d mobile=%s encode_row=%s",
-                  self.video_codec.value, available_codecs, len(self._video_formats),
-                  self._mobile, self._encode_row is not None)
+        logger.debug(
+            "encode_indicator: vcodec=%s available=%s formats=%d mobile=%s encode_row=%s",
+            self.video_codec.value,
+            available_codecs,
+            len(self._video_formats),
+            self._mobile,
+            self._encode_row is not None,
+        )
         icon, color, state, visible = determine_encode_state(
             bool(self.original_checkbox.value),
             self.video_codec.value,
@@ -1194,14 +1374,14 @@ class VideodlApp:
         h, m, s = (int(c.value or "0") for c in controls)
         initial_seconds = h * 3600 + m * 60 + s
         # Store last picked value so on_dismiss can apply it
-        state = {'secs': initial_seconds}
+        state = {"secs": initial_seconds}
 
         def on_change(ev):
             with contextlib.suppress(ValueError, TypeError):
-                state['secs'] = int(ev.data)
+                state["secs"] = int(ev.data)
 
         def on_dismiss(ev):
-            secs = state['secs']
+            secs = state["secs"]
             hh = secs // 3600
             mm = (secs % 3600) // 60
             ss = secs % 60
@@ -1229,12 +1409,15 @@ class VideodlApp:
         """Call page.update() on the main thread. Safe from any thread."""
         try:
             asyncio.get_running_loop()
-            # Already on the main loop — update directly
+            # Already on the main loop - update directly
+            self._resize_window()
             self.page.update()
         except RuntimeError:
-            # Called from a background thread — schedule on the Flet event loop
+            # Called from a background thread - schedule on the Flet event loop
             async def _do_update():
+                self._resize_window()
                 self.page.update()
+
             self.page.run_task(_do_update)
 
     def _mark_ui_dirty(self):
@@ -1393,7 +1576,7 @@ class VideodlApp:
             self._preparing = total == 1
             if total > 1:
                 label = url or self.media_link.value
-                self._show_status(f"{i + 1}/{total} — {label}", Colors.ON_SURFACE_VARIANT)
+                self._show_status(f"{i + 1}/{total}: {label}", Colors.ON_SURFACE_VARIANT)
                 self._ui_dirty.set()
             config = DownloadConfig(
                 url=url or self.media_link.value,
@@ -1499,6 +1682,7 @@ class VideodlApp:
             Row(controls=[self.download_path_text, self.download_path]),
             *options_rows,
             self.advanced_section,
+            self._chrome_cookies_row,
             Row(
                 controls=[
                     self.download_button,
@@ -1543,6 +1727,8 @@ class VideodlApp:
         self.song_only.value = options[CK_SONG_ONLY]
         self.subtitles.value = options[CK_SUBTITLES]
         self.cookies.value = options[CK_COOKIES]
+        self._proxy_field.value = options.get(CK_PROXY, "")
+        self._update_chrome_cookies_row()
         self.indices.disabled = not self.playlist.value
         self.indices_selected.disabled = not self.indices.value
         self.original_checkbox.disabled = self.playlist.value or not self._video_formats
@@ -1617,13 +1803,13 @@ def _patch_flet_macos_bundle():
     # Copy to our dedicated directory
     shutil.copytree(original_app, patched_app, symlinks=True)
 
-    # Remove Assets.car — it contains Flutter's compiled AppIcon which macOS
+    # Remove Assets.car - it contains Flutter's compiled AppIcon which macOS
     # reads in priority over AppIcon.icns.
     assets_car = patched_app / "Contents" / "Resources" / "Assets.car"
     if assets_car.exists():
         assets_car.unlink()
 
-    # Patch icon — check both dev layout and PyInstaller bundle
+    # Patch icon - check both dev layout and PyInstaller bundle
     icon_path = os.path.join(os.path.dirname(__file__), "..", "icon.icns")
     if not os.path.isfile(icon_path):
         icon_path = os.path.join(getattr(sys, "_MEIPASS", ""), "icon.icns")
@@ -1672,5 +1858,5 @@ def _videodl_fletgui_mobile(page: Page):
 
 
 def videodl_gui_android():
-    """Android entry point — fullscreen, no window sizing, no macOS patching."""
+    """Android entry point - fullscreen, no window sizing, no macOS patching."""
     ft.run(_videodl_fletgui_mobile, assets_dir="assets")

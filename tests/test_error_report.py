@@ -1,7 +1,14 @@
 from __future__ import annotations
 
 from core.error_report import ErrorReport, build_error_report
-from core.exceptions import DownloadCancelled, DownloadTimeout, FFmpegNoValidEncoderFound, PlaylistNotFound
+from core.exceptions import (
+    DownloadCancelled,
+    DownloadTimeout,
+    FFmpegNoValidEncoderFound,
+    PlaylistNotFound,
+    mark_v20_blocked,
+    reset_v20_flag,
+)
 
 
 class TestBuildErrorReport:
@@ -62,7 +69,9 @@ class TestBuildErrorReport:
 
     def test_chrome_cookies_locked(self):
         try:
-            raise RuntimeError("Could not copy Chrome cookie database. See https://github.com/yt-dlp/yt-dlp/issues/7271")
+            raise RuntimeError(
+                "Could not copy Chrome cookie database. See https://github.com/yt-dlp/yt-dlp/issues/7271"
+            )
         except RuntimeError as e:
             report = build_error_report(e)
         assert report.color == "red"
@@ -71,6 +80,7 @@ class TestBuildErrorReport:
         assert "Chrome" in report.short_message
 
     def test_unable_to_extract(self):
+        reset_v20_flag()
         try:
             raise RuntimeError("ERROR: [SomeSite] abc123: Unable to extract title")
         except RuntimeError as e:
@@ -79,6 +89,18 @@ class TestBuildErrorReport:
         assert report.should_break is False
         assert report.has_detail is True
         assert "login" in report.short_message.lower() or "cookie" in report.short_message.lower()
+
+    def test_unable_to_extract_with_v20_blocked(self):
+        mark_v20_blocked()
+        try:
+            try:
+                raise RuntimeError("ERROR: [SomeSite] abc123: Unable to extract title")
+            except RuntimeError as e:
+                report = build_error_report(e)
+        finally:
+            reset_v20_flag()
+        assert report.color == "yellow"
+        assert "app-bound" in report.short_message.lower() or "encryption" in report.short_message.lower()
 
     def test_report_is_frozen(self):
         report = build_error_report(DownloadCancelled())

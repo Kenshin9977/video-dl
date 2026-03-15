@@ -170,8 +170,8 @@ class TestBuildFfmpegOpts:
             end_enabled=False,
             end_timecode="00:00:00",
         )
-        assert 'download_ranges' in opts
-        assert opts['force_keyframes_at_cuts'] is True
+        assert "download_ranges" in opts
+        assert opts["force_keyframes_at_cuts"] is True
 
     def test_end_only(self):
         opts = build_ffmpeg_opts(
@@ -180,7 +180,7 @@ class TestBuildFfmpegOpts:
             end_enabled=True,
             end_timecode="00:05:00",
         )
-        assert 'download_ranges' in opts
+        assert "download_ranges" in opts
 
     def test_start_and_end(self):
         opts = build_ffmpeg_opts(
@@ -189,8 +189,8 @@ class TestBuildFfmpegOpts:
             end_enabled=True,
             end_timecode="00:05:00",
         )
-        assert 'download_ranges' in opts
-        assert opts['force_keyframes_at_cuts'] is True
+        assert "download_ranges" in opts
+        assert opts["force_keyframes_at_cuts"] is True
 
 
 class TestBuildSubtitlesOpts:
@@ -272,7 +272,10 @@ class TestDetermineEncodeState:
 
     def test_codec_available_remux(self):
         icon, color, state, visible = determine_encode_state(
-            False, "x264", False, available_codecs={"avc1", "vp9"},
+            False,
+            "x264",
+            False,
+            available_codecs={"avc1", "vp9"},
         )
         assert icon == "check_circle"
         assert color == "green"
@@ -281,7 +284,10 @@ class TestDetermineEncodeState:
 
     def test_codec_not_available_reencode(self):
         icon, color, state, visible = determine_encode_state(
-            False, "x264", False, available_codecs={"vp9"},
+            False,
+            "x264",
+            False,
+            available_codecs={"vp9"},
         )
         assert icon == "warning_amber"
         assert color == "orange"
@@ -290,7 +296,10 @@ class TestDetermineEncodeState:
 
     def test_codec_no_formats_reencode(self):
         _, _, state, visible = determine_encode_state(
-            False, "x264", False, available_codecs=None,
+            False,
+            "x264",
+            False,
+            available_codecs=None,
         )
         assert state == "reencode"
         assert visible is True

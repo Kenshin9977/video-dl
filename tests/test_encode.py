@@ -83,7 +83,7 @@ class TestCodecMappings:
 
 
 # ---------------------------------------------------------------------------
-# Phase 1 — _adapt_crf (pure function)
+# Phase 1 - _adapt_crf (pure function)
 # ---------------------------------------------------------------------------
 class TestAdaptCrf:
     def test_no_crf_flag_returns_unchanged(self):
@@ -129,14 +129,16 @@ class TestAdaptCrf:
 
 
 # ---------------------------------------------------------------------------
-# Phase 2 — ffprobe
+# Phase 2 - ffprobe
 # ---------------------------------------------------------------------------
 class TestFfprobe:
     def test_success_parses_json(self):
-        probe_json = json.dumps({
-            "streams": [{"codec_type": "video", "codec_name": "h264"}],
-            "format": {"duration": "120.5"},
-        })
+        probe_json = json.dumps(
+            {
+                "streams": [{"codec_type": "video", "codec_name": "h264"}],
+                "format": {"duration": "120.5"},
+            }
+        )
         with patch("core.encode.subprocess.Popen") as mock_popen:
             proc = MagicMock()
             proc.communicate.return_value = (probe_json.encode("utf-8"), b"")
@@ -169,23 +171,19 @@ class TestFfprobe:
     def test_with_process_runner_success(self):
         probe_json = json.dumps({"streams": [], "format": {}})
         runner = MagicMock()
-        runner.popen_communicate.return_value = MagicMock(
-            returncode=0, stdout=probe_json, stderr=""
-        )
+        runner.popen_communicate.return_value = MagicMock(returncode=0, stdout=probe_json, stderr="")
         result = ffprobe("/tmp/test.mp4", process_runner=runner)
         assert result == {"streams": [], "format": {}}
 
     def test_with_process_runner_failure(self):
         runner = MagicMock()
-        runner.popen_communicate.return_value = MagicMock(
-            returncode=1, stdout="", stderr="error"
-        )
+        runner.popen_communicate.return_value = MagicMock(returncode=1, stdout="", stderr="error")
         with pytest.raises(ValueError):
             ffprobe("/tmp/test.mp4", process_runner=runner)
 
 
 # ---------------------------------------------------------------------------
-# Phase 3 — _ffmpeg_video command construction
+# Phase 3 - _ffmpeg_video command construction
 # ---------------------------------------------------------------------------
 class TestFfmpegVideoCommand:
     @patch("core.encode._progress_ffmpeg")
@@ -197,8 +195,15 @@ class TestFfmpegVideoCommand:
         cancel = MagicMock()
         cancel.is_cancelled.return_value = False
         _ffmpeg_video(
-            "/tmp/video.webm", False, False, 1080, "x264",
-            cancel, MagicMock(), 120, {"ffmpeg": "ffmpeg"},
+            "/tmp/video.webm",
+            False,
+            False,
+            1080,
+            "x264",
+            cancel,
+            MagicMock(),
+            120,
+            {"ffmpeg": "ffmpeg"},
         )
         cmd = mock_prog.call_args[0][0]
         assert "-c:v" in cmd
@@ -218,8 +223,15 @@ class TestFfmpegVideoCommand:
         cancel = MagicMock()
         cancel.is_cancelled.return_value = False
         _ffmpeg_video(
-            "/tmp/video.mp4", True, True, 1080, "x264",
-            cancel, MagicMock(), 120, {"ffmpeg": "ffmpeg"},
+            "/tmp/video.mp4",
+            True,
+            True,
+            1080,
+            "x264",
+            cancel,
+            MagicMock(),
+            120,
+            {"ffmpeg": "ffmpeg"},
         )
         cmd = mock_prog.call_args[0][0]
         idx_v = cmd.index("-c:v")
@@ -235,8 +247,15 @@ class TestFfmpegVideoCommand:
         cancel = MagicMock()
         cancel.is_cancelled.return_value = False
         _ffmpeg_video(
-            "/tmp/video.mp4", True, True, 1080, "ProRes",
-            cancel, MagicMock(), 120, {"ffmpeg": "ffmpeg"},
+            "/tmp/video.mp4",
+            True,
+            True,
+            1080,
+            "ProRes",
+            cancel,
+            MagicMock(),
+            120,
+            {"ffmpeg": "ffmpeg"},
         )
         cmd = mock_prog.call_args[0][0]
         assert cmd[-1].endswith(".tmp.mov")
@@ -252,8 +271,15 @@ class TestFfmpegVideoCommand:
         cancel = MagicMock()
         cancel.is_cancelled.return_value = False
         _ffmpeg_video(
-            "/tmp/video.webm", True, False, 1080, "x264",
-            cancel, MagicMock(), 120, {"ffmpeg": "ffmpeg"},
+            "/tmp/video.webm",
+            True,
+            False,
+            1080,
+            "x264",
+            cancel,
+            MagicMock(),
+            120,
+            {"ffmpeg": "ffmpeg"},
         )
         cmd = mock_prog.call_args[0][0]
         assert "-hwaccel" in cmd
@@ -267,8 +293,15 @@ class TestFfmpegVideoCommand:
         cancel = MagicMock()
         cancel.is_cancelled.return_value = True
         _ffmpeg_video(
-            "/tmp/video.mp4", True, True, 1080, "x264",
-            cancel, MagicMock(), 120, {"ffmpeg": "ffmpeg"},
+            "/tmp/video.mp4",
+            True,
+            True,
+            1080,
+            "x264",
+            cancel,
+            MagicMock(),
+            120,
+            {"ffmpeg": "ffmpeg"},
         )
         mock_rm.assert_called_once()
         assert mock_rm.call_args[0][0].endswith(".tmp.mp4")
@@ -280,8 +313,15 @@ class TestFfmpegVideoCommand:
         cancel.is_cancelled.return_value = False
         with pytest.raises(FileNotFoundError):
             _ffmpeg_video(
-                "/tmp/video.mp4", True, True, 1080, "x264",
-                cancel, MagicMock(), 120, {"ffmpeg": "ffmpeg"},
+                "/tmp/video.mp4",
+                True,
+                True,
+                1080,
+                "x264",
+                cancel,
+                MagicMock(),
+                120,
+                {"ffmpeg": "ffmpeg"},
             )
 
     @patch("core.encode._progress_ffmpeg")
@@ -292,8 +332,15 @@ class TestFfmpegVideoCommand:
         cancel = MagicMock()
         cancel.is_cancelled.return_value = False
         _ffmpeg_video(
-            "/tmp/video.mp4", True, True, 1080, "x264",
-            cancel, MagicMock(), 120, {"ffmpeg": "ffmpeg"},
+            "/tmp/video.mp4",
+            True,
+            True,
+            1080,
+            "x264",
+            cancel,
+            MagicMock(),
+            120,
+            {"ffmpeg": "ffmpeg"},
         )
         mock_rm.assert_called_once_with("/tmp/video.mp4")
         mock_rename.assert_called_once()
@@ -307,8 +354,15 @@ class TestFfmpegVideoCommand:
         cancel = MagicMock()
         cancel.is_cancelled.return_value = False
         _ffmpeg_video(
-            "/tmp/video.mp4", True, True, 1080, "x264",
-            cancel, MagicMock(), 120, {"ffmpeg": "ffmpeg"},
+            "/tmp/video.mp4",
+            True,
+            True,
+            1080,
+            "x264",
+            cancel,
+            MagicMock(),
+            120,
+            {"ffmpeg": "ffmpeg"},
         )
         cmd = mock_prog.call_args[0][0]
         map_indices = [i for i, v in enumerate(cmd) if v == "-map"]
@@ -318,7 +372,7 @@ class TestFfmpegVideoCommand:
 
 
 # ---------------------------------------------------------------------------
-# Phase 4 — post_process_dl orchestration
+# Phase 4 - post_process_dl orchestration
 # ---------------------------------------------------------------------------
 def _fake_probe(vcodec="h264", acodec="aac", width=1920, height=1080, duration=120):
     return {
@@ -346,22 +400,22 @@ class TestPostProcessDl:
         post_process_dl("/tmp/video.mp4", "Original", cancel, MagicMock(), {"ffprobe": "ffprobe"})
         _, kwargs = mock_ffmpeg.call_args
         # vcodec_is_target=True, acodec_nle_friendly=True (copy both)
-        assert mock_ffmpeg.call_args[0][1] is True   # acodec_nle_friendly
-        assert mock_ffmpeg.call_args[0][2] is True   # vcodec_is_target
+        assert mock_ffmpeg.call_args[0][1] is True  # acodec_nle_friendly
+        assert mock_ffmpeg.call_args[0][2] is True  # vcodec_is_target
 
     @patch("core.encode._ffmpeg_video")
     @patch("core.encode.ffprobe", return_value=_fake_probe(vcodec="h264", acodec="aac"))
     def test_nle_compatible_video_remux(self, mock_probe, mock_ffmpeg):
         cancel = MagicMock()
         post_process_dl("/tmp/video.mp4", "NLE", cancel, MagicMock(), {"ffprobe": "ffprobe"})
-        assert mock_ffmpeg.call_args[0][2] is True   # vcodec_is_target (remux)
+        assert mock_ffmpeg.call_args[0][2] is True  # vcodec_is_target (remux)
 
     @patch("core.encode._ffmpeg_video")
     @patch("core.encode.ffprobe", return_value=_fake_probe(vcodec="vp9", acodec="aac"))
     def test_nle_incompatible_video_reencodes(self, mock_probe, mock_ffmpeg):
         cancel = MagicMock()
         post_process_dl("/tmp/video.mp4", "NLE", cancel, MagicMock(), {"ffprobe": "ffprobe"})
-        assert mock_ffmpeg.call_args[0][2] is False   # vcodec_is_target (reencode)
+        assert mock_ffmpeg.call_args[0][2] is False  # vcodec_is_target (reencode)
         assert mock_ffmpeg.call_args[0][4] == "x264"  # target_vcodec
 
     @patch("core.encode._ffmpeg_video")
@@ -369,14 +423,14 @@ class TestPostProcessDl:
     def test_nle_incompatible_audio(self, mock_probe, mock_ffmpeg):
         cancel = MagicMock()
         post_process_dl("/tmp/video.mp4", "NLE", cancel, MagicMock(), {"ffprobe": "ffprobe"})
-        assert mock_ffmpeg.call_args[0][1] is False   # acodec_nle_friendly
+        assert mock_ffmpeg.call_args[0][1] is False  # acodec_nle_friendly
 
     @patch("core.encode._ffmpeg_video")
     @patch("core.encode.ffprobe", return_value=_fake_probe(vcodec="h264", acodec="aac"))
     def test_direct_target_different_codec(self, mock_probe, mock_ffmpeg):
         cancel = MagicMock()
         post_process_dl("/tmp/video.mp4", "x265", cancel, MagicMock(), {"ffprobe": "ffprobe"})
-        assert mock_ffmpeg.call_args[0][2] is False   # vcodec_is_target (h264 != x265)
+        assert mock_ffmpeg.call_args[0][2] is False  # vcodec_is_target (h264 != x265)
         assert mock_ffmpeg.call_args[0][4] == "x265"
 
     @patch("core.encode._ffmpeg_video")
@@ -384,11 +438,11 @@ class TestPostProcessDl:
     def test_direct_target_same_codec(self, mock_probe, mock_ffmpeg):
         cancel = MagicMock()
         post_process_dl("/tmp/video.mp4", "x265", cancel, MagicMock(), {"ffprobe": "ffprobe"})
-        assert mock_ffmpeg.call_args[0][2] is True   # vcodec_is_target (hevc == x265)
+        assert mock_ffmpeg.call_args[0][2] is True  # vcodec_is_target (hevc == x265)
 
 
 # ---------------------------------------------------------------------------
-# Phase 6 — _progress_ffmpeg
+# Phase 6 - _progress_ffmpeg
 # ---------------------------------------------------------------------------
 class TestProgressFfmpeg:
     @patch("core.encode.FFmpegProgressTracker")
@@ -401,7 +455,11 @@ class TestProgressFfmpeg:
         cancel.is_cancelled.return_value = False
         _progress_ffmpeg(
             ["ffmpeg", "-i", "in.mp4", "-progress", "pipe:1", "-y", "out.mp4"],
-            "Remuxing", "/tmp/in.mp4", cancel, MagicMock(), 120,
+            "Remuxing",
+            "/tmp/in.mp4",
+            cancel,
+            MagicMock(),
+            120,
         )
         mock_tracker_cls.assert_called_once()
         tracker.run_ffmpeg_subprocess.assert_called_once()
@@ -417,5 +475,9 @@ class TestProgressFfmpeg:
         with pytest.raises(ValueError, match="FFmpeg failed"):
             _progress_ffmpeg(
                 ["ffmpeg", "-i", "in.mp4", "-progress", "pipe:1", "-y", "out.mp4"],
-                "Remuxing", "/tmp/in.mp4", cancel, MagicMock(), 120,
+                "Remuxing",
+                "/tmp/in.mp4",
+                cancel,
+                MagicMock(),
+                120,
             )

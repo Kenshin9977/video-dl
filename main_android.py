@@ -1,4 +1,4 @@
-"""Android entry point — no updater, no argparse, no desktop binary auto-install."""
+"""Android entry point - no updater, no argparse, no desktop binary auto-install."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import os
 import sys
 import traceback
 
-# Must be first — before any module imports gui/ or runtime.get_paths()
+# Must be first - before any module imports gui/ or runtime.get_paths()
 import runtime
 
 runtime.set_android()
@@ -55,11 +55,14 @@ def main():
 
         # Try running ffmpeg to verify execution works
         import subprocess
+
         ffmpeg_bin = ff.get("ffmpeg", "ffmpeg")
         try:
             result = subprocess.run(
                 [ffmpeg_bin, "-version"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             _log(f"[5j] ffmpeg -version rc={result.returncode}")
             _log(f"[5k] stdout={result.stdout[:200]}")

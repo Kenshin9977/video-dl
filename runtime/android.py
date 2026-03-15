@@ -10,7 +10,7 @@ logger = logging.getLogger("videodl")
 
 
 class AndroidProcessRunner:
-    """Android implementation — delegates to subprocess (same as desktop on Flet)."""
+    """Android implementation - delegates to subprocess (same as desktop on Flet)."""
 
     def run(
         self,
@@ -59,7 +59,7 @@ class AndroidPaths:
         return dl_dir
 
     def open_folder(self, path: str) -> None:
-        # No-op on Android — can't open file manager from Flet easily
+        # No-op on Android - can't open file manager from Flet easily
         logger.debug(f"open_folder not supported on Android: {path}")
 
     def get_ff_path(self) -> dict[str, str]:
@@ -68,7 +68,7 @@ class AndroidPaths:
         Binaries are packed as libffmpeg.so / libffprobe.so in jniLibs so Android
         extracts them into the app's nativeLibraryDir where they are executable.
         """
-        # Find the native lib dir — Android extracts jniLibs .so files here
+        # Find the native lib dir - Android extracts jniLibs .so files here
         native_lib = self._find_native_lib_dir()
         if native_lib:
             ffmpeg = os.path.join(native_lib, "libffmpeg.so")

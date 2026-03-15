@@ -28,8 +28,10 @@ ENCODERS: dict[str, dict[str, Any]] = _ENCODERS  # type: ignore[assignment]
 def reset_encoder_cache():
     """Reset the global encoder cache before each test."""
     hwaccel._available_encoders = None  # type: ignore[assignment]
+    hwaccel._working_encoders = {}  # type: ignore[assignment]
     yield
     hwaccel._available_encoders = None  # type: ignore[assignment]
+    hwaccel._working_encoders = {}  # type: ignore[assignment]
 
 
 SAMPLE_FFMPEG_OUTPUT = """\
@@ -73,29 +75,38 @@ class TestGetAvailableEncoders:
 class TestFastestEncoder:
     def test_selects_hw_encoder_over_cpu(self):
         hwaccel._available_encoders = {"h264_nvenc", "libx264"}
-        encoder, opts = fastest_encoder("dummy.mp4", "x264")
+        with patch("core.hwaccel._test_encoder", return_value=True):
+            encoder, _ = fastest_encoder("x264")
         assert encoder == "h264_nvenc"
 
     def test_falls_back_to_cpu(self):
         hwaccel._available_encoders = {"libx264"}
-        encoder, opts = fastest_encoder("dummy.mp4", "x264")
+        with patch("core.hwaccel._test_encoder", return_value=True):
+            encoder, _ = fastest_encoder("x264")
         assert encoder == "libx264"
 
     def test_raises_when_no_encoder(self):
         hwaccel._available_encoders = set()
         with pytest.raises(FFmpegNoValidEncoderFound):
-            fastest_encoder("dummy.mp4", "x264")
+            fastest_encoder("x264")
 
     def test_skips_none_entries(self):
-        """ProRes has None for QuickSync/NVENC/AMF — should skip them."""
+        """ProRes has None for QuickSync/NVENC/AMF - should skip them."""
         hwaccel._available_encoders = {"prores_ks"}
-        encoder, opts = fastest_encoder("dummy.mp4", "ProRes")
+        with patch("core.hwaccel._test_encoder", return_value=True):
+            encoder, _ = fastest_encoder("ProRes")
         assert encoder == "prores_ks"
 
     def test_prores_no_hw_raises(self):
         hwaccel._available_encoders = set()
         with pytest.raises(FFmpegNoValidEncoderFound):
-            fastest_encoder("dummy.mp4", "ProRes")
+            fastest_encoder("ProRes")
+
+    def test_skips_failing_hw_encoder(self):
+        hwaccel._available_encoders = {"h264_nvenc", "libx264"}
+        with patch("core.hwaccel._test_encoder", side_effect=lambda e: e == "libx264"):
+            encoder, _ = fastest_encoder("x264")
+        assert encoder == "libx264"
 
 
 class TestEncodersStructure:

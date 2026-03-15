@@ -34,6 +34,7 @@ def videodl_logger(debug: bool = False, verbose: bool = False) -> None:
         root_logger.setLevel(logging.ERROR)
 
     stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.stream = open(sys.stdout.fileno(), mode="w", encoding="utf-8", errors="replace", closefd=False)  # noqa: SIM115
     stdout_handler.setFormatter(formatter)
     root_logger.addHandler(stdout_handler)
 
@@ -50,7 +51,7 @@ def videodl_logger(debug: bool = False, verbose: bool = False) -> None:
         log_file = log_dir / "videodl.log"
         log_dir.mkdir(parents=True, exist_ok=True)
         file_level = logging.DEBUG if (debug or verbose) else logging.INFO
-        file_handler = RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=2)
+        file_handler = RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=2, encoding="utf-8")
         file_handler.setLevel(file_level)
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)

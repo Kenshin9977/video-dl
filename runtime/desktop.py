@@ -10,7 +10,7 @@ PLATFORM = system()
 
 
 class DesktopProcessRunner:
-    """Desktop implementation — delegates to subprocess."""
+    """Desktop implementation - delegates to subprocess."""
 
     def run(
         self,

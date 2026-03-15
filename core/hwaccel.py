@@ -14,76 +14,52 @@ logger = logging.getLogger("videodl")
 
 ENCODERS = {
     "x264": {
-        "QuickSync": ("h264_qsv", ["-global_quality", "20", "-look_ahead", "1"]),
         "NVENC": (
             "h264_nvenc",
-            [
-                "-preset:v",
-                "p7",
-                "-tune:v",
-                "hq",
-                "-rc:v",
-                "vbr",
-                "-cq:v",
-                "19",
-                "-b:v",
-                "0",
-                "-profile:v",
-                "high",
-            ],
+            ["-preset:v", "p7", "-tune:v", "hq", "-rc:v", "vbr", "-cq:v", "23", "-b:v", "0", "-profile:v", "high"],
         ),
         "AMF": ("h264_amf", ["-quality", "quality"]),
+        "QuickSync": ("h264_qsv", ["-global_quality", "23", "-look_ahead", "1"]),
         "Apple": ("h264_videotoolbox", ["-q:v", "35"]),
         "Raspberry": ("h264_v4l2m2m", []),
         "MediaCodec": ("h264_mediacodec", ["-b:v", "8M"]),
-        "CPU": ("libx264", ["-crf", "20"]),
+        "CPU": ("libx264", ["-crf", "23"]),
     },
     "x265": {
-        "QuickSync": ("hevc_qsv", ["-global_quality", "20", "-look_ahead", "1"]),
         "NVENC": (
             "hevc_nvenc",
-            [
-                "-preset:v",
-                "p7",
-                "-tune:v",
-                "hq",
-                "-rc:v",
-                "vbr",
-                "-cq:v",
-                "19",
-                "-b:v",
-                "0",
-                "-profile:v",
-                "high",
-            ],
+            ["-preset:v", "p7", "-tune:v", "hq", "-rc:v", "vbr", "-cq:v", "26", "-b:v", "0"],
         ),
         "AMF": ("hevc_amf", ["-quality", "quality"]),
-        "Apple": ("hevc_videotoolbox", ["-q:v", "35"]),
+        "QuickSync": ("hevc_qsv", ["-global_quality", "26", "-look_ahead", "1"]),
+        "Apple": ("hevc_videotoolbox", ["-q:v", "40"]),
         "Raspberry": ("hevc_v4l2m2m", []),
         "MediaCodec": ("hevc_mediacodec", ["-b:v", "6M"]),
-        "CPU": ("libx265", ["-crf", "20"]),
+        "CPU": ("libx265", ["-crf", "26"]),
     },
     "ProRes": {
-        "QuickSync": (None, []),
         "NVENC": (None, []),
         "AMF": (None, []),
-        "Apple": ("prores_videotoolbox", ["-profile:v", "0", "-qscale:v", "4"]),
+        "QuickSync": (None, []),
+        "Apple": ("prores_videotoolbox", ["-profile:v", "0", "-qscale:v", "9"]),
         "Raspberry": (None, []),
         "MediaCodec": (None, []),
-        "CPU": ("prores_ks", ["-profile:v", "0", "-qscale:v", "4"]),
+        "CPU": ("prores_ks", ["-profile:v", "0", "-qscale:v", "9"]),
     },
     "AV1": {
-        "QuickSync": ("av1_qsv", []),
-        "NVENC": ("av1_nvenc", []),
+        "NVENC": ("av1_nvenc", ["-preset", "p7", "-cq:v", "37"]),
         "AMF": (None, []),
+        "QuickSync": ("av1_qsv", ["-preset", "quality", "-global_quality", "32"]),
         "Apple": (None, []),
         "MediaCodec": (None, []),
-        "CPU": ("libsvtav1", ["-crf", "23"]),
+        "CPU": ("libsvtav1", ["-crf", "32", "-preset", "6"]),
     },
 }
 
 # Cache: set of encoder names available in this ffmpeg build, populated once
 _available_encoders = None
+# Cache: set of encoder names that passed the functional test
+_working_encoders: dict[str, bool] = {}
 
 
 def _get_available_encoders(
@@ -124,7 +100,50 @@ def _get_available_encoders(
     return _available_encoders
 
 
-def fastest_encoder(path: str, target_vcodec: str) -> tuple[str, list[str]]:
+def _test_encoder(encoder: str, ff_path: dict[str, str] | None = None) -> bool:
+    """Run a 1-frame test encode to verify the encoder actually works at runtime."""
+    if encoder in _working_encoders:
+        return _working_encoders[encoder]
+    if ff_path is None:
+        try:
+            from sys_vars import FF_PATH
+
+            ff_path = FF_PATH
+        except Exception:
+            ff_path = {}
+    ffmpeg_path = (ff_path or {}).get("ffmpeg", "ffmpeg")
+    try:
+        r = subprocess.run(
+            [
+                ffmpeg_path,
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc2=size=320x240:rate=25:duration=3",
+                "-vf",
+                "format=nv12",
+                "-c:v",
+                encoder,
+                "-f",
+                "null",
+                "-",
+            ],
+            capture_output=True,
+            timeout=20,
+        )
+        result = r.returncode == 0
+        if not result:
+            logger.debug(f"Encoder {encoder} test stderr:\n{r.stderr.decode('utf-8', errors='replace')}")
+    except Exception as ex:
+        result = False
+        logger.debug(f"Encoder {encoder} test exception: {ex}")
+    _working_encoders[encoder] = result
+    if not result:
+        logger.info(f"Encoder {encoder} failed functional test, skipping")
+    return result
+
+
+def fastest_encoder(target_vcodec: str) -> tuple[str, list[str]]:
     """
     Determine the best hardware encoder for the target codec by checking
     which encoders are available in the current ffmpeg build.
@@ -148,7 +167,7 @@ def fastest_encoder(path: str, target_vcodec: str) -> tuple[str, list[str]]:
             continue
         if platform_name in skip_platforms:
             continue
-        if vcodec in available:
+        if vcodec in available and _test_encoder(vcodec):
             logger.info(f"Selected encoder: {vcodec} ({platform_name}) for {target_vcodec}")
             return vcodec, quality_options
     raise FFmpegNoValidEncoderFound

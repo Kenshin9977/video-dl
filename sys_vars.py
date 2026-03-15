@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-# Module-level vars — populated by init_paths(), read after startup.
+# Module-level vars - populated by init_paths(), read after startup.
 FF_PATH: dict[str, str] = {}
 QJS_PATH: str | None = None
 ARIA2C_PATH: str | None = None
@@ -22,7 +22,7 @@ def init_paths() -> None:
 
 
 def init_paths_android(android_paths) -> None:
-    """Initialize binary paths on Android — native libs bundled in APK."""
+    """Initialize binary paths on Android - native libs bundled in APK."""
     global FF_PATH, QJS_PATH, ARIA2C_PATH, _initialized
     if _initialized:
         return

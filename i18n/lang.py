@@ -47,6 +47,8 @@ class GuiField(enum.Enum):
     login_from = enum.auto()
     login_from_tooltip = enum.auto()
     login_from_none = enum.auto()
+    proxy = enum.auto()
+    proxy_placeholder = enum.auto()
 
     # Main window properties
     width = enum.auto()
@@ -62,6 +64,14 @@ class GuiField(enum.Enum):
     error_chrome_cookies_locked = enum.auto()
     error_chrome_dpapi = enum.auto()
     error_login_required = enum.auto()
+
+    # Chrome cookie extraction (opt-in, Windows only)
+    chrome_cookies_extract_button = enum.auto()
+    chrome_cookies_dialog_title = enum.auto()
+    chrome_cookies_dialog_body = enum.auto()
+    chrome_cookies_extracting = enum.auto()
+    chrome_cookies_old_warning = enum.auto()
+    chrome_cookies_store_link = enum.auto()
 
     # Progress window
     download = enum.auto()
@@ -123,9 +133,12 @@ def _get_language() -> Language:
     if system_language is None:
         with contextlib.suppress(Exception):
             import subprocess
+
             result = subprocess.run(
                 ["getprop", "persist.sys.locale"],
-                capture_output=True, text=True, timeout=2,
+                capture_output=True,
+                text=True,
+                timeout=2,
             )
             prop = result.stdout.strip()
             if prop:
@@ -332,9 +345,9 @@ def get_text(field: GuiField) -> str:
             Language.german: "Original",
         },
         GuiField.original_tooltip: {
-            Language.english: "Keep original codecs — select specific streams from the source",
-            Language.french: "Conserver les codecs d'origine — sélectionner les flux de la source",
-            Language.german: "Original-Codecs beibehalten — Quellstreams auswählen",
+            Language.english: "Keep original codecs (select specific streams from the source)",
+            Language.french: "Conserver les codecs d'origine (sélectionner les flux depuis la source)",
+            Language.german: "Original-Codecs beibehalten (Quellstreams auswählen)",
         },
         GuiField.original_video_placeholder: {
             Language.english: "Video stream",
@@ -376,6 +389,16 @@ def get_text(field: GuiField) -> str:
             Language.english: "None",
             Language.french: "Aucun",
             Language.german: "Keine",
+        },
+        GuiField.proxy: {
+            Language.english: "Proxy",
+            Language.french: "Proxy",
+            Language.german: "Proxy",
+        },
+        GuiField.proxy_placeholder: {
+            Language.english: "e.g. socks5://127.0.0.1:1080",
+            Language.french: "ex. socks5://127.0.0.1:1080",
+            Language.german: "z.B. socks5://127.0.0.1:1080",
         },
         GuiField.dl_cancel: {
             Language.english: "Download cancelled.",
@@ -506,46 +529,102 @@ def get_text(field: GuiField) -> str:
         },
         GuiField.error_chrome_cookies_locked: {
             Language.english: (
-                "Chrome's cookie database is locked. Close Chrome and retry, "
-                "or select Firefox/Edge in the Cookies option."
+                "Chrome's cookie database is locked. Chrome is probably still running. "
+                "Close Chrome and retry, or use Firefox/Edge in the Cookies option."
             ),
             Language.french: (
-                "La base de cookies Chrome est verrouillée. Fermez Chrome et réessayez, "
-                "ou sélectionnez Firefox/Edge dans l'option Cookies."
+                "La base de cookies Chrome est verrouillée. Chrome est probablement encore ouvert. "
+                "Fermez Chrome et réessayez, ou utilisez Firefox/Edge dans l'option Cookies."
             ),
             Language.german: (
-                "Chromes Cookie-Datenbank ist gesperrt. Schließen Sie Chrome und versuchen Sie es erneut, "
-                "oder wählen Sie Firefox/Edge in der Cookies-Option."
+                "Chromes Cookie-Datenbank ist gesperrt. Chrome läuft wahrscheinlich noch. "
+                "Schließen Sie Chrome und versuchen Sie es erneut, oder nutzen Sie Firefox/Edge."
             ),
         },
         GuiField.error_chrome_dpapi: {
             Language.english: (
-                "Chrome's cookies are encrypted with App-Bound Encryption (Chrome 127+) "
-                "and cannot be decrypted. Use Firefox or Edge in the Cookies option instead."
+                "Chrome cookies cannot be read (App-Bound Encryption, Chrome 127+, Windows). "
+                "Install «Get cookies.txt LOCALLY» from the Chrome Web Store, export your cookies, "
+                "and select the file in the advanced options."
             ),
             Language.french: (
-                "Les cookies Chrome sont chiffrés avec App-Bound Encryption (Chrome 127+) "
-                "et ne peuvent pas être déchiffrés. Utilisez Firefox ou Edge dans l'option Cookies."
+                "Les cookies Chrome ne peuvent pas être lus (App-Bound Encryption, Chrome 127+, Windows). "
+                "Installez «Get cookies.txt LOCALLY» depuis le Chrome Web Store, exportez vos cookies "
+                "et sélectionnez le fichier dans les options avancées."
             ),
             Language.german: (
-                "Chrome-Cookies sind mit App-Bound Encryption (Chrome 127+) verschlüsselt "
-                "und können nicht entschlüsselt werden. Verwenden Sie Firefox oder Edge in der Cookies-Option."
+                "Chrome-Cookies können nicht gelesen werden (App-Bound Encryption, Chrome 127+, Windows). "
+                "Installieren Sie «Get cookies.txt LOCALLY» aus dem Chrome Web Store, exportieren Sie Ihre Cookies "
+                "und wählen Sie die Datei in den erweiterten Optionen aus."
             ),
         },
         GuiField.error_login_required: {
             Language.english: (
-                "Unable to extract video info. This video may require login. "
-                "Try setting the Cookies option."
+                "Unable to extract video info. This site may require login. "
+                "Use «Login from» to select your browser. "
+                "For Chrome, install «Get cookies.txt LOCALLY» and select the exported file."
             ),
             Language.french: (
-                "Impossible d'extraire les informations de la vidéo. "
-                "Cette vidéo nécessite peut-être une connexion. Essayez l'option Cookies."
+                "Impossible d'extraire les informations de la vidéo. Ce site nécessite peut-être une connexion. "
+                "Utilisez «Connexion depuis» pour sélectionner votre navigateur. "
+                "Pour Chrome, installez «Get cookies.txt LOCALLY» et sélectionnez le fichier exporté."
             ),
             Language.german: (
-                "Video-Informationen konnten nicht extrahiert werden. "
-                "Dieses Video erfordert möglicherweise eine Anmeldung. "
-                "Versuchen Sie die Cookies-Option zu setzen."
+                "Video-Informationen konnten nicht extrahiert werden. Diese Seite erfordert möglicherweise eine Anmeldung. "
+                "Nutzen Sie «Anmeldung von», um Ihren Browser auszuwählen. "
+                "Für Chrome: installieren Sie «Get cookies.txt LOCALLY» und wählen Sie die exportierte Datei."
             ),
+        },
+        GuiField.chrome_cookies_extract_button: {
+            Language.english: "Select cookies.txt",
+            Language.french: "Sélectionner cookies.txt",
+            Language.german: "cookies.txt auswählen",
+        },
+        GuiField.chrome_cookies_dialog_title: {
+            Language.english: "Chrome cookies",
+            Language.french: "Cookies Chrome",
+            Language.german: "Chrome-Cookies",
+        },
+        GuiField.chrome_cookies_dialog_body: {
+            Language.english: (
+                "Chrome 127+ (Windows) encrypts cookies so only Chrome itself can read them.\n\n"
+                "To download videos that require login:\n"
+                "  1. Install «Get cookies.txt LOCALLY» from the Chrome Web Store (link below)\n"
+                "  2. Click the extension icon and choose «Export All Cookies»\n"
+                "  3. Click «Select cookies.txt» below and choose that file\n\n"
+                "Alternative: use Firefox or Edge in «Login from»."
+            ),
+            Language.french: (
+                "Chrome 127+ (Windows) chiffre les cookies de façon à ce que seul Chrome puisse les lire.\n\n"
+                "Pour télécharger des vidéos nécessitant une connexion :\n"
+                "  1. Installez «Get cookies.txt LOCALLY» depuis le Chrome Web Store (lien ci-dessous)\n"
+                "  2. Cliquez sur l'icône de l'extension et choisissez «Export All Cookies»\n"
+                "  3. Cliquez sur «Sélectionner cookies.txt» ci-dessous et choisissez ce fichier\n\n"
+                "Alternative : utilisez Firefox ou Edge dans «Connexion depuis»."
+            ),
+            Language.german: (
+                "Chrome 127+ (Windows) verschlüsselt Cookies so, dass nur Chrome selbst sie lesen kann.\n\n"
+                "Um Videos herunterzuladen, die eine Anmeldung erfordern:\n"
+                "  1. Installieren Sie «Get cookies.txt LOCALLY» aus dem Chrome Web Store (Link unten)\n"
+                "  2. Klicken Sie auf das Erweiterungssymbol und wählen Sie «Export All Cookies»\n"
+                "  3. Klicken Sie unten auf «cookies.txt auswählen» und wählen Sie diese Datei\n\n"
+                "Alternative: Verwenden Sie Firefox oder Edge in «Anmeldung von»."
+            ),
+        },
+        GuiField.chrome_cookies_extracting: {
+            Language.english: "No file selected",
+            Language.french: "Aucun fichier sélectionné",
+            Language.german: "Keine Datei ausgewählt",
+        },
+        GuiField.chrome_cookies_old_warning: {
+            Language.english: "⚠ Cookies file is {days} days old. Re-export if downloads fail.",
+            Language.french: "⚠ Le fichier de cookies a {days} jours. Ré-exportez-le si les téléchargements échouent.",
+            Language.german: "⚠ Cookies-Datei ist {days} Tage alt. Exportieren Sie erneut, wenn Downloads fehlschlagen.",
+        },
+        GuiField.chrome_cookies_store_link: {
+            Language.english: "Open «Get cookies.txt LOCALLY» in Chrome Web Store",
+            Language.french: "Ouvrir «Get cookies.txt LOCALLY» dans le Chrome Web Store",
+            Language.german: "«Get cookies.txt LOCALLY» im Chrome Web Store öffnen",
         },
     }
     return ui_text[field][_current_language]  # type: ignore[index]

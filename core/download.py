@@ -22,7 +22,7 @@ import runtime
 from core.callbacks import CancelToken, ProgressCallback, StatusCallback
 from core.config_types import DownloadConfig
 from core.encode import post_process_dl
-from core.exceptions import DownloadCancelled, DownloadTimeout, PlaylistNotFound
+from core.exceptions import DownloadCancelled, DownloadTimeout, PlaylistNotFound, mark_v20_blocked, reset_v20_flag
 from i18n.lang import GuiField as GF
 from i18n.lang import get_text as gt
 
@@ -54,17 +54,26 @@ def _unlock_cookie_db(database_path: str) -> None:
         return
     try:
         rstrtmgr.RmRegisterResources(
-            session_handle, 1,
+            session_handle,
+            1,
             (c_wchar_p * 1)(database_path),
-            0, None, 0, None,
+            0,
+            None,
+            0,
+            None,
         )
         proc_info_needed = DWORD(0)
         proc_info = DWORD(0)
         reboot_reasons = DWORD(0)
-        result = DWORD(rstrtmgr.RmGetList(
-            session_handle, byref(proc_info_needed),
-            byref(proc_info), None, byref(reboot_reasons),
-        )).value
+        result = DWORD(
+            rstrtmgr.RmGetList(
+                session_handle,
+                byref(proc_info_needed),
+                byref(proc_info),
+                None,
+                byref(reboot_reasons),
+            )
+        ).value
         if result in (error_success, error_more_data) and proc_info_needed.value:
             logger.debug("Unlocking cookie DB held by %d process(es)", proc_info_needed.value)
             rstrtmgr.RmShutdown(session_handle, rm_force_shutdown, _cb)
@@ -104,7 +113,7 @@ class _GUID(ctypes.Structure):
     ]
 
     @classmethod
-    def from_str(cls, s: str) -> "_GUID":
+    def from_str(cls, s: str) -> _GUID:
         s = s.strip("{}")
         p = s.split("-")
         g = cls()
@@ -116,12 +125,48 @@ class _GUID(ctypes.Structure):
         return g
 
 
-def _com_decrypt_app_bound_key(ciphertext: bytes) -> bytes | None:
-    """Call IElevationService::DecryptData via COM vtable to decrypt Chrome's
+_CHROME_CLSID_REGISTRY_PATHS = [
+    # (service name, CLSID)
+    ("GoogleChromeElevationService", "{708860E0-F641-4611-8895-7D867DD3675B}"),
+    ("GoogleChromeBetaElevationService", "{DD2B98C8-EDB8-4E54-ABAC-7B24CD32CCF2}"),
+    ("GoogleChromeDevElevationService", "{DA7FDCA5-2CAA-4637-AA17-0740584DE7DA}"),
+    ("GoogleChromeCanaryElevationService", "{704C2872-2049-435E-A469-0A534313C42B}"),
+]
+
+
+def _find_chrome_clsid(browser_root: str) -> str:
+    """Return the CLSID for whichever Chrome channel owns browser_root,
+    by matching the service's AppID subkey against known service names.
+    Falls back to the stable CLSID."""
+    import winreg
+
+    # Identify channel from browser_root path
+    root_lower = browser_root.lower()
+    if "chrome beta" in root_lower or "chrome\\beta" in root_lower.replace("/", "\\"):
+        return _CHROME_CLSID_REGISTRY_PATHS[1][1]
+    if "chrome dev" in root_lower or "chrome\\dev" in root_lower.replace("/", "\\"):
+        return _CHROME_CLSID_REGISTRY_PATHS[2][1]
+    if "chrome canary" in root_lower or "chrome\\canary" in root_lower.replace("/", "\\"):
+        return _CHROME_CLSID_REGISTRY_PATHS[3][1]
+    # Try to discover dynamically from registry: scan for service name
+    for svc_name, clsid in _CHROME_CLSID_REGISTRY_PATHS:
+        key_path = rf"SOFTWARE\Classes\AppID\{clsid}"
+        try:
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path) as k:
+                val = winreg.QueryValueEx(k, "LocalService")[0]
+                if val == svc_name:
+                    return clsid
+        except OSError:
+            pass
+    return _CHROME_CLSID_REGISTRY_PATHS[0][1]  # stable fallback
+
+
+def _com_decrypt_app_bound_key(ciphertext: bytes, clsid_str: str) -> bytes | None:
+    """Call IElevator::DecryptData via COM vtable to decrypt Chrome's
     App-Bound Encryption key (Chrome 127+).
 
-    CLSID: {708860E0-F641-4611-8895-7D867DD3675B} (Google Chrome Elevation Service)
-    IID:   {A13E07E4-E324-4C66-9B80-E7DBE3D49494} (IElevator)
+    IID (Chrome 144+): {1BF5208B-295F-4992-B5F4-3A9BB6494838} (IElevator2Chrome)
+    IID (Chrome 127+): {463ABECF-410D-407F-8AF5-0DF35A005CC8} (IElevatorChrome)
     vtable[5] = DecryptData(BSTR ciphertext, BSTR* plaintext, DWORD* last_error)
     """
     ole32 = ctypes.windll.ole32
@@ -130,18 +175,50 @@ def _com_decrypt_app_bound_key(ciphertext: bytes) -> bytes | None:
     oleaut32.SysAllocStringByteLen.argtypes = [ctypes.c_char_p, ctypes.c_uint]
     oleaut32.SysFreeString.argtypes = [ctypes.c_void_p]
 
-    clsid = _GUID.from_str("{708860E0-F641-4611-8895-7D867DD3675B}")
-    iid = _GUID.from_str("{A13E07E4-E324-4C66-9B80-E7DBE3D49494}")
+    clsid = _GUID.from_str(clsid_str)
+    # Try IElevator2Chrome (Chrome 144+) first, fall back to IElevatorChrome (Chrome 127+)
+    iid_candidates = [
+        _GUID.from_str("{1BF5208B-295F-4992-B5F4-3A9BB6494838}"),  # IElevator2Chrome
+        _GUID.from_str("{463ABECF-410D-407F-8AF5-0DF35A005CC8}"),  # IElevatorChrome
+    ]
 
-    ole32.CoInitialize(None)
+    ole32.CoInitializeEx(None, 0)  # COINIT_MULTITHREADED
     ppv = ctypes.c_void_p(0)
-    hr = ole32.CoCreateInstance(
-        ctypes.byref(clsid), None, 4,  # CLSCTX_LOCAL_SERVER
-        ctypes.byref(iid), ctypes.byref(ppv),
-    )
+    hr = -1
+    for iid in iid_candidates:
+        hr = ole32.CoCreateInstance(
+            ctypes.byref(clsid),
+            None,
+            4,  # CLSCTX_LOCAL_SERVER
+            ctypes.byref(iid),
+            ctypes.byref(ppv),
+        )
+        if hr == 0 and ppv.value:
+            logger.debug("CoCreateInstance succeeded with IID %s", iid.Data1)
+            break
+        logger.debug("CoCreateInstance hr=0x%08X for IID %08X, trying next", hr & 0xFFFFFFFF, iid.Data1)
+        ppv = ctypes.c_void_p(0)
+
     if hr != 0 or not ppv.value:
-        logger.debug("CoCreateInstance failed: hr=0x%08X", hr & 0xFFFFFFFF)
+        logger.debug("All CoCreateInstance attempts failed")
         return None
+
+    # Set proxy blanket for impersonation + dynamic cloaking (required by elevation service)
+    rpc_c_authn_default = 0xFFFFFFFF
+    rpc_c_authz_default = 0xFFFFFFFF
+    rpc_c_authn_level_pkt_privacy = 6
+    rpc_c_imp_level_impersonate = 3
+    eoac_dynamic_cloaking = 0x40
+    ole32.CoSetProxyBlanket(
+        ppv,
+        rpc_c_authn_default,
+        rpc_c_authz_default,
+        None,
+        rpc_c_authn_level_pkt_privacy,
+        rpc_c_imp_level_impersonate,
+        None,
+        eoac_dynamic_cloaking,
+    )
 
     try:
         buf = ctypes.create_string_buffer(ciphertext)
@@ -153,9 +230,7 @@ def _com_decrypt_app_bound_key(ciphertext: bytes) -> bytes | None:
         last_error = ctypes.wintypes.DWORD(0)
 
         vtable_ptr = ctypes.c_size_t.from_address(ppv.value).value
-        decrypt_fn_ptr = ctypes.c_size_t.from_address(
-            vtable_ptr + 5 * ctypes.sizeof(ctypes.c_size_t)
-        ).value
+        decrypt_fn_ptr = ctypes.c_size_t.from_address(vtable_ptr + 5 * ctypes.sizeof(ctypes.c_size_t)).value
         decrypt_data = ctypes.WINFUNCTYPE(
             ctypes.HRESULT,
             ctypes.c_void_p,
@@ -169,8 +244,9 @@ def _com_decrypt_app_bound_key(ciphertext: bytes) -> bytes | None:
 
         if hr != 0 or not bstr_out.value:
             logger.debug(
-                "IElevationService::DecryptData failed: hr=0x%08X last_error=%d",
-                hr & 0xFFFFFFFF, last_error.value,
+                "IElevator::DecryptData failed: hr=0x%08X last_error=%d",
+                hr & 0xFFFFFFFF,
+                last_error.value,
             )
             return None
 
@@ -181,14 +257,19 @@ def _com_decrypt_app_bound_key(ciphertext: bytes) -> bytes | None:
         return result[-32:] if len(result) >= 32 else None
     finally:
         vtable_ptr = ctypes.c_size_t.from_address(ppv.value).value
-        release_ptr = ctypes.c_size_t.from_address(
-            vtable_ptr + 2 * ctypes.sizeof(ctypes.c_size_t)
-        ).value
+        release_ptr = ctypes.c_size_t.from_address(vtable_ptr + 2 * ctypes.sizeof(ctypes.c_size_t)).value
         ctypes.WINFUNCTYPE(ctypes.c_ulong, ctypes.c_void_p)(release_ptr)(ppv.value)
 
 
 def _get_app_bound_key(browser_root: str) -> bytes | None:
-    """Read Chrome's app_bound_encrypted_key from Local State and decrypt via COM."""
+    """Read Chrome's app_bound_encrypted_key from Local State and attempt COM decryption.
+
+    Note: Chrome 127+ uses App-Bound Encryption where IElevator::DecryptData
+    verifies the caller is a Chrome-signed binary. This will always fail from a
+    Python process (returns 0x8004A007). The function is kept for future
+    compatibility and for non-Chrome-Stable configurations where caller
+    verification may differ.
+    """
     local_state_path = os.path.join(browser_root, "Local State")
     if not os.path.isfile(local_state_path):
         return None
@@ -206,9 +287,10 @@ def _get_app_bound_key(browser_root: str) -> bytes | None:
     if not encrypted.startswith(b"APPB"):
         return None
 
-    logger.debug("Found App-Bound Encryption key, attempting COM decryption")
+    clsid_str = _find_chrome_clsid(browser_root)
+    logger.debug("Found App-Bound Encryption key, attempting COM decryption (CLSID %s)", clsid_str)
     try:
-        return _com_decrypt_app_bound_key(encrypted[4:])
+        return _com_decrypt_app_bound_key(encrypted[4:], clsid_str)
     except Exception as e:
         logger.debug("App-Bound COM decryption failed: %s", e)
         return None
@@ -233,6 +315,7 @@ def _patch_v20_decryptor() -> None:
         def _new_decrypt(self, encrypted_value):
             if encrypted_value[:3] == b"v20":
                 if not getattr(self, "_v20_key", None):
+                    mark_v20_blocked()
                     self._logger.warning(
                         "cannot decrypt v20 cookies: App-Bound key unavailable",
                         only_once=True,
@@ -245,7 +328,11 @@ def _patch_v20_decryptor() -> None:
                 auth_tag = raw[-tag_len:]
                 self._cookie_counts["v20"] = self._cookie_counts.get("v20", 0) + 1
                 return _decrypt_aes_gcm(
-                    ciphertext, self._v20_key, nonce, auth_tag, self._logger,
+                    ciphertext,
+                    self._v20_key,
+                    nonce,
+                    auth_tag,
+                    self._logger,
                     hash_prefix=self._meta_version >= 24,
                 )
             return _orig_decrypt(self, encrypted_value)
@@ -393,6 +480,7 @@ def download(
     for attempt in range(MAX_RETRIES):
         if cancel.is_cancelled():
             raise DownloadCancelled
+        reset_v20_flag()
         stall.tick()  # reset before each attempt
         children_before = _get_child_pids()
 
@@ -419,19 +507,18 @@ def download(
                 t.join(timeout=10)
                 raise DownloadCancelled
             if stall.is_stalled():
-                logger.warning("No progress for %ds on %s — killing child processes",
-                               STALL_TIMEOUT, config.url)
+                logger.warning("No progress for %ds on %s - killing child processes", STALL_TIMEOUT, config.url)
                 _kill_new_children(children_before)
                 t.join(timeout=10)
                 break
 
         if t.is_alive() or (error and stall.is_stalled()):
-            # Stall timeout — retry
-            last_exc = error[0] if error else TimeoutError(
-                f"stalled for {STALL_TIMEOUT}s on {config.url}")
-            backoff = BASE_BACKOFF * (2 ** attempt)
-            logger.warning("Attempt %d/%d stalled for %s, retrying in %ds",
-                           attempt + 1, MAX_RETRIES, config.url, backoff)
+            # Stall timeout - retry
+            last_exc = error[0] if error else TimeoutError(f"stalled for {STALL_TIMEOUT}s on {config.url}")
+            backoff = BASE_BACKOFF * (2**attempt)
+            logger.warning(
+                "Attempt %d/%d stalled for %s, retrying in %ds", attempt + 1, MAX_RETRIES, config.url, backoff
+            )
             time.sleep(backoff)
             continue
 

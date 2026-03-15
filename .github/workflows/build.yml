@@ -52,6 +52,19 @@ jobs:
       - name: Build binary
         run: pyinstaller ${{ matrix.spec }}
 
+      - name: Smoke test (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: ./dist/video-dl.exe --help
+
+      - name: Smoke test (Linux)
+        if: runner.os == 'Linux'
+        run: ./dist/video-dl --help
+
+      - name: Smoke test (macOS)
+        if: runner.os == 'macOS'
+        run: ./dist/video-dl.app/Contents/MacOS/video-dl --help
+
       - name: Package artifact (Windows)
         if: runner.os == 'Windows'
         shell: bash

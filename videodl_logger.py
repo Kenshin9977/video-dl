@@ -33,10 +33,11 @@ def videodl_logger(debug: bool = False, verbose: bool = False) -> None:
     else:
         root_logger.setLevel(logging.ERROR)
 
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.stream = open(sys.stdout.fileno(), mode="w", encoding="utf-8", errors="replace", closefd=False)  # noqa: SIM115
-    stdout_handler.setFormatter(formatter)
-    root_logger.addHandler(stdout_handler)
+    if sys.stdout is not None:
+        stdout_handler = logging.StreamHandler(sys.stdout)
+        stdout_handler.stream = open(sys.stdout.fileno(), mode="w", encoding="utf-8", errors="replace", closefd=False)  # noqa: SIM115
+        stdout_handler.setFormatter(formatter)
+        root_logger.addHandler(stdout_handler)
 
     # App logger: DEBUG when --debug or --verbose, INFO otherwise
     app_logger = logging.getLogger(APP_LOGGER_NAME)

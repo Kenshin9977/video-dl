@@ -237,6 +237,12 @@ jobs:
             --keys-dir keystore \
             --repo-dir repository
 
+      - name: Prune old targets from tufup repo
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          find repository/targets -name '*.tar.gz' ! -name "*-${VERSION}.tar.gz" -delete
+          echo "Remaining targets:" && ls -lh repository/targets/
+
       - name: Package signed files
         run: |
           mkdir -p signed

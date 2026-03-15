@@ -204,9 +204,12 @@ class TestBuildSubtitlesOpts:
 
 
 class TestBuildBrowserOpts:
-    def test_with_browser(self):
-        opts = build_browser_opts("Chrome", "None")
-        assert opts["cookiesfrombrowser"] == ["chrome"]
+    def test_chrome_without_cookies_file_returns_empty(self):
+        assert build_browser_opts("Chrome", "None") == {}
+
+    def test_other_browser(self):
+        opts = build_browser_opts("Firefox", "None")
+        assert opts["cookiesfrombrowser"] == ["firefox"]
 
     def test_none_label_returns_empty(self):
         assert build_browser_opts("None", "None") == {}

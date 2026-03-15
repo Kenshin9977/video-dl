@@ -126,8 +126,10 @@ def build_browser_opts(
     """
     if not cookies_value or cookies_value == none_label or cookies_value.lower() == "none":
         return {}
-    if cookies_value.lower() == "chrome" and cookies_file and os.path.isfile(cookies_file):
-        return {"cookiesfile": cookies_file}
+    if cookies_value.lower() == "chrome":
+        if cookies_file and os.path.isfile(cookies_file):
+            return {"cookiesfile": cookies_file}
+        return {}
     return {"cookiesfrombrowser": [cookies_value.lower()]}
 
 

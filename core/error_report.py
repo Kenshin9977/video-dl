@@ -8,7 +8,6 @@ from core.exceptions import (
     DownloadTimeout,
     FFmpegNoValidEncoderFound,
     PlaylistNotFound,
-    v20_was_blocked,
 )
 from i18n.lang import GuiField as GF
 from i18n.lang import get_text as gt
@@ -81,10 +80,8 @@ def build_error_report(exc: BaseException) -> ErrorReport:
             has_detail=True,
         )
     if _UNABLE_TO_EXTRACT in raw:
-        # If Chrome v20 cookies were blocked, the real cause is App-Bound Encryption
-        msg = gt(GF.error_chrome_dpapi) if v20_was_blocked() else gt(GF.error_login_required)
         return ErrorReport(
-            short_message=msg,
+            short_message=gt(GF.error_login_required),
             detail=detail,
             color="yellow",
             should_break=False,

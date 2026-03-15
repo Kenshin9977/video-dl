@@ -106,7 +106,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("videodl")
 
 
-def _urls_share_host(urls: list[str | None]) -> bool:
+def _urls_share_host(urls: list[str]) -> bool:
     """Return True if all non-None URLs point to the same hostname."""
     from urllib.parse import urlparse
 
@@ -201,7 +201,7 @@ class VideodlApp:
             label=gt(GF.link),
             autofocus=not mobile,
             dense=True,
-            keyboard_type=ft.KeyboardType.NONE if mobile else None,
+            keyboard_type=ft.KeyboardType.NONE if mobile else ft.KeyboardType.TEXT,
             on_change=self._url_change,
             on_submit=self._url_submit,
             on_blur=self._url_submit if not mobile else None,
@@ -343,7 +343,7 @@ class VideodlApp:
         )
         # Windows-only file picker shown when Chrome is selected
         self._cookies_file_picker = FilePicker()
-        self._cookies_file_picker.on_result = self._on_cookies_file_picked
+        self._cookies_file_picker.on_result = self._on_cookies_file_picked  # type: ignore[attr-defined]
         self.page.services.append(self._cookies_file_picker)
         self._chrome_cookies_info = Text(
             gt(GF.chrome_cookies_dialog_body),
@@ -415,8 +415,8 @@ class VideodlApp:
             tooltip="",
             visible=False,
         )
-        self._encode_label = Text("", size=12, visible=False) if mobile else None
-        self._encode_row = None
+        self._encode_label: Text | None = Text("", size=12, visible=False) if mobile else None
+        self._encode_row: ft.Container | None = None
         self.original_checkbox = Checkbox(
             label=gt(GF.original),
             tooltip=gt(GF.original_tooltip),
@@ -608,11 +608,11 @@ class VideodlApp:
             self.page.update()
 
     def _build_advanced_controls(self, timecode_rows):
-        codec_row_controls = [self.video_codec, self.audio_codec]
+        codec_row_controls: list[ft.Control] = [self.video_codec, self.audio_codec]
         if not self._mobile:
             codec_row_controls.append(self.encode_indicator)
-        rows = []
-        if self._mobile:
+        rows: list[ft.Control] = []
+        if self._mobile and self._encode_label:
             self._encode_row = ft.Container(
                 content=Row(controls=[self.encode_indicator, self._encode_label]),
                 padding=ft.padding.only(bottom=6),
@@ -742,7 +742,7 @@ class VideodlApp:
     def _update_download_bar(self, d: dict):
         # Handle "finished" signal from core/_finish_download
         if d.get("status") == "finished" and "downloaded_bytes" not in d:
-            self.download_progress.controls[0].value = f"{gt(GF.download)} 100%"
+            self.download_progress_text.value = f"{gt(GF.download)} 100%"
             self._mark_ui_dirty()
             return
         if self._cancel_requested.is_set():
@@ -960,7 +960,7 @@ class VideodlApp:
 
             loop.create_task(_do_paste())
         except RuntimeError:
-            url = self.page.get_clipboard()
+            url = self.page.get_clipboard()  # type: ignore[attr-defined]
             if url:
                 self.media_link.value = url.strip()
                 self._url_validate(self.media_link.value)
@@ -1137,7 +1137,8 @@ class VideodlApp:
         result = await self._cookies_file_picker.pick_files(allowed_extensions=["txt"], allow_multiple=False)
         if result:
             path = result[0].path if isinstance(result, list) else result.files[0].path
-            self._store_cookies_file(path)
+            if path:
+                self._store_cookies_file(path)
 
     def _on_cookies_file_picked(self, e):
         if e.files:
@@ -1672,7 +1673,7 @@ class VideodlApp:
                 Row(controls=[self.nle_ready, self.quality, self.framerate]),
                 Row(controls=[self.audio_only, self.song_only]),
             ]
-        controls = [
+        controls: list[ft.Control] = [
             Row(
                 controls=[self.language_button, self.theme, self.version_number],
                 alignment=MainAxisAlignment.SPACE_BETWEEN,

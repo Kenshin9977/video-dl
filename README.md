@@ -92,8 +92,8 @@ pyinstaller specs/Linux-video-dl.spec
 
 Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
 
-- Committers and reviewers: [Kenshin9977](https://github.com/Kenshin9977)
-- Approvers: [Kenshin9977](https://github.com/Kenshin9977)
+- Committers and reviewers: Rogelio MENDOZA ([Kenshin9977](https://github.com/Kenshin9977))
+- Approvers: Rogelio MENDOZA ([Kenshin9977](https://github.com/Kenshin9977))
 
 ## Privacy policy
 

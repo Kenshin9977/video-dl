@@ -15,6 +15,7 @@ from yt_dlp.postprocessor import FFmpegPostProcessor
 from yt_dlp.utils import DownloadCancelled as YtdlpDownloadCancelled
 
 import runtime
+from core import aria2c_progress, ytdlp_patch
 from core.callbacks import CancelToken, ProgressCallback, StatusCallback
 from core.config_types import DownloadConfig
 from core.encode import post_process_dl
@@ -71,6 +72,8 @@ def create_ydl(
 ) -> YoutubeDL:
     """Create a reusable YoutubeDL instance (cookies extracted once)."""
     logger.debug("ydl options %s", ydl_opts)
+    ytdlp_patch.install()
+    aria2c_progress.install()
     ydl_opts["logger"] = _YdlUiLogger(status_cb)
     ffmpeg_path = ff_path.get("ffmpeg", "ffmpeg")
     if ffmpeg_path != "ffmpeg":

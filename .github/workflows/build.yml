@@ -29,6 +29,12 @@ jobs:
 
     runs-on: ${{ matrix.os }}
 
+    # Hoisted to the job so the signing step's `if:` can test it. A step's own
+    # `env:` is not visible to its own `if:` — the condition is evaluated first —
+    # and the `secrets` context is not available there at all.
+    env:
+      SIGN_SSH_HOST: ${{ secrets.SIGN_SSH_HOST }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -86,6 +92,24 @@ jobs:
             -srcfolder dist/video-dl.app \
             -ov -format UDZO \
             "${{ matrix.artifact }}"
+
+      # Authenticode-sign here, inside the build job, BEFORE the artifact is
+      # uploaded — the `sign` job below hashes these artifacts into the tufup
+      # metadata, so signing afterwards would leave the update channel pointing at
+      # the unsigned bytes. Signing changes the file, so it has to come first.
+      #
+      # The action signs on a remote host over SSH (the key never touches CI) and
+      # then refuses to continue unless Windows itself reports the result as Valid
+      # and timestamped. Skipped, non-fatally, when the secrets are absent — a fork
+      # still builds green, just unsigned.
+      - name: Sign the Windows binary
+        if: runner.os == 'Windows' && env.SIGN_SSH_HOST != ''
+        uses: Kenshin9977/Discord-Overlay/.github/actions/sign-windows@sign-windows-v1
+        with:
+          files: ${{ matrix.artifact }}
+          ssh-host: ${{ secrets.SIGN_SSH_HOST }}
+          ssh-key: ${{ secrets.SIGN_SSH_KEY }}
+          known-hosts: ${{ secrets.SIGN_SSH_KNOWN_HOSTS }}
 
       - uses: actions/upload-artifact@v4
         with:

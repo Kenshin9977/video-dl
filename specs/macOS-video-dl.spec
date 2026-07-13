@@ -17,7 +17,16 @@ a = Analysis(
         (os.path.join(ROOTDIR, 'icon.icns'), '.'),
         (os.path.join(ROOTDIR, 'assets'), 'assets'),
     ] + flet_data + flet_desktop_data,
-    hiddenimports=['flet_desktop'],
+    # yt-dlp imports these inside try/except ImportError and quietly does without
+    # them, so a binary that failed to collect one still starts and only breaks
+    # later, on audio tagging or AES. main.py --selftest enforces their presence.
+    hiddenimports=[
+        'flet_desktop',
+        'Cryptodome.Cipher.AES',
+        'brotli',
+        'mutagen',
+        'websockets',
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

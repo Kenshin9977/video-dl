@@ -1095,7 +1095,6 @@ wheels = [
 
 [[package]]
 name = "video-dl"
-version = "2.2.4"
 source = { editable = "." }
 dependencies = [
     { name = "flet" },

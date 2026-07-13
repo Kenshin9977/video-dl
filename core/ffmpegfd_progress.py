@@ -133,6 +133,8 @@ def _prepare(context: _Context | None, args) -> tuple[FFmpegProgressReporter | N
         filename=context.filename,
         bytes_key="downloaded_bytes",
         status="downloading",
+        # ffmpeg is the downloader here: the bytes it writes are the bytes it fetched.
+        bytes_from_output=True,
     )
     if not reporter.reports_anything:
         # No duration means no ratio to report, so do not even ask ffmpeg for it.

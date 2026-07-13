@@ -146,6 +146,30 @@ class TestFFmpegProgressTracker:
         assert etas == sorted(etas, reverse=True)
         assert etas[-1] == 0
 
+    def test_counts_the_bytes_ffmpeg_wrote_when_it_is_the_one_downloading(self):
+        """Downloading needs no duration: ffmpeg counts the bytes it writes."""
+        from core.ffmpeg_progress import FFmpegProgressReporter
+
+        reports = []
+        reporter = FFmpegProgressReporter(
+            reports.append,
+            args=["ffmpeg"],
+            duration=0,
+            bytes_key="downloaded_bytes",
+            status="downloading",
+            bytes_from_output=True,
+        )
+        assert reporter.reports_anything
+
+        reporter.feed(
+            "bitrate= 100.0kbits/s\ntotal_size=54321\nout_time_us=N/A\nout_time_ms=N/A\nout_time=N/A\n"
+            "dup_frames=0\ndrop_frames=0\nspeed=N/A\nprogress=continue\n"
+        )
+
+        assert reports[-1]["downloaded_bytes"] == 54321
+        assert reports[-1]["status"] == "downloading"
+        assert reports[-1]["total_bytes"] is None
+
     def test_reports_nothing_without_a_duration_but_still_runs(self):
         reports = []
         tracker = FFmpegProgressTracker(fake_ffmpeg_args(blocks=2, duration=10), reports.append, duration=0)

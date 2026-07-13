@@ -65,7 +65,10 @@ jobs:
 
           ytdlp_patch.install()
           aria2c_progress.install()
-          url = "https://www.youtube.com/watch?v=BaW_jenozKc"
+          # "Me at the zoo", the first video ever posted to YouTube. Picked because
+          # it is about as unlikely to be taken down as a video gets: a check that
+          # is always red teaches you to stop reading it.
+          url = "https://www.youtube.com/watch?v=jNQXAC9IVRw"
           with YoutubeDL({"quiet": True, "skip_download": True}) as ydl:
               info = ydl.extract_info(url, download=False)
           print(f"YouTube still extracts: {info['title']!r}, {len(info['formats'])} formats")

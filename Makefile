@@ -125,9 +125,8 @@ check-android:
 # used 27.2, and this Makefile pulled the mutable `latest` ffmpeg while CI pinned a
 # tag. Bump deps.py, never these lines.
 FFMPEG_ANDROID_REPO := $(shell python3 deps.py FFMPEG_ANDROID_REPO)
-FFMPEG_ANDROID_ASSET := $(shell python3 deps.py FFMPEG_ANDROID_ASSET)
+FFMPEG_ANDROID_ASSET_PATTERN := $(shell python3 deps.py FFMPEG_ANDROID_ASSET_PATTERN)
 FFMPEG_ANDROID_TAG := $(shell python3 deps.py FFMPEG_ANDROID_TAG)
-FFMPEG_ANDROID_DIR := /tmp/$(basename $(basename $(FFMPEG_ANDROID_ASSET)))
 ARIA2C_ANDROID_REPO := $(shell python3 deps.py ARIA2_REPO)
 ARIA2C_ANDROID_TAG := $(shell python3 deps.py ARIA2_TAG)
 QUICKJS_REPO := $(shell python3 deps.py QUICKJS_REPO)
@@ -142,15 +141,15 @@ ANDROID_LIBS := android_libs/arm64-v8a
 fetch-android-deps: fetch-ffmpeg-android fetch-aria2c-android fetch-quickjs-android ## Download all Android ARM64 dependencies
 
 fetch-ffmpeg-android: ## Download the pinned FFmpeg Android ARM64 build
-	@echo "Downloading $(FFMPEG_ANDROID_ASSET) ($(FFMPEG_ANDROID_TAG))..."
+	@echo "Downloading FFmpeg for Android ARM64 ($(FFMPEG_ANDROID_TAG))..."
+	rm -rf /tmp/ffmpeg-android && mkdir -p /tmp/ffmpeg-android $(ANDROID_LIBS)
 	gh release download $(FFMPEG_ANDROID_TAG) --repo $(FFMPEG_ANDROID_REPO) \
-		--pattern "$(FFMPEG_ANDROID_ASSET)" --dir /tmp --clobber
-	mkdir -p $(ANDROID_LIBS)
-	tar xf /tmp/$(FFMPEG_ANDROID_ASSET) -C /tmp
-	cp $(FFMPEG_ANDROID_DIR)/bin/ffmpeg $(FFMPEG_ANDROID_DIR)/bin/ffprobe $(ANDROID_LIBS)/
-	cp $(FFMPEG_ANDROID_DIR)/lib/*.so $(ANDROID_LIBS)/
-	cp $(FFMPEG_ANDROID_DIR)/LICENSE.txt android_libs/
-	rm -rf $(FFMPEG_ANDROID_DIR) /tmp/$(FFMPEG_ANDROID_ASSET)
+		--pattern "$(FFMPEG_ANDROID_ASSET_PATTERN)" --dir /tmp/ffmpeg-android
+	tar xf /tmp/ffmpeg-android/*.tar.xz -C /tmp/ffmpeg-android
+	cp /tmp/ffmpeg-android/ffmpeg-*/bin/ffmpeg /tmp/ffmpeg-android/ffmpeg-*/bin/ffprobe $(ANDROID_LIBS)/
+	cp /tmp/ffmpeg-android/ffmpeg-*/lib/*.so $(ANDROID_LIBS)/
+	cp /tmp/ffmpeg-android/ffmpeg-*/LICENSE.txt android_libs/
+	rm -rf /tmp/ffmpeg-android
 	@echo "FFmpeg Android binaries ready in $(ANDROID_LIBS)/"
 
 fetch-aria2c-android: ## Download the pinned aria2c Android ARM64 build

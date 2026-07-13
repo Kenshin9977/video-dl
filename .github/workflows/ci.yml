@@ -38,6 +38,39 @@ jobs:
       - run: uv sync --locked --extra dev
       - run: uv run pytest --cov=core --cov=gui --cov=i18n --cov=utils --cov-report=term-missing
 
+  # The gate that lets a yt-dlp bump merge unattended. Everything else in the suite
+  # mocks the network; this downloads a real file and makes yt-dlp run a real ffmpeg,
+  # so it proves the proposed version still works with our two runtime patches.
+  #
+  # YouTube is checked too, but never blocks: it blocks datacenter IPs often enough
+  # that gating a merge on it would only teach us to ignore a red CI.
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --locked --extra dev
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Download a real file and check both progress bars
+        run: uv run pytest -m network -v
+
+      - name: Try YouTube (informational)
+        continue-on-error: true
+        run: |
+          uv run python - <<'PY'
+          from yt_dlp import YoutubeDL
+          from core import aria2c_progress, ytdlp_patch
+
+          ytdlp_patch.install()
+          aria2c_progress.install()
+          url = "https://www.youtube.com/watch?v=BaW_jenozKc"
+          with YoutubeDL({"quiet": True, "skip_download": True}) as ydl:
+              info = ydl.extract_info(url, download=False)
+          print(f"YouTube still extracts: {info['title']!r}, {len(info['formats'])} formats")
+          PY
+
   # A release tag used to be the first time PyInstaller ever ran against a change,
   # and release.sh pushes the tag before the build proves anything. Freeze the
   # binary here instead, and run the same import selftest the release runs, so a

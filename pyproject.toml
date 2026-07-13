@@ -1,6 +1,7 @@
 [project]
 name = "video-dl"
-version = "2.2.4"
+# Single sourced from version.py, so a release cannot bump one copy and miss another.
+dynamic = ["version"]
 description = "A Flet-based GUI for yt-dlp with hardware-accelerated encoding"
 authors = [{ name = "Rogelio MENDOZA" }]
 requires-python = ">=3.12"
@@ -43,6 +44,9 @@ dev = [
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.dynamic]
+version = { attr = "version.__version__" }
+
 [tool.setuptools.packages.find]
 include = ["core*", "gui*", "i18n*", "runtime*", "updater*", "utils*", "tools*"]
 
@@ -74,3 +78,8 @@ disable_error_code = ["no-any-return", "var-annotated"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The network tests are the gate an unattended dependency bump has to pass, so they
+# are real: a real download, a real ffmpeg run. They are excluded by default, and
+# run by the `download` CI job and the daily canary with `-m network`.
+addopts = "-m 'not network'"
+markers = ["network: hits the real network"]

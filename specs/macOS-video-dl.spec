@@ -3,6 +3,10 @@ import os
 from PyInstaller.utils.hooks import collect_data_files
 ROOTDIR = os.path.abspath(os.path.join(SPECPATH, '..'))
 
+_version = {}
+exec(open(os.path.join(ROOTDIR, 'version.py')).read(), _version)
+APP_VERSION = _version['__version__']
+
 block_cipher = None
 
 flet_data = collect_data_files('flet')
@@ -81,7 +85,7 @@ app = BUNDLE(
     icon=os.path.join(ROOTDIR, 'icon.icns'),
     bundle_identifier='com.kenshin.video-dl',
     info_plist={
-        'CFBundleShortVersionString': '2.2.2',
+        'CFBundleShortVersionString': APP_VERSION,
         'CFBundleName': 'video-dl',
         'NSHighResolutionCapable': True,
         'LSUIElement': True,

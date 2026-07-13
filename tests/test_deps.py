@@ -82,3 +82,16 @@ class TestPinsAreImmutable:
     def test_the_workflow_never_downloads_a_latest_release(self):
         workflow = BUILD_WORKFLOW.read_text(encoding="utf-8")
         assert "gh release download latest" not in workflow
+
+    def test_the_ffmpeg_asset_is_matched_by_pattern_not_by_name(self):
+        """The name carries the build number, so pinning the tag and naming the file fetches nothing.
+
+        The rolling `latest` release calls it ffmpeg-master-latest-androidarm64-*, and
+        every dated autobuild calls it ffmpeg-N-<build>-g<commit>-androidarm64-*. Naming
+        it would break the build the first time Renovate bumped the tag, which is the
+        one moment nobody is watching.
+        """
+        pattern = deps.FFMPEG_ANDROID_ASSET_PATTERN
+        assert pattern.startswith("*"), "the build number lives at the front, so the wildcard has to"
+        assert "latest" not in pattern, "that name only exists on the rolling release, not on a pinned tag"
+        assert not re.search(r"N-\d+", pattern), "a build number here breaks the next tag bump"

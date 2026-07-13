@@ -139,7 +139,7 @@ jobs:
       # It imports nothing, so a bare python can read it before anything is set up.
       - name: Read the pinned binary versions
         run: |
-          for pin in FFMPEG_ANDROID_TAG FFMPEG_ANDROID_ASSET ARIA2_TAG QUICKJS_COMMIT QUICKJS_REPO NDK_VERSION; do
+          for pin in FFMPEG_ANDROID_TAG FFMPEG_ANDROID_ASSET_PATTERN ARIA2_TAG QUICKJS_COMMIT QUICKJS_REPO NDK_VERSION; do
             echo "$pin=$(python3 deps.py "$pin")" >> "$GITHUB_ENV"
           done
 
@@ -176,11 +176,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "$ANDROID_LIBS"
-          repo=$(python3 deps.py FFMPEG_ANDROID_REPO)
-          gh release download "$FFMPEG_ANDROID_TAG" --repo "$repo" \
-            --pattern "$FFMPEG_ANDROID_ASSET" --dir /tmp --clobber
-          tar xf "/tmp/$FFMPEG_ANDROID_ASSET" -C /tmp
-          unpacked="/tmp/${FFMPEG_ANDROID_ASSET%.tar.xz}"
+          rm -rf /tmp/ffmpeg-android && mkdir -p /tmp/ffmpeg-android
+          gh release download "$FFMPEG_ANDROID_TAG" --repo "$(python3 deps.py FFMPEG_ANDROID_REPO)" \
+            --pattern "$FFMPEG_ANDROID_ASSET_PATTERN" --dir /tmp/ffmpeg-android
+          # The asset carries the build number, and the directory inside it carries
+          # the same. Read both back rather than guessing either.
+          archive=$(find /tmp/ffmpeg-android -name '*.tar.xz')
+          tar xf "$archive" -C /tmp/ffmpeg-android
+          unpacked=$(find /tmp/ffmpeg-android -mindepth 1 -maxdepth 1 -type d)
           cp "$unpacked/bin/ffmpeg" "$unpacked/bin/ffprobe" "$ANDROID_LIBS/"
           cp "$unpacked"/lib/*.so "$ANDROID_LIBS/"
 

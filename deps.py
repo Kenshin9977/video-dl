@@ -27,7 +27,13 @@ Deliberately not pinned here:
 # renovate: datasource=github-releases depName=Kenshin9977/FFmpeg-Builds versioning=loose
 FFMPEG_ANDROID_TAG = "autobuild-2026-06-15-18-44"
 FFMPEG_ANDROID_REPO = "Kenshin9977/FFmpeg-Builds"
-FFMPEG_ANDROID_ASSET = "ffmpeg-master-latest-androidarm64-gpl-shared.tar.xz"
+# A pattern, not a name, and that is the whole point: the rolling `latest` release
+# calls this asset ffmpeg-master-latest-androidarm64-gpl-shared.tar.xz, while every
+# dated autobuild release stamps the build and commit into it
+# (ffmpeg-N-125053-gfd290e2fcd-androidarm64-gpl-shared.tar.xz). Pinning the tag and
+# hardcoding the name fetches nothing, and hardcoding the versioned name would break
+# on the next bump. Match on the part that never moves.
+FFMPEG_ANDROID_ASSET_PATTERN = "*androidarm64-gpl-shared.tar.xz"
 
 # aria2c, both bundled into the APK and downloaded on first run on desktop. The
 # same tag for both, or the two platforms ship different binaries.

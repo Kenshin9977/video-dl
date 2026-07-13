@@ -163,7 +163,7 @@ jobs:
       # No `cache: gradle` here. The Gradle project does not exist at checkout time,
       # `flet build` generates it, so the action finds nothing to key a cache on and
       # fails the job before it has started.
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"

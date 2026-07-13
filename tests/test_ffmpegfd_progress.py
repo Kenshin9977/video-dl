@@ -64,13 +64,18 @@ class TestInstall:
         assert not ffmpegfd_progress._installed
         assert "yt-dlp has moved" in caplog.text
 
-    def test_asks_ffmpeg_for_nothing_when_the_duration_is_unknown(self):
-        """No duration means no ratio to report, so do not even add the flag."""
+    def test_still_reports_when_the_duration_is_unknown(self):
+        """A direct file often has no duration, and the bar used to sit at zero for it.
+
+        It does not need one: ffmpeg is the downloader here, so the bytes it writes
+        are the bytes that came down the wire, and it counts those itself.
+        """
         context = ffmpegfd_progress._Context(MagicMock(), {"filesize": 1000})
         reporter, path = ffmpegfd_progress._prepare(context, ["ffmpeg", "-i", "in.mp4"])
 
-        assert reporter is None
-        assert path is None
+        assert context.duration == 0
+        assert reporter is not None
+        assert path is not None
 
     def test_leaves_every_other_external_downloader_alone(self):
         """The stand-in only touches an ffmpeg run. aria2c, wget and curl go through it too."""

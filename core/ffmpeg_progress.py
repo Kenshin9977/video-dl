@@ -101,6 +101,14 @@ def bitrate_to_bits_per_second(value: str) -> float:
     return bitrate * multiplier
 
 
+def to_int(value: str | None) -> int:
+    """ffmpeg writes `N/A` rather than a number whenever it has nothing to report yet."""
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 0
+
+
 def microseconds_to_seconds(value: str | None) -> int:
     """Read ffmpeg's `out_time_us=` field.
 
@@ -170,9 +178,11 @@ class FFmpegProgressReporter:
         filename: str = "",
         bytes_key: str = "processed_bytes",
         status: str = "processing",
+        bytes_from_output: bool = False,
     ) -> None:
         self._on_progress = on_progress
         self._bytes_key = bytes_key
+        self._bytes_from_output = bytes_from_output
         self._block = ""
         self._started_at = time.time()
 
@@ -189,8 +199,8 @@ class FFmpegProgressReporter:
 
     @property
     def reports_anything(self) -> bool:
-        """False when ffmpeg's output cannot be turned into a ratio, so why bother reading it."""
-        return bool(self._duration)
+        """False when there is nothing we could report, so why even ask ffmpeg for it."""
+        return bool(self._duration or self._bytes_from_output)
 
     def feed(self, text: str) -> None:
         """Hand it more of ffmpeg's progress output."""
@@ -208,14 +218,23 @@ class FFmpegProgressReporter:
         self._on_progress(self._status.copy())
 
     def _emit(self, report: re.Match) -> None:
-        # ffmpeg's own total_size is unreliable and can push the bar past 100%.
-        # Derive the byte count from how far into the media it has got instead.
         out_time = microseconds_to_seconds(report.group("out_time_us"))
-        done = int(out_time / self._duration * self._total_bytes) if self._duration else 0
+
+        if self._bytes_from_output:
+            # ffmpeg is downloading, so the bytes it has written are the bytes that
+            # came down the wire. That is a real count, and it needs no duration:
+            # a direct file often has none, and the bar would sit at zero.
+            done = to_int(report.group("total_size"))
+        else:
+            # ffmpeg is encoding, and then total_size is the size of a file that is
+            # still being written: it can overshoot and push the bar past 100%. How
+            # far into the media it has got is the honest measure.
+            done = int(out_time / self._duration * self._total_bytes) if self._duration else 0
 
         self._status.update(
             {
                 self._bytes_key: done,
+                "total_bytes": self._total_bytes or None,
                 "speed": bitrate_to_bits_per_second(report.group("bitrate")) or None,
                 "eta": self._eta(report.group("speed"), out_time),
                 "elapsed": time.time() - self._started_at,

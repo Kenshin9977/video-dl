@@ -154,6 +154,38 @@ class TestFFmpegProgressTracker:
         assert returncode == 0
         assert all(r["processed_bytes"] == 0 for r in reports)
 
+    def test_survives_the_na_ffmpeg_writes_before_it_has_anything_to_report(self):
+        """A real ffmpeg on a real run: `out_time_us=N/A`, which used to raise and kill the download."""
+        na_block = textwrap.dedent(
+            """
+            import sys
+            sys.stdout.write(
+                "bitrate= N/A\\n"
+                "total_size= N/A\\n"
+                "out_time_us= N/A\\n"
+                "out_time_ms= N/A\\n"
+                "out_time= N/A\\n"
+                "dup_frames= 0\\n"
+                "drop_frames= 0\\n"
+                "speed= N/A\\n"
+                "progress= continue\\n"
+            )
+            """
+        )
+        reports = []
+        tracker = FFmpegProgressTracker(
+            [sys.executable, "-c", na_block],
+            reports.append,
+            duration=10,
+            total_bytes=1000,
+        )
+        _, _, returncode = tracker.run()
+
+        assert returncode == 0
+        assert reports[-1]["processed_bytes"] == 0
+        assert reports[-1]["speed"] is None
+        assert reports[-1]["eta"] is None
+
     def test_surfaces_the_return_code_and_stderr_of_a_failed_run(self):
         tracker = FFmpegProgressTracker(
             fake_ffmpeg_args(blocks=1, duration=10, returncode=1),

@@ -8,8 +8,15 @@ dependencies = [
     "flet>=0.81",
     "quantiphy",
     "tomlkit",
-    "yt-dlp-ejs",
-    "yt-dlp-enhanced-progress>=2026.3.3",
+    # Our yt-dlp fork, republished under this name. Pinned exactly: yt-dlp is
+    # frozen into the binary at build time anyway, so a floating spec buys no
+    # fixes for users, it only makes two builds of the same tag differ. Bump it
+    # deliberately when the fork republishes.
+    #
+    # [default] pulls yt-dlp's own recommended runtime deps (mutagen for audio
+    # tagging, websockets, pycryptodomex, brotli, certifi, yt-dlp-ejs). Without
+    # it the shipped yt-dlp silently loses those code paths.
+    "yt-dlp-enhanced-progress[default]==2026.3.13.160948",
 ]
 
 [project.optional-dependencies]

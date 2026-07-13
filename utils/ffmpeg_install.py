@@ -4,9 +4,11 @@ import json
 import logging
 import os
 import re
+import shutil
 import sys
 import threading
 import urllib.request
+from pathlib import PurePosixPath
 from typing import TypedDict
 from zipfile import ZipFile
 
@@ -15,6 +17,35 @@ import flet as ft
 from utils.sys_architecture import ARCHITECTURE
 
 logger = logging.getLogger("videodl")
+
+
+def extract_ffmpeg(zip_path: str, folder_path: str) -> None:
+    """Extract the archive's bin/ directory flat into folder_path.
+
+    FFmpeg-Builds archives nest everything under
+    ffmpeg-master-latest-<arch>-gpl-shared/bin/, while the app looks for
+    ffmpeg.exe and ffprobe.exe directly inside folder_path. The shared build
+    keeps its DLLs in that same bin/ directory, so they come along.
+
+    Members are written under their basename, which makes zip path traversal
+    impossible by construction.
+    """
+    extracted = set()
+    with ZipFile(zip_path, "r") as zip_ref:
+        for member in zip_ref.infolist():
+            if member.is_dir():
+                continue
+            member_path = PurePosixPath(member.filename)
+            if member_path.parent.name != "bin":
+                continue
+            target_path = os.path.join(folder_path, member_path.name)
+            with zip_ref.open(member) as source, open(target_path, "wb") as target:
+                shutil.copyfileobj(source, target)
+            extracted.add(member_path.name)
+
+    missing = {"ffmpeg.exe", "ffprobe.exe"} - extracted
+    if missing:
+        raise FileNotFoundError(f"{', '.join(sorted(missing))} missing from {os.path.basename(zip_path)}")
 
 
 def ffmpeg_progress_page(page: ft.Page) -> None:
@@ -51,14 +82,8 @@ def ffmpeg_progress_page(page: ft.Page) -> None:
             archive_name = download_ffmpeg(bits_archi, folder_path)
             zip_path = os.path.join(folder_path, archive_name)
 
-            with ZipFile(zip_path, "r") as zip_ref:
-                for member in zip_ref.namelist():
-                    member_path = os.path.realpath(os.path.join(folder_path, member))
-                    if not member_path.startswith(
-                        os.path.realpath(folder_path) + os.sep
-                    ) and member_path != os.path.realpath(folder_path):
-                        raise ValueError(f"Zip path traversal blocked: {member}")
-                zip_ref.extractall(folder_path)
+            extract_ffmpeg(zip_path, folder_path)
+            os.remove(zip_path)
 
             progress_bar.value = 1.0
             progress_bar.label = "Download complete"  # type: ignore[attr-defined]

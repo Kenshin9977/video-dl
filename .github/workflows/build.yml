@@ -12,6 +12,16 @@ concurrency:
 permissions:
   contents: write
 
+# Every third party binary is pinned to an immutable tag. The rolling `latest`
+# tag these projects also publish is mutable: its assets are replaced in place,
+# so a release could never be rebuilt byte for byte, and a half finished upstream
+# build could silently swap what we ship. Bump these deliberately.
+env:
+  FFMPEG_ANDROID_TAG: autobuild-2026-06-15-18-44
+  ARIA2_TAG: release-2.0.1
+  QUICKJS_COMMIT: 04be246001599f5995fa2f2d8c91a0f198d3f34c
+  EJS_VERSION: "0.5.0"
+
 jobs:
   build:
     strategy:
@@ -38,12 +48,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.12"
+          enable-cache: true
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: uv sync --locked --extra dev
 
       - name: Generate macOS icon
         if: runner.os == 'macOS'
@@ -60,20 +70,24 @@ jobs:
           iconutil -c icns "$ICONSET" -o icon.icns
 
       - name: Build binary
-        run: pyinstaller ${{ matrix.spec }}
+        run: uv run pyinstaller ${{ matrix.spec }}
 
+      # `--help` exits inside argparse, before the app imports flet, yt_dlp or
+      # tufup, so it cannot catch a missing PyInstaller hiddenimport. `--selftest`
+      # imports them all and exits, without initializing paths (that would try to
+      # download ffmpeg on the runner).
       - name: Smoke test (Windows)
         if: runner.os == 'Windows'
         shell: bash
-        run: ./dist/video-dl.exe --help
+        run: ./dist/video-dl.exe --selftest
 
       - name: Smoke test (Linux)
         if: runner.os == 'Linux'
-        run: ./dist/video-dl --help
+        run: ./dist/video-dl --selftest
 
       - name: Smoke test (macOS)
         if: runner.os == 'macOS'
-        run: ./dist/video-dl.app/Contents/MacOS/video-dl --help
+        run: ./dist/video-dl.app/Contents/MacOS/video-dl --selftest
 
       - name: Package artifact (Windows)
         if: runner.os == 'Windows'
@@ -120,37 +134,48 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ANDROID_LIBS: android_libs/arm64-v8a
+      NDK_VERSION: 27.2.12479018
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.12"
+          enable-cache: true
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
+          cache: gradle
 
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install NDK
-        run: sdkmanager "ndk;27.2.12479018"
+      - name: Cache the NDK
+        id: ndk-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.ANDROID_HOME }}/ndk/${{ env.NDK_VERSION }}
+          key: ndk-${{ env.NDK_VERSION }}
+
+      - name: Install the NDK
+        if: steps.ndk-cache.outputs.cache-hit != 'true'
+        run: sdkmanager "ndk;${NDK_VERSION}"
 
       - name: Install Python dependencies
-        run: pip install -e "." flet
+        run: uv sync --locked
 
       - name: Fetch FFmpeg
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "$ANDROID_LIBS"
-          gh release download latest --repo Kenshin9977/FFmpeg-Builds \
+          gh release download "$FFMPEG_ANDROID_TAG" --repo Kenshin9977/FFmpeg-Builds \
             --pattern "ffmpeg-master-latest-androidarm64-gpl-shared.tar.xz" --dir /tmp --clobber
           tar xf /tmp/ffmpeg-master-latest-androidarm64-gpl-shared.tar.xz -C /tmp
           cp /tmp/ffmpeg-master-latest-androidarm64-gpl-shared/bin/ffmpeg \
@@ -162,16 +187,26 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download --repo Kenshin9977/aria2 \
-            --pattern "aria2c-android-aarch64" --dir /tmp --clobber
+          gh release download "$ARIA2_TAG" --repo Kenshin9977/aria2 \
+            --pattern "aria2c-android-aarch64" --pattern "SHA256SUMS" --dir /tmp --clobber
+          (cd /tmp && grep " aria2c-android-aarch64$" SHA256SUMS | sha256sum -c -)
           cp /tmp/aria2c-android-aarch64 "$ANDROID_LIBS/aria2c"
           chmod +x "$ANDROID_LIBS/aria2c"
 
+      - name: Cache the QuickJS build
+        id: quickjs-cache
+        uses: actions/cache@v4
+        with:
+          path: android_libs/qjs
+          key: quickjs-${{ env.QUICKJS_COMMIT }}-ndk-${{ env.NDK_VERSION }}
+
       - name: Build QuickJS for ARM64
+        if: steps.quickjs-cache.outputs.cache-hit != 'true'
         run: |
           NDK_BIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
-          git clone --depth 1 https://github.com/bellard/quickjs.git /tmp/quickjs-bellard
+          git clone https://github.com/bellard/quickjs.git /tmp/quickjs-bellard
           cd /tmp/quickjs-bellard
+          git checkout "$QUICKJS_COMMIT"
           CC="$NDK_BIN/clang --target=aarch64-linux-android24 --sysroot=$NDK_BIN/../sysroot"
           CFLAGS="-D_GNU_SOURCE -DCONFIG_VERSION=\"$(cat VERSION)\" -O2 -flto -funsigned-char -fwrapv"
           for f in qjs quickjs quickjs-libc cutils dtoa libregexp libunicode; do
@@ -181,13 +216,17 @@ jobs:
           $CC $CFLAGS -c -o repl_stub.o repl_stub.c
           $CC -static -flto -o qjs qjs.o quickjs.o quickjs-libc.o cutils.o dtoa.o libregexp.o libunicode.o repl_stub.o -lm -ldl
           $NDK_BIN/llvm-strip qjs
-          cp qjs "$GITHUB_WORKSPACE/$ANDROID_LIBS/qjs"
+          mkdir -p "$GITHUB_WORKSPACE/android_libs"
+          cp qjs "$GITHUB_WORKSPACE/android_libs/qjs"
+
+      - name: Stage QuickJS
+        run: cp android_libs/qjs "$ANDROID_LIBS/qjs"
 
       - name: Fetch EJS solver lib
         run: |
-          EJS_DIR=$(python -c "import yt_dlp, os; print(os.path.join(os.path.dirname(yt_dlp.__file__), 'extractor/youtube/jsc/_builtin/vendor'))")
+          EJS_DIR=$(uv run python -c "import yt_dlp, os; print(os.path.join(os.path.dirname(yt_dlp.__file__), 'extractor/youtube/jsc/_builtin/vendor'))")
           curl -fSL -o "$EJS_DIR/yt.solver.lib.js" \
-            https://github.com/yt-dlp/ejs/releases/download/0.5.0/yt.solver.lib.js
+            "https://github.com/yt-dlp/ejs/releases/download/${EJS_VERSION}/yt.solver.lib.js"
 
       - name: Inject native libs
         run: |
@@ -199,9 +238,14 @@ jobs:
           cp "$ANDROID_LIBS/qjs" "$JNILIBS/libqjs.so"
           cp "$ANDROID_LIBS/aria2c" "$JNILIBS/libaria2c.so"
 
+      # arm64-v8a only, on purpose. The native libs above are injected into that
+      # ABI alone, and ffmpeg, aria2c and qjs are only built for aarch64 upstream,
+      # so an armeabi-v7a or x86_64 APK would install and then fail at the first
+      # download or mux. Publishing one working APK beats publishing three of
+      # which two are broken.
       - name: Build APK
         run: |
-          flet build apk \
+          uv run flet build apk \
             --project video-dl \
             --org com.videodl \
             --product "Video-dl" \
@@ -217,10 +261,22 @@ jobs:
             --android-permissions INTERNET=True WRITE_EXTERNAL_STORAGE=True READ_EXTERNAL_STORAGE=True MANAGE_EXTERNAL_STORAGE=True \
             --android-adaptive-icon-background "#7C3AED"
 
+      - name: Keep only the ABI we ship
+        run: |
+          shopt -s nullglob
+          apk=(build/apk/*arm64-v8a*.apk)
+          if [ ${#apk[@]} -ne 1 ]; then
+            echo "::error::expected exactly one arm64-v8a APK, found ${#apk[@]}"
+            exit 1
+          fi
+          mkdir -p release_apk
+          mv "${apk[0]}" release_apk/video-dl-arm64-v8a.apk
+          ls -lh release_apk/
+
       - uses: actions/upload-artifact@v4
         with:
-          name: android-apks
-          path: build/apk/*.apk
+          name: android-apk
+          path: release_apk/video-dl-arm64-v8a.apk
 
   sign:
     needs: build
@@ -228,12 +284,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.12"
+          enable-cache: true
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: uv sync --locked --extra dev
 
       - uses: actions/download-artifact@v4
         with:
@@ -248,23 +304,38 @@ jobs:
           echo "${{ secrets.TUFUP_PUBLIC_KEY }}" | base64 -d > keystore/video_dl_key.pub
           echo "${{ secrets.TUFUP_CONFIG }}" | base64 -d > .tufup-repo-config
 
+      # The tufup repository is the state of the update channel: its snapshot and
+      # timestamp version numbers only ever go up, and a client rejects metadata
+      # that goes backwards. Restoring a fresh repo instead of the real one would
+      # reset those counters to 1 and permanently brick auto-update for everyone
+      # already installed. So a failed restore fails the release. Bootstrapping an
+      # empty channel is a deliberate act: set the TUFUP_BOOTSTRAP repository
+      # variable to 1 for that one run.
       - name: Restore tufup repository
         env:
           GH_TOKEN: ${{ github.token }}
           TUFUP_REPO_ARCHIVE: ${{ secrets.TUFUP_REPO_ARCHIVE }}
+          TUFUP_BOOTSTRAP: ${{ vars.TUFUP_BOOTSTRAP }}
         run: |
-          if gh release download --repo ${{ github.repository }} \
-              --pattern "tufup-repo.tar.gz" --dir /tmp 2>/dev/null; then
+          set -euo pipefail
+          if gh release download --repo "$GITHUB_REPOSITORY" --pattern "tufup-repo.tar.gz" --dir /tmp; then
             tar -xzf /tmp/tufup-repo.tar.gz
-            echo "Restored tufup repo from previous release"
-          elif [ -n "$TUFUP_REPO_ARCHIVE" ]; then
+            echo "Restored the tufup repo from the previous release"
+          elif [ -n "${TUFUP_REPO_ARCHIVE:-}" ]; then
             echo "$TUFUP_REPO_ARCHIVE" | base64 -d | tar -xzf -
-            echo "Restored tufup repo from secret"
-          else
+            echo "Restored the tufup repo from the TUFUP_REPO_ARCHIVE secret"
+          elif [ "${TUFUP_BOOTSTRAP:-}" = "1" ]; then
             mkdir -p repository/metadata repository/targets
             cp root.json repository/metadata/root.json
-            echo "Bootstrapped fresh tufup repo"
+            echo "Bootstrapped a fresh tufup repo (TUFUP_BOOTSTRAP=1)"
+          else
+            echo "::error::Could not restore the tufup repository from the previous release."
+            echo "::error::Publishing now would reset TUF metadata versions and break auto-update"
+            echo "::error::for every installed client. Fix the restore, or set the TUFUP_BOOTSTRAP"
+            echo "::error::repository variable to 1 if you really mean to start a fresh channel."
+            exit 1
           fi
+          test -f repository/metadata/root.json
 
       - name: Extract version from tag
         id: version
@@ -272,7 +343,7 @@ jobs:
 
       - name: Sign all platform artifacts
         run: |
-          python -m tools.ci_sign \
+          uv run python -m tools.ci_sign \
             --version "${{ steps.version.outputs.version }}" \
             --artifacts-dir artifacts \
             --keys-dir keystore \
@@ -305,14 +376,16 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      # No `|| true` here. A missing binary used to produce a green release with
+      # the binary silently absent from it.
       - name: Organize release assets
         run: |
+          set -euo pipefail
           mkdir -p binaries tufup
-          mv artifacts/video-dl-windows.exe binaries/ 2>/dev/null || true
-          mv artifacts/video-dl-linux binaries/ 2>/dev/null || true
-          mv artifacts/video-dl-macos.dmg binaries/ 2>/dev/null || true
-          mv artifacts/*.apk binaries/ 2>/dev/null || true
-          mv artifacts/* tufup/ 2>/dev/null || true
+          for binary in video-dl-windows.exe video-dl-linux video-dl-macos.dmg video-dl-arm64-v8a.apk; do
+            mv "artifacts/$binary" binaries/
+          done
+          mv artifacts/* tufup/
           echo "=== Binaries ===" && ls -la binaries/
           echo "=== Tufup ===" && ls -la tufup/
 
@@ -324,13 +397,9 @@ jobs:
           body: |
             ## Download
 
-            | Windows | macOS | Linux |
-            |:-------:|:-----:|:-----:|
-            | [video-dl-windows.exe](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-windows.exe) | [video-dl-macos.dmg](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-macos.dmg) | [video-dl-linux](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-linux) |
-
-            | Android (ARM64) | Android (ARM 32-bit) | Android (x86_64) |
-            |:---------------:|:--------------------:|:-----------------:|
-            | [video-dl-arm64-v8a.apk](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-arm64-v8a.apk) | [video-dl-armeabi-v7a.apk](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-armeabi-v7a.apk) | [video-dl-x86_64.apk](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-x86_64.apk) |
+            | Windows | macOS | Linux | Android (ARM64) |
+            |:-------:|:-----:|:-----:|:---------------:|
+            | [video-dl-windows.exe](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-windows.exe) | [video-dl-macos.dmg](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-macos.dmg) | [video-dl-linux](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-linux) | [video-dl-arm64-v8a.apk](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-arm64-v8a.apk) |
 
             <details>
             <summary>Auto-update files (internal)</summary>

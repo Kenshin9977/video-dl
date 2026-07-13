@@ -101,6 +101,19 @@ def bitrate_to_bits_per_second(value: str) -> float:
     return bitrate * multiplier
 
 
+def microseconds_to_seconds(value: str | None) -> int:
+    """Read ffmpeg's `out_time_us=` field.
+
+    ffmpeg writes `N/A` there, not a number, until it has something to report: at
+    the start of a run, and for the whole of some audio only ones. Reading it as an
+    integer took the whole download down with a ValueError.
+    """
+    try:
+        return int(value) // 1_000_000  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 0
+
+
 def duration_to_process(args: list[str], duration: float) -> float:
     """How much of the media the command will actually touch, given its seek flags.
 
@@ -258,7 +271,7 @@ class FFmpegProgressTracker:
 
         # ffmpeg's own total_size is unreliable and can push the bar past 100%.
         # Derive the byte count from how far into the media it has got instead.
-        out_time = int(report.group("out_time_us") or 0) // 1_000_000
+        out_time = microseconds_to_seconds(report.group("out_time_us"))
         processed = int(out_time / self._duration * self._total_bytes) if self._duration else 0
         speed = bitrate_to_bits_per_second(report.group("bitrate"))
 

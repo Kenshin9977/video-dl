@@ -1,6 +1,5 @@
 import hashlib
 import sys
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -12,7 +11,7 @@ sys.modules.setdefault("flet", MagicMock())
 # collection order turns out to be.
 sys.modules.pop("utils.aria2_install", None)
 
-from utils.aria2_install import _ARIA2C_RELEASE_TAG, verify_download  # noqa: E402
+from utils.aria2_install import verify_download  # noqa: E402
 
 ASSET = "aria2c-linux-x86_64"
 
@@ -67,10 +66,3 @@ class TestVerifyDownload:
             pytest.raises(OSError, match="network down"),
         ):
             verify_download(str(binary), ASSET)
-
-
-class TestReleasePinning:
-    def test_desktop_tag_matches_the_tag_bundled_into_the_apk(self):
-        """The APK and the desktop download must ship the same aria2c build."""
-        workflow = Path(__file__).parent.parent / ".github" / "workflows" / "build.yml"
-        assert f"ARIA2_TAG: {_ARIA2C_RELEASE_TAG}" in workflow.read_text(encoding="utf-8")

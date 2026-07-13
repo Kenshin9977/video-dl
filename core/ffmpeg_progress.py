@@ -101,6 +101,19 @@ def bitrate_to_bits_per_second(value: str) -> float:
     return bitrate * multiplier
 
 
+def microseconds_to_seconds(value: str | None) -> int:
+    """Read ffmpeg's `out_time_us=` field.
+
+    ffmpeg writes `N/A` there, not a number, until it has something to report: at
+    the start of a run, and for the whole of some audio only ones. Reading it as an
+    integer took the whole download down with a ValueError.
+    """
+    try:
+        return int(value) // 1_000_000  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 0
+
+
 def duration_to_process(args: list[str], duration: float) -> float:
     """How much of the media the command will actually touch, given its seek flags.
 
@@ -127,6 +140,98 @@ def duration_to_process(args: list[str], duration: float) -> float:
 
     processed = explicit if explicit is not None else end - start
     return processed if processed >= 0 else 0.0
+
+
+class FFmpegProgressReporter:
+    """Turn ffmpeg's progress reports into status dicts, wherever they come from.
+
+    Feed it whatever ffmpeg has written so far, as many times as you like. It keeps
+    the leftovers, and calls `on_progress` once per complete report block.
+
+    `duration` and `total_bytes` describe the *input*: the media duration in seconds
+    and its size in bytes. Without a duration there is no ratio to compute, so it
+    reports nothing rather than reporting nonsense.
+
+    ffmpeg reports how far it has got in *time*, never in bytes, so the byte counts
+    are that time ratio applied to the input size. Honest enough for a bar.
+
+    The byte count goes out under `bytes_key`, because the GUI reads a different key
+    depending on which bar it is filling: `downloaded_bytes` while ffmpeg is doing
+    the downloading, `processed_bytes` while it is doing the encoding.
+    """
+
+    def __init__(
+        self,
+        on_progress: ProgressHook,
+        *,
+        args: list[str],
+        duration: float = 0,
+        total_bytes: int = 0,
+        filename: str = "",
+        bytes_key: str = "processed_bytes",
+        status: str = "processing",
+    ) -> None:
+        self._on_progress = on_progress
+        self._bytes_key = bytes_key
+        self._block = ""
+        self._started_at = time.time()
+
+        self._duration = duration_to_process(args, duration)
+        # The output covers only the part of the input being processed.
+        self._total_bytes = int(total_bytes * self._duration / duration) if duration else 0
+        self._status: dict = {
+            "filename": filename,
+            "status": status,
+            "elapsed": 0,
+            bytes_key: 0,
+            "total_bytes": self._total_bytes,
+        }
+
+    @property
+    def reports_anything(self) -> bool:
+        """False when ffmpeg's output cannot be turned into a ratio, so why bother reading it."""
+        return bool(self._duration)
+
+    def feed(self, text: str) -> None:
+        """Hand it more of ffmpeg's progress output."""
+        self._block += text
+        while True:
+            report = _PROGRESS_BLOCK.match(self._block)
+            if not report:
+                return
+            self._block = self._block[report.end() :].lstrip("\n")
+            self._emit(report)
+
+    def tick(self) -> None:
+        """Refresh `elapsed` even when ffmpeg has said nothing new."""
+        self._status["elapsed"] = time.time() - self._started_at
+        self._on_progress(self._status.copy())
+
+    def _emit(self, report: re.Match) -> None:
+        # ffmpeg's own total_size is unreliable and can push the bar past 100%.
+        # Derive the byte count from how far into the media it has got instead.
+        out_time = microseconds_to_seconds(report.group("out_time_us"))
+        done = int(out_time / self._duration * self._total_bytes) if self._duration else 0
+
+        self._status.update(
+            {
+                self._bytes_key: done,
+                "speed": bitrate_to_bits_per_second(report.group("bitrate")) or None,
+                "eta": self._eta(report.group("speed"), out_time),
+                "elapsed": time.time() - self._started_at,
+            }
+        )
+        self._on_progress(self._status.copy())
+
+    def _eta(self, speed_field: str, out_time: int) -> float | None:
+        """`speed=` is a multiple of realtime, e.g. `2.5x`, so the remaining media time over it."""
+        if not self._duration:
+            return None
+        try:
+            speed = float(speed_field.rstrip("x"))
+            return (self._duration - out_time) / speed
+        except (TypeError, ValueError, ZeroDivisionError):
+            return None
 
 
 class FFmpegProgressTracker:
@@ -159,19 +264,17 @@ class FFmpegProgressTracker:
         # The output covers only the part of the input being processed.
         self._total_bytes = int(total_bytes * self._duration / duration) if duration else 0
 
+        self._reporter = FFmpegProgressReporter(
+            on_progress,
+            args=args,
+            duration=duration,
+            total_bytes=total_bytes,
+            filename=filename,
+        )
         self._stdout_queue: Queue[str] = Queue()
         self._stderr_queue: Queue[str] = Queue()
         self._stdout = ""
         self._stderr = ""
-        self._block = ""
-        self._started_at = 0.0
-        self._status: dict = {
-            "filename": filename,
-            "status": "processing",
-            "elapsed": 0,
-            "processed_bytes": 0,
-            "total_bytes": self._total_bytes,
-        }
         self.proc: subprocess.Popen | None = None
 
     def run(self) -> tuple[str, str, int]:
@@ -226,18 +329,18 @@ class FFmpegProgressTracker:
         while returncode is None:
             time.sleep(0.05)
             self._consume_queues()
-            self._status["elapsed"] = time.time() - self._started_at
-            self._on_progress(self._status.copy())
+            self._reporter.tick()
             returncode = self.proc.poll()
         return returncode
 
     def _consume_queues(self) -> None:
         while True:
             try:
-                self._block += self._stdout_queue.get_nowait() + "\n"
+                line = self._stdout_queue.get_nowait() + "\n"
             except Empty:
                 break
-            self._parse_block()
+            self._stdout += line
+            self._reporter.feed(line)
 
         while True:
             try:
@@ -247,36 +350,3 @@ class FFmpegProgressTracker:
             self._stderr += line + "\n"
             if line.strip():
                 logger.debug(f"ffmpeg: {line}")
-
-    def _parse_block(self) -> None:
-        report = _PROGRESS_BLOCK.match(self._block)
-        if not report:
-            return
-
-        self._stdout += self._block
-        self._block = ""
-
-        # ffmpeg's own total_size is unreliable and can push the bar past 100%.
-        # Derive the byte count from how far into the media it has got instead.
-        out_time = int(report.group("out_time_us") or 0) // 1_000_000
-        processed = int(out_time / self._duration * self._total_bytes) if self._duration else 0
-        speed = bitrate_to_bits_per_second(report.group("bitrate"))
-
-        self._status.update(
-            {
-                "processed_bytes": processed,
-                "speed": speed or None,
-                "eta": self._eta(report.group("speed"), out_time),
-            }
-        )
-        self._on_progress(self._status.copy())
-
-    def _eta(self, speed_field: str, out_time: int) -> float | None:
-        """`speed=` is a multiple of realtime, e.g. `2.5x`, so the remaining media time over it."""
-        if not self._duration:
-            return None
-        try:
-            speed = float(speed_field.rstrip("x"))
-            return (self._duration - out_time) / speed
-        except (TypeError, ValueError, ZeroDivisionError):
-            return None

@@ -22,9 +22,12 @@ from utils.quickjs_install import (
     quickjs_missing,
     quickjs_progress_page,
 )
+from version import __version__
 
 APP_NAME = "video-dl"
-APP_VERSION = "2.2.4"
+# Re-exported for gui/, updater/ and tools/, which have always imported it from here.
+# version.py is where it is actually written down.
+APP_VERSION = __version__
 PLATFORM = system()
 
 _PLATFORM_SUFFIX_MAP = {"Windows": "windows", "Linux": "linux", "Darwin": "macos"}

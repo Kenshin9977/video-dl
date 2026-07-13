@@ -38,6 +38,27 @@ jobs:
       - run: uv sync --locked --extra dev
       - run: uv run pytest --cov=core --cov=gui --cov=i18n --cov=utils --cov-report=term-missing
 
+  # The gate that lets a yt-dlp bump merge unattended. Everything else in the suite
+  # mocks the network; this downloads a real file and makes yt-dlp run a real ffmpeg,
+  # so it proves the proposed version still works with our two runtime patches.
+  #
+  # There is deliberately no YouTube check here. It was tried: YouTube answers a
+  # GitHub runner with "Sign in to confirm you're not a bot", every time, because the
+  # request comes from a datacenter IP. A check that can never pass is not a check,
+  # it is a red light you learn to walk past. Covering YouTube for real needs a
+  # runner on a residential address, or cookies in a secret that go stale.
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --locked --extra dev
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Download a real file and check both progress bars
+        run: uv run pytest -m network -v
+
   # A release tag used to be the first time PyInstaller ever ran against a change,
   # and release.sh pushes the tag before the build proves anything. Freeze the
   # binary here instead, and run the same import selftest the release runs, so a

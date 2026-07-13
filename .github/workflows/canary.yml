@@ -1,0 +1,83 @@
+name: Canary
+
+# Runs the app against the newest yt-dlp there is, ignoring the pin.
+#
+# Renovate only opens a pull request once yt-dlp publishes, and that PR is the first
+# time anyone finds out an upstream change broke us. This gets there first: every
+# morning, and on demand, it installs the latest yt-dlp and runs the seam tests, the
+# real download and the frozen binary's selftest against it.
+#
+# A red canary does not mean anything is broken for users. It means the next bump
+# will be, and it opens an issue saying so.
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  latest-ytdlp:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ytdlp.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - run: uv sync --locked --extra dev
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install the newest yt-dlp
+        id: ytdlp
+        run: |
+          uv pip install --upgrade "yt-dlp[default]"
+          version=$(uv run python -c "from yt_dlp.version import __version__; print(__version__)")
+          pinned=$(uv run python -c "import tomllib; print([d for d in tomllib.load(open('pyproject.toml','rb'))['project']['dependencies'] if d.startswith('yt-dlp')][0])")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Testing against yt-dlp $version (pinned: $pinned)"
+
+      - name: The patches must still apply
+        run: uv run pytest tests/test_ytdlp_patch.py tests/test_aria2c_progress.py -v
+
+      - name: A real download must still work
+        run: uv run pytest -m network -v
+
+      - name: The frozen binary must still start
+        run: |
+          uv run pyinstaller specs/Linux-video-dl.spec
+          ./dist/video-dl --selftest
+
+  report:
+    needs: latest-ytdlp
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open an issue, or add to the open one
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.latest-ytdlp.outputs.version }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="yt-dlp ${VERSION:-latest} breaks video-dl"
+          existing=$(gh issue list --label canary --state open --json number,title \
+            --jq ".[] | select(.title == \"$title\") | .number")
+          body="The canary ran against yt-dlp ${VERSION:-latest} and failed: $RUN
+
+          Nothing is broken for users yet. It will be the next time the pin is bumped, so
+          fix it before merging that bump. If a runtime patch stopped applying, the seam
+          tests in tests/test_ytdlp_patch.py or tests/test_aria2c_progress.py say which one."
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Still failing: $RUN"
+          else
+            gh issue create --title "$title" --label canary --body "$body"
+          fi

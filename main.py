@@ -28,7 +28,7 @@ def selftest() -> None:
     from yt_dlp.dependencies import available_dependencies
     from yt_dlp.version import __version__ as yt_dlp_version
 
-    from core import aria2c_progress, ytdlp_patch
+    from core import aria2c_progress, ffmpegfd_progress, ytdlp_patch
     from core.download import download  # noqa: F401
     from gui.app import videodl_gui  # noqa: F401
     from sys_vars import init_paths  # noqa: F401
@@ -38,12 +38,22 @@ def selftest() -> None:
     if missing:
         raise SystemExit(f"yt-dlp is missing dependencies: {', '.join(sorted(missing))}")
 
-    # Both reach into yt-dlp's internals to report progress. They fail soft at
-    # runtime, so this is the place that makes a yt-dlp bump that broke them loud.
+    # All three reach into yt-dlp's internals to report progress, and all three fail
+    # soft at runtime. This is the place that makes a yt-dlp bump that broke one loud.
     if not ytdlp_patch.install():
         raise SystemExit("the ffmpeg progress patch no longer applies to this yt-dlp")
+    if not ffmpegfd_progress.install():
+        raise SystemExit("the ffmpeg download progress patch no longer applies to this yt-dlp")
     if not aria2c_progress.install():
         raise SystemExit("the aria2c progress patch no longer applies to this yt-dlp")
+
+    # Our VK extractor only reaches VK by taking the built-in one's place, and it can
+    # only do that while they share a key. In a frozen binary this also proves
+    # yt_dlp.extractor.vk got bundled, which lazy extractor loading makes easy to miss.
+    from core.vk_extractor import VKIE
+
+    if VKIE.ie_key() != "VK":
+        raise SystemExit("the VK extractor no longer replaces the built-in one")
 
     print(f"selftest ok (yt-dlp {yt_dlp_version})")
 

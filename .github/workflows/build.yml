@@ -20,7 +20,9 @@ env:
   FFMPEG_ANDROID_TAG: autobuild-2026-06-15-18-44
   ARIA2_TAG: release-2.0.1
   QUICKJS_COMMIT: 04be246001599f5995fa2f2d8c91a0f198d3f34c
-  EJS_VERSION: "0.5.0"
+  # Must match the yt-dlp-ejs version yt-dlp resolves to in uv.lock: the solver
+  # library and the Python side are versioned together.
+  EJS_VERSION: "0.8.0"
 
 jobs:
   build:

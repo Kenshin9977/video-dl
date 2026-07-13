@@ -8,15 +8,17 @@ dependencies = [
     "flet>=0.81",
     "quantiphy",
     "tomlkit",
-    # Our yt-dlp fork, republished under this name. Pinned exactly: yt-dlp is
-    # frozen into the binary at build time anyway, so a floating spec buys no
-    # fixes for users, it only makes two builds of the same tag differ. Bump it
-    # deliberately when the fork republishes.
+    # Upstream yt-dlp, not a fork. ffmpeg progress reporting, the one thing the
+    # fork existed for, is done at runtime in core/ytdlp_patch.py instead.
     #
     # [default] pulls yt-dlp's own recommended runtime deps (mutagen for audio
     # tagging, websockets, pycryptodomex, brotli, certifi, yt-dlp-ejs). Without
     # it the shipped yt-dlp silently loses those code paths.
-    "yt-dlp-enhanced-progress[default]==2026.3.13.160948",
+    #
+    # Pinned exactly: yt-dlp is frozen into the binary at build time anyway, so a
+    # floating spec buys users no fixes, it only makes two builds of the same tag
+    # differ. Bump it deliberately, and often: a stale yt-dlp is a broken YouTube.
+    "yt-dlp[default]==2026.7.4",
 ]
 
 [project.optional-dependencies]

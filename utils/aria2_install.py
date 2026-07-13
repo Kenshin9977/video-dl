@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import stat
@@ -11,7 +12,9 @@ import flet as ft
 logger = logging.getLogger("videodl")
 
 _ARIA2C_REPO = "Kenshin9977/aria2"
-_ARIA2C_RELEASE_TAG = "release-2.0.0"
+# Keep this tag in sync with ARIA2_TAG in .github/workflows/build.yml, which
+# bundles the Android build of the same release into the APK.
+_ARIA2C_RELEASE_TAG = "release-2.0.1"
 _ARIA2C_BASE_URL = f"https://github.com/{_ARIA2C_REPO}/releases/download/{_ARIA2C_RELEASE_TAG}"
 
 # Map (platform, arch) to release asset name
@@ -27,6 +30,42 @@ _ASSET_MAP = {
 def _get_asset_name() -> str | None:
     key = (system(), machine())
     return _ASSET_MAP.get(key)
+
+
+def _published_sha256(asset: str) -> str | None:
+    """Read an asset's digest from the SHA256SUMS file shipped with the release."""
+    with urllib.request.urlopen(f"{_ARIA2C_BASE_URL}/SHA256SUMS") as response:
+        sums = response.read().decode()
+
+    for line in sums.splitlines():
+        digest, _, name = line.partition(" ")
+        if name.strip() == asset:
+            return digest.strip()
+    return None
+
+
+def _file_sha256(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def verify_download(path: str, asset: str) -> None:
+    """Check a downloaded asset against the digest published with the release.
+
+    Fails closed: we are about to hand this file to the OS as an executable, so
+    an unverifiable download is treated the same as a corrupted one. The caller
+    deletes it and the app runs without aria2c, which only costs download speed.
+    """
+    expected = _published_sha256(asset)
+    if expected is None:
+        raise ValueError(f"No published checksum for {asset}")
+
+    actual = _file_sha256(path)
+    if actual != expected:
+        raise ValueError(f"Checksum mismatch for {asset}: expected {expected}, got {actual}")
 
 
 def get_aria2c_install_folder() -> str:
@@ -78,6 +117,12 @@ def aria2c_progress_page(page: ft.Page) -> None:
             page.update()
 
             urllib.request.urlretrieve(url, install_path, reporthook)
+
+            try:
+                verify_download(install_path, asset)
+            except Exception:
+                os.remove(install_path)
+                raise
 
             # Make executable on non-Windows
             if system() != "Windows":

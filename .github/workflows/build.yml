@@ -143,6 +143,23 @@ jobs:
             echo "$pin=$(python3 deps.py "$pin")" >> "$GITHUB_ENV"
           done
 
+      - name: Install Python dependencies
+        run: uv sync --locked
+
+      # flet builds the APK with Flutter, and it only accepts the exact Flutter
+      # version it was built against: `channel: stable` handed it 3.44.6, flet wanted
+      # 3.41.2, and it stopped dead on "Flutter SDK not found or invalid version".
+      #
+      # Read the version out of the installed flet rather than pinning it here. A pin
+      # would be a second place to remember, and it would go stale the next time
+      # Renovate bumps flet, which is the moment nobody is watching.
+      - name: Read the Flutter version flet was built against
+        id: flutter
+        run: |
+          version=$(uv run python -c "from flet.version import flutter_version; print(flutter_version)")
+          echo "flet $(uv run python -c "import importlib.metadata as m; print(m.version('flet'))") wants Flutter $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       # No `cache: gradle` here. The Gradle project does not exist at checkout time,
       # `flet build` generates it, so the action finds nothing to key a cache on and
       # fails the job before it has started.
@@ -153,6 +170,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: ${{ steps.flutter.outputs.version }}
           channel: stable
           cache: true
 
@@ -169,9 +187,6 @@ jobs:
       - name: Install the NDK
         if: steps.ndk-cache.outputs.cache-hit != 'true'
         run: sdkmanager "ndk;${NDK_VERSION}"
-
-      - name: Install Python dependencies
-        run: uv sync --locked
 
       - name: Fetch FFmpeg
         env:

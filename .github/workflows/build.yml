@@ -143,11 +143,13 @@ jobs:
             echo "$pin=$(python3 deps.py "$pin")" >> "$GITHUB_ENV"
           done
 
+      # No `cache: gradle` here. The Gradle project does not exist at checkout time,
+      # `flet build` generates it, so the action finds nothing to key a cache on and
+      # fails the job before it has started.
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
-          cache: gradle
 
       - uses: subosito/flutter-action@v2
         with:

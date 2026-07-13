@@ -9,7 +9,11 @@ _mock_lang = MagicMock()
 _mock_lang.GuiField = MagicMock()
 _mock_lang.get_text = MagicMock(side_effect=lambda field: f"text_{field}")
 
-for mod in ["sys_vars", "i18n", "i18n.lang", "yt_dlp.postprocessor.ffmpeg", "core.hwaccel"]:
+# core.encode no longer reaches into yt_dlp for its progress tracker, so yt_dlp
+# does not have to be mocked here any more. Mocking it also broke every later test
+# module that imports the real yt_dlp, since a mocked yt_dlp.postprocessor.ffmpeg
+# leaves yt_dlp.postprocessor unimportable as a package.
+for mod in ["sys_vars", "i18n", "i18n.lang", "core.hwaccel"]:
     sys.modules[mod] = MagicMock()
 sys.modules["i18n.lang"] = _mock_lang
 
@@ -449,7 +453,7 @@ class TestProgressFfmpeg:
     @patch("core.encode.os.path.getsize", return_value=1000000)
     def test_tracker_called(self, mock_getsize, mock_tracker_cls):
         tracker = MagicMock()
-        tracker.run_ffmpeg_subprocess.return_value = ("", "", 0)
+        tracker.run.return_value = ("", "", 0)
         mock_tracker_cls.return_value = tracker
         cancel = MagicMock()
         cancel.is_cancelled.return_value = False
@@ -462,13 +466,13 @@ class TestProgressFfmpeg:
             120,
         )
         mock_tracker_cls.assert_called_once()
-        tracker.run_ffmpeg_subprocess.assert_called_once()
+        tracker.run.assert_called_once()
 
     @patch("core.encode.FFmpegProgressTracker")
     @patch("core.encode.os.path.getsize", return_value=1000000)
     def test_nonzero_retcode_raises(self, mock_getsize, mock_tracker_cls):
         tracker = MagicMock()
-        tracker.run_ffmpeg_subprocess.return_value = ("", "error output", 1)
+        tracker.run.return_value = ("", "error output", 1)
         mock_tracker_cls.return_value = tracker
         cancel = MagicMock()
         cancel.is_cancelled.return_value = False

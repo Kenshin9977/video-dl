@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 import subprocess
 from typing import TYPE_CHECKING
 
-from yt_dlp.postprocessor.ffmpeg import FFmpegProgressTracker
-
+from core.ffmpeg_progress import FFmpegProgressTracker
 from core.hwaccel import fastest_encoder
 from i18n.lang import GuiField, get_text
 
@@ -249,14 +247,6 @@ def _ffmpeg_video(
     os.rename(src=tmp_path, dst=os.path.splitext(path)[0] + new_ext)
 
 
-class _MinimalYDL:
-    """Minimal ydl stub so FFmpegProgressTracker enables progress tracking."""
-
-    @staticmethod
-    def write_debug(msg):
-        logging.debug(msg)
-
-
 def _progress_ffmpeg(
     cmd: list,
     action: str,
@@ -266,7 +256,7 @@ def _progress_ffmpeg(
     duration: int,
 ) -> None:
     """
-    Run ffmpeg with progress tracking using FFmpegProgressTracker.
+    Run ffmpeg with progress tracking.
 
     Args:
         cmd: FFmpeg command arguments (must include -progress pipe:1)
@@ -276,35 +266,32 @@ def _progress_ffmpeg(
         progress_cb: Progress callback
         duration: File duration in seconds (already probed)
     """
-    filesize = os.path.getsize(filepath)
-    info_dict = {
-        "duration": duration,
-        "filesize": filesize,
-    }
 
-    def hook(status, info):
+    def hook(status: dict) -> None:
         if cancel.is_cancelled():
-            proc = tracker.ffmpeg_proc
+            proc = tracker.proc
             if proc and proc.poll() is None:
                 try:
+                    # Asking ffmpeg to quit leaves a readable file behind, killing it
+                    # does not. Fall back to the kill only if ffmpeg will not listen.
+                    assert proc.stdin is not None
                     proc.stdin.write("q")
                     proc.stdin.flush()
                 except Exception:
                     proc.kill()
             return
-        status["processed_bytes"] = status.get("outputted", 0)
         status["action"] = action
         progress_cb.on_process_progress(status)
 
     tracker = FFmpegProgressTracker(
-        info_dict,
         cmd,
         hook,
-        ydl=_MinimalYDL(),
+        duration=duration,
+        total_bytes=os.path.getsize(filepath),
+        filename=cmd[-1],
         stdin=subprocess.PIPE,
-        output_filename=cmd[-1],
     )
-    _, stderr, retcode = tracker.run_ffmpeg_subprocess()
+    _, stderr, retcode = tracker.run()
     if cancel.is_cancelled():
         return
     if retcode != 0:

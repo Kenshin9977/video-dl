@@ -120,46 +120,56 @@ check-android:
 	@echo "Java $(JAVA_VERSION): $(JAVA_HOME_DETECTED)"
 	@echo "Android SDK: $(ANDROID_SDK)"
 
-FFMPEG_ANDROID_REPO := Kenshin9977/FFmpeg-Builds
-FFMPEG_ANDROID_ASSET := ffmpeg-master-latest-androidarm64-gpl-shared.tar.xz
-ARIA2C_ANDROID_REPO := Kenshin9977/aria2
-NDK_VERSION := 28.2.13676358
+# Read straight from deps.py, the one place these are pinned, so a local build and
+# a CI build fetch the same binaries. They did not: the NDK here said 28.2 while CI
+# used 27.2, and this Makefile pulled the mutable `latest` ffmpeg while CI pinned a
+# tag. Bump deps.py, never these lines.
+FFMPEG_ANDROID_REPO := $(shell python3 deps.py FFMPEG_ANDROID_REPO)
+FFMPEG_ANDROID_ASSET := $(shell python3 deps.py FFMPEG_ANDROID_ASSET)
+FFMPEG_ANDROID_TAG := $(shell python3 deps.py FFMPEG_ANDROID_TAG)
+FFMPEG_ANDROID_DIR := /tmp/$(basename $(basename $(FFMPEG_ANDROID_ASSET)))
+ARIA2C_ANDROID_REPO := $(shell python3 deps.py ARIA2_REPO)
+ARIA2C_ANDROID_TAG := $(shell python3 deps.py ARIA2_TAG)
+QUICKJS_REPO := $(shell python3 deps.py QUICKJS_REPO)
+QUICKJS_COMMIT := $(shell python3 deps.py QUICKJS_COMMIT)
+NDK_VERSION := $(shell python3 deps.py NDK_VERSION)
 NDK_BIN := /opt/homebrew/share/android-commandlinetools/ndk/$(NDK_VERSION)/toolchains/llvm/prebuilt/darwin-x86_64/bin
-EJS_VERSION := 0.5.0
+# Whatever version of the solver library the installed yt-dlp-ejs expects.
+EJS_VERSION := $(shell .venv/bin/python -c "import importlib.metadata as m; print(m.version('yt-dlp-ejs'))" 2>/dev/null)
 EJS_VENDOR_DIR := .venv/lib/python3.12/site-packages/yt_dlp/extractor/youtube/jsc/_builtin/vendor
 ANDROID_LIBS := android_libs/arm64-v8a
 
 fetch-android-deps: fetch-ffmpeg-android fetch-aria2c-android fetch-quickjs-android ## Download all Android ARM64 dependencies
 
-fetch-ffmpeg-android: ## Download FFmpeg Android ARM64 build from fork
-	@echo "Downloading $(FFMPEG_ANDROID_ASSET)..."
-	gh release download latest --repo $(FFMPEG_ANDROID_REPO) \
+fetch-ffmpeg-android: ## Download the pinned FFmpeg Android ARM64 build
+	@echo "Downloading $(FFMPEG_ANDROID_ASSET) ($(FFMPEG_ANDROID_TAG))..."
+	gh release download $(FFMPEG_ANDROID_TAG) --repo $(FFMPEG_ANDROID_REPO) \
 		--pattern "$(FFMPEG_ANDROID_ASSET)" --dir /tmp --clobber
 	mkdir -p $(ANDROID_LIBS)
 	tar xf /tmp/$(FFMPEG_ANDROID_ASSET) -C /tmp
-	cp /tmp/ffmpeg-master-latest-androidarm64-gpl-shared/bin/ffmpeg \
-		/tmp/ffmpeg-master-latest-androidarm64-gpl-shared/bin/ffprobe \
-		$(ANDROID_LIBS)/
-	cp /tmp/ffmpeg-master-latest-androidarm64-gpl-shared/lib/*.so $(ANDROID_LIBS)/
-	cp /tmp/ffmpeg-master-latest-androidarm64-gpl-shared/LICENSE.txt android_libs/
-	rm -rf /tmp/ffmpeg-master-latest-androidarm64-gpl-shared /tmp/$(FFMPEG_ANDROID_ASSET)
+	cp $(FFMPEG_ANDROID_DIR)/bin/ffmpeg $(FFMPEG_ANDROID_DIR)/bin/ffprobe $(ANDROID_LIBS)/
+	cp $(FFMPEG_ANDROID_DIR)/lib/*.so $(ANDROID_LIBS)/
+	cp $(FFMPEG_ANDROID_DIR)/LICENSE.txt android_libs/
+	rm -rf $(FFMPEG_ANDROID_DIR) /tmp/$(FFMPEG_ANDROID_ASSET)
 	@echo "FFmpeg Android binaries ready in $(ANDROID_LIBS)/"
 
-fetch-aria2c-android: ## Download aria2c Android ARM64 build from fork
-	@echo "Downloading aria2c for Android ARM64..."
-	gh release download --repo $(ARIA2C_ANDROID_REPO) \
-		--pattern "aria2c-android-aarch64" --dir /tmp --clobber
+fetch-aria2c-android: ## Download the pinned aria2c Android ARM64 build
+	@echo "Downloading aria2c for Android ARM64 ($(ARIA2C_ANDROID_TAG))..."
+	gh release download $(ARIA2C_ANDROID_TAG) --repo $(ARIA2C_ANDROID_REPO) \
+		--pattern "aria2c-android-aarch64" --pattern "SHA256SUMS" --dir /tmp --clobber
+	cd /tmp && grep " aria2c-android-aarch64$$" SHA256SUMS | shasum -a 256 -c -
 	mkdir -p $(ANDROID_LIBS)
 	cp /tmp/aria2c-android-aarch64 $(ANDROID_LIBS)/aria2c
 	chmod +x $(ANDROID_LIBS)/aria2c
-	rm -f /tmp/aria2c-android-aarch64
+	rm -f /tmp/aria2c-android-aarch64 /tmp/SHA256SUMS
 	@echo "aria2c ready in $(ANDROID_LIBS)/"
 
 fetch-quickjs-android: ## Cross-compile bellard/quickjs for ARM64 Android
 	@echo "Building QuickJS (bellard) for ARM64 Android..."
 	rm -rf /tmp/quickjs-bellard
-	git clone --depth 1 https://github.com/bellard/quickjs.git /tmp/quickjs-bellard
+	git clone $(QUICKJS_REPO) /tmp/quickjs-bellard
 	cd /tmp/quickjs-bellard && \
+		git checkout $(QUICKJS_COMMIT) && \
 		CC="$(NDK_BIN)/clang --target=aarch64-linux-android24 --sysroot=$(NDK_BIN)/../sysroot" && \
 		CFLAGS="-D_GNU_SOURCE -DCONFIG_VERSION=\"$$(cat VERSION)\" -O2 -flto -funsigned-char -fwrapv" && \
 		for f in qjs quickjs quickjs-libc cutils dtoa libregexp libunicode; do \

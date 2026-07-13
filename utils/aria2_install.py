@@ -9,13 +9,11 @@ from platform import machine, system
 
 import flet as ft
 
+from deps import ARIA2_REPO, ARIA2_TAG
+
 logger = logging.getLogger("videodl")
 
-_ARIA2C_REPO = "Kenshin9977/aria2"
-# Keep this tag in sync with ARIA2_TAG in .github/workflows/build.yml, which
-# bundles the Android build of the same release into the APK.
-_ARIA2C_RELEASE_TAG = "release-2.0.1"
-_ARIA2C_BASE_URL = f"https://github.com/{_ARIA2C_REPO}/releases/download/{_ARIA2C_RELEASE_TAG}"
+_ARIA2C_BASE_URL = f"https://github.com/{ARIA2_REPO}/releases/download/{ARIA2_TAG}"
 
 # Map (platform, arch) to release asset name
 _ASSET_MAP = {

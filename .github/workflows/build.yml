@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - "v*"
+  # Auto-release tags from a workflow, and a tag pushed with the GITHUB_TOKEN does
+  # not trigger another workflow. It dispatches this one on the tag ref instead.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -11,18 +14,6 @@ concurrency:
 
 permissions:
   contents: write
-
-# Every third party binary is pinned to an immutable tag. The rolling `latest`
-# tag these projects also publish is mutable: its assets are replaced in place,
-# so a release could never be rebuilt byte for byte, and a half finished upstream
-# build could silently swap what we ship. Bump these deliberately.
-env:
-  FFMPEG_ANDROID_TAG: autobuild-2026-06-15-18-44
-  ARIA2_TAG: release-2.0.1
-  QUICKJS_COMMIT: 04be246001599f5995fa2f2d8c91a0f198d3f34c
-  # Must match the yt-dlp-ejs version yt-dlp resolves to in uv.lock: the solver
-  # library and the Python side are versioned together.
-  EJS_VERSION: "0.8.0"
 
 jobs:
   build:
@@ -136,13 +127,21 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ANDROID_LIBS: android_libs/arm64-v8a
-      NDK_VERSION: 27.2.12479018
     steps:
       - uses: actions/checkout@v4
 
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+
+      # deps.py is the only place these are written down, so a Renovate bump lands
+      # in one file and reaches CI, the Makefile and the runtime installers at once.
+      # It imports nothing, so a bare python can read it before anything is set up.
+      - name: Read the pinned binary versions
+        run: |
+          for pin in FFMPEG_ANDROID_TAG FFMPEG_ANDROID_ASSET ARIA2_TAG QUICKJS_COMMIT QUICKJS_REPO NDK_VERSION; do
+            echo "$pin=$(python3 deps.py "$pin")" >> "$GITHUB_ENV"
+          done
 
       - uses: actions/setup-java@v4
         with:
@@ -177,19 +176,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "$ANDROID_LIBS"
-          gh release download "$FFMPEG_ANDROID_TAG" --repo Kenshin9977/FFmpeg-Builds \
-            --pattern "ffmpeg-master-latest-androidarm64-gpl-shared.tar.xz" --dir /tmp --clobber
-          tar xf /tmp/ffmpeg-master-latest-androidarm64-gpl-shared.tar.xz -C /tmp
-          cp /tmp/ffmpeg-master-latest-androidarm64-gpl-shared/bin/ffmpeg \
-             /tmp/ffmpeg-master-latest-androidarm64-gpl-shared/bin/ffprobe \
-             "$ANDROID_LIBS/"
-          cp /tmp/ffmpeg-master-latest-androidarm64-gpl-shared/lib/*.so "$ANDROID_LIBS/"
+          repo=$(python3 deps.py FFMPEG_ANDROID_REPO)
+          gh release download "$FFMPEG_ANDROID_TAG" --repo "$repo" \
+            --pattern "$FFMPEG_ANDROID_ASSET" --dir /tmp --clobber
+          tar xf "/tmp/$FFMPEG_ANDROID_ASSET" -C /tmp
+          unpacked="/tmp/${FFMPEG_ANDROID_ASSET%.tar.xz}"
+          cp "$unpacked/bin/ffmpeg" "$unpacked/bin/ffprobe" "$ANDROID_LIBS/"
+          cp "$unpacked"/lib/*.so "$ANDROID_LIBS/"
 
       - name: Fetch aria2c
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download "$ARIA2_TAG" --repo Kenshin9977/aria2 \
+          gh release download "$ARIA2_TAG" --repo "$(python3 deps.py ARIA2_REPO)" \
             --pattern "aria2c-android-aarch64" --pattern "SHA256SUMS" --dir /tmp --clobber
           (cd /tmp && grep " aria2c-android-aarch64$" SHA256SUMS | sha256sum -c -)
           cp /tmp/aria2c-android-aarch64 "$ANDROID_LIBS/aria2c"
@@ -206,7 +205,7 @@ jobs:
         if: steps.quickjs-cache.outputs.cache-hit != 'true'
         run: |
           NDK_BIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
-          git clone https://github.com/bellard/quickjs.git /tmp/quickjs-bellard
+          git clone "$QUICKJS_REPO" /tmp/quickjs-bellard
           cd /tmp/quickjs-bellard
           git checkout "$QUICKJS_COMMIT"
           CC="$NDK_BIN/clang --target=aarch64-linux-android24 --sysroot=$NDK_BIN/../sysroot"
@@ -224,11 +223,16 @@ jobs:
       - name: Stage QuickJS
         run: cp android_libs/qjs "$ANDROID_LIBS/qjs"
 
-      - name: Fetch EJS solver lib
+      # The solver library is versioned together with the yt-dlp-ejs package that
+      # yt-dlp pulls in. Read the version back out of what is actually installed,
+      # so it cannot disagree with the lock file the way a second pin would.
+      - name: Fetch the EJS solver lib
         run: |
-          EJS_DIR=$(uv run python -c "import yt_dlp, os; print(os.path.join(os.path.dirname(yt_dlp.__file__), 'extractor/youtube/jsc/_builtin/vendor'))")
-          curl -fSL -o "$EJS_DIR/yt.solver.lib.js" \
-            "https://github.com/yt-dlp/ejs/releases/download/${EJS_VERSION}/yt.solver.lib.js"
+          ejs_version=$(uv run python -c "import importlib.metadata as m; print(m.version('yt-dlp-ejs'))")
+          echo "yt-dlp resolved yt-dlp-ejs $ejs_version"
+          ejs_dir=$(uv run python -c "import yt_dlp, os; print(os.path.join(os.path.dirname(yt_dlp.__file__), 'extractor/youtube/jsc/_builtin/vendor'))")
+          curl -fSL -o "$ejs_dir/yt.solver.lib.js" \
+            "https://github.com/yt-dlp/ejs/releases/download/${ejs_version}/yt.solver.lib.js"
 
       - name: Inject native libs
         run: |

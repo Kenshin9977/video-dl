@@ -14,20 +14,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.12"
-      - run: pip install ruff mypy
-      - run: ruff check .
-      - run: ruff format --check .
-      - run: mypy .
+          enable-cache: true
+      - run: uv sync --locked --extra dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy .
 
+  # The shipped binary is Windows first, and the Windows specific paths (winreg,
+  # the ffmpeg install under LOCALAPPDATA) used to never run in CI on any OS.
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.12"
-      - run: pip install -e ".[dev]"
-      - run: pytest --cov=core --cov=gui --cov=i18n --cov=utils --cov-report=term-missing
+          enable-cache: true
+      - run: uv sync --locked --extra dev
+      - run: uv run pytest --cov=core --cov=gui --cov=i18n --cov=utils --cov-report=term-missing
+
+  # A release tag used to be the first time PyInstaller ever ran against a change,
+  # and release.sh pushes the tag before the build proves anything. Freeze the
+  # binary here instead, and run the same import selftest the release runs, so a
+  # broken spec or a missing hiddenimport fails on the pull request.
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --locked --extra dev
+      - run: uv run pyinstaller specs/Windows-video-dl.spec
+      - name: Smoke test the frozen binary
+        shell: bash
+        run: ./dist/video-dl.exe --selftest

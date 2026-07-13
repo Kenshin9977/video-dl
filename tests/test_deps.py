@@ -1,3 +1,4 @@
+import json
 import re
 import sys
 from pathlib import Path
@@ -70,6 +71,46 @@ class TestRenovateCoversEveryPin:
         assert "# renovate:" in preceding.split("\n\n")[-1] or pin in renovate_config, (
             f"{pin} has no renovate hint, so nothing will ever bump it"
         )
+
+    def test_the_custom_managers_actually_match_the_pins(self):
+        """Renovate's own validator only checks the schema, not that a regex matches anything.
+
+        A custom manager whose regex matches nothing is not an error: it is a pin that
+        silently never gets bumped, which is the failure we are trying to design out.
+        So run the real matchStrings from renovate.json against the real deps.py.
+        """
+        config = json.loads(RENOVATE.read_text(encoding="utf-8"))
+        source = Path(deps.__file__).read_text(encoding="utf-8")
+
+        found = {}
+        for manager in config["customManagers"]:
+            for match_string in manager["matchStrings"]:
+                # Renovate's regexes are JavaScript, Python spells its groups (?P<x>).
+                pattern = match_string.replace("(?<", "(?P<")
+                for match in re.finditer(pattern, source):
+                    groups = match.groupdict()
+                    found[groups["depName"]] = groups | {
+                        "datasource": groups.get("datasource") or manager.get("datasourceTemplate")
+                    }
+
+        assert set(found) == {"Kenshin9977/FFmpeg-Builds", "Kenshin9977/aria2", "quickjs"}, (
+            f"a custom manager stopped matching: Renovate now sees only {sorted(found)}"
+        )
+        assert found["Kenshin9977/FFmpeg-Builds"]["currentValue"] == deps.FFMPEG_ANDROID_TAG
+        assert found["Kenshin9977/aria2"]["currentValue"] == deps.ARIA2_TAG
+        assert found["quickjs"]["currentDigest"] == deps.QUICKJS_COMMIT
+        assert found["quickjs"]["datasource"] == "git-refs"
+
+    def test_every_custom_manager_names_its_datasource(self):
+        """Renovate refuses the whole config otherwise, and stops opening PRs entirely."""
+        config = json.loads(RENOVATE.read_text(encoding="utf-8"))
+
+        for manager in config["customManagers"]:
+            captures_it = all("(?<datasource>" in m for m in manager["matchStrings"])
+            assert captures_it or manager.get("datasourceTemplate"), (
+                f"custom manager {manager.get('description')!r} names no datasource, "
+                "so Renovate rejects the config and stops every dependency PR"
+            )
 
 
 class TestPinsAreImmutable:

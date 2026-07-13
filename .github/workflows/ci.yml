@@ -22,6 +22,20 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy .
 
+  # A broken renovate.json does not fail loudly: Renovate opens an issue and then
+  # stops opening pull requests, so dependency updates just quietly stop happening.
+  # That already cost us once (a custom manager with no datasource). Its own
+  # validator catches it, so run it here, where it fails a pull request instead.
+  #
+  # tests/test_deps.py goes further and checks the regexes still match the pins,
+  # which the validator does not: a manager that matches nothing is not an error to
+  # Renovate, it is a pin that silently never gets bumped.
+  renovate-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npx --yes --package renovate -- renovate-config-validator --strict
+
   # The shipped binary is Windows first, and the Windows specific paths (winreg,
   # the ffmpeg install under LOCALAPPDATA) used to never run in CI on any OS.
   test:

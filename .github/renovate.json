@@ -56,7 +56,8 @@
       "managerFilePatterns": ["/^deps\\.py$/"],
       "matchStrings": [
         "# renovate: datasource=git-refs depName=(?<depName>\\S+) packageName=(?<packageName>\\S+) currentValue=(?<currentValue>\\S+)\\s*\\n\\w+ = \"(?<currentDigest>[0-9a-f]{40})\""
-      ]
+      ],
+      "datasourceTemplate": "git-refs"
     }
   ]
 }

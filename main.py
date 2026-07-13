@@ -47,6 +47,14 @@ def selftest() -> None:
     if not aria2c_progress.install():
         raise SystemExit("the aria2c progress patch no longer applies to this yt-dlp")
 
+    # Our VK extractor only reaches VK by taking the built-in one's place, and it can
+    # only do that while they share a key. In a frozen binary this also proves
+    # yt_dlp.extractor.vk got bundled, which lazy extractor loading makes easy to miss.
+    from core.vk_extractor import VKIE
+
+    if VKIE.ie_key() != "VK":
+        raise SystemExit("the VK extractor no longer replaces the built-in one")
+
     print(f"selftest ok (yt-dlp {yt_dlp_version})")
 
 

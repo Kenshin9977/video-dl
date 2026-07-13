@@ -7,31 +7,23 @@ import time
 from unittest.mock import MagicMock, patch
 
 import pytest
+from yt_dlp.utils import DownloadCancelled as YtdlpDownloadCancelled
 
 # ---------------------------------------------------------------------------
-# Mock heavy dependencies BEFORE importing core.download
+# Mock the heavy GUI dependencies before importing core.download.
+#
+# yt_dlp is deliberately NOT mocked. It used to be, and replacing a package tree
+# with MagicMocks in sys.modules leaks into every test module collected afterwards:
+# whichever one needs the real yt-dlp got a mock instead, and re-importing the real
+# one on top left yt-dlp's own provider registry half full of MagicMocks. It is a
+# hard dependency of this project, it is installed, and the tests below patch what
+# they need by name.
 # ---------------------------------------------------------------------------
 _mock_lang = MagicMock()
 _mock_lang.GuiField = MagicMock()
 _mock_lang.get_text = MagicMock(side_effect=lambda field: f"text_{field}")
 
-
-class _FakeYtdlpDownloadCancelled(Exception):
-    pass
-
-
-_mock_yt_utils = MagicMock()
-_mock_yt_utils.DownloadCancelled = _FakeYtdlpDownloadCancelled
-
 for _mod in [
-    "yt_dlp",
-    "yt_dlp.YoutubeDL",
-    "yt_dlp.cookies",
-    "yt_dlp.downloader",
-    "yt_dlp.downloader.external",
-    "yt_dlp.postprocessor",
-    "yt_dlp.postprocessor.FFmpegPostProcessor",
-    "yt_dlp.postprocessor.ffmpeg",
     "core.hwaccel",
     "i18n",
     "i18n.lang",
@@ -39,7 +31,6 @@ for _mod in [
 ]:
     sys.modules[_mod] = MagicMock()
 
-sys.modules["yt_dlp.utils"] = _mock_yt_utils
 sys.modules["i18n.lang"] = _mock_lang
 
 # Force reimport so the module picks up our mocks
@@ -368,7 +359,7 @@ class TestDownload:
     @patch("core.download._finish_download")
     @patch("core.download._get_child_pids", return_value=set())
     def test_ytdlp_cancelled_converted(self, mock_pids, mock_finish):
-        ydl = _make_ydl(extract_error=_FakeYtdlpDownloadCancelled("cancelled"))
+        ydl = _make_ydl(extract_error=YtdlpDownloadCancelled("cancelled"))
         cancel = MagicMock()
         cancel.is_cancelled.return_value = False
         config = _make_config()

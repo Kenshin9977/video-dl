@@ -15,7 +15,7 @@ from yt_dlp.postprocessor import FFmpegPostProcessor
 from yt_dlp.utils import DownloadCancelled as YtdlpDownloadCancelled
 
 import runtime
-from core import aria2c_progress, ffmpegfd_progress, ytdlp_patch
+from core import aria2c_progress, ffmpegfd_progress, vk_extractor, ytdlp_patch
 from core.callbacks import CancelToken, ProgressCallback, StatusCallback
 from core.config_types import DownloadConfig
 from core.encode import post_process_dl
@@ -87,7 +87,10 @@ def create_ydl(
         qjs_path = os.path.join(os.path.dirname(ffmpeg_path), "libqjs.so")
         if os.path.isfile(qjs_path):
             ydl_opts["js_runtimes"] = {"quickjs": {"path": qjs_path}}
-    return YoutubeDL(ydl_opts)
+
+    ydl = YoutubeDL(ydl_opts)
+    vk_extractor.register(ydl)
+    return ydl
 
 
 def _get_child_pids() -> set[int]:

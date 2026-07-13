@@ -1,0 +1,62 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommitsDisabled"],
+  "timezone": "Europe/Paris",
+  "labels": ["dependencies"],
+  "commitMessageTopic": "{{depName}}",
+  "commitMessageAction": "Bump",
+  "prHourlyLimit": 4,
+  "description": [
+    "NDK_VERSION in deps.py is deliberately left manual: Renovate has no datasource for the Android NDK, and a toolchain bump is not something to merge unattended.",
+    "Everything else in deps.py is bumped by the custom managers below."
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 5am on monday"]
+  },
+  "packageRules": [
+    {
+      "description": "yt-dlp gets its own PR, immediately. It is what breaks when YouTube changes, and it is what our two runtime patches reach into. CI proves the patches still apply before this can merge.",
+      "matchPackageNames": ["yt-dlp"],
+      "schedule": ["at any time"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true,
+      "labels": ["dependencies", "yt-dlp"]
+    },
+    {
+      "description": "Everything else: one grouped PR a week, merged on green.",
+      "matchPackageNames": ["!yt-dlp"],
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin"],
+      "groupName": "weekly dependencies",
+      "schedule": ["before 5am on monday"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "A major bump gets a human. flet and tufup majors move the GUI and the update channel.",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "addLabels": ["needs review"]
+    }
+  ],
+  "customManagers": [
+    {
+      "description": "Tag pins in deps.py: the ffmpeg autobuild and the aria2c release.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^deps\\.py$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?\\s*\\n\\w+ = \"(?<currentValue>[^\"]+)\""
+      ]
+    },
+    {
+      "description": "Commit pin in deps.py: QuickJS has no releases, so it is pinned to a sha off master.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^deps\\.py$/"],
+      "matchStrings": [
+        "# renovate: datasource=git-refs depName=(?<depName>\\S+) packageName=(?<packageName>\\S+) currentValue=(?<currentValue>\\S+)\\s*\\n\\w+ = \"(?<currentDigest>[0-9a-f]{40})\""
+      ]
+    }
+  ]
+}

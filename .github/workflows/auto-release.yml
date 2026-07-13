@@ -1,0 +1,81 @@
+name: Auto release
+
+# Ships a yt-dlp bump without waiting for a human.
+#
+# YouTube breaks on a Tuesday, yt-dlp publishes the fix, Renovate opens the PR, CI
+# proves the new version still works with our runtime patches and can still download
+# a real file, the PR merges itself, and this cuts the release. The time to fix stops
+# depending on whether anyone is at a keyboard.
+#
+# Only a yt-dlp bump releases automatically. Every other dependency rides along with
+# the next release: nobody needs an app update because flet moved a patch version.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [master]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  release:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 2
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Did the merged commit bump yt-dlp?
+        id: bump
+        run: |
+          if git diff HEAD~1 HEAD -- pyproject.toml | grep -qE '^\+.*"yt-dlp\['; then
+            echo "yt-dlp: $(git diff HEAD~1 HEAD -- pyproject.toml | grep -E '^\+.*yt-dlp\[')"
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No yt-dlp bump in this commit, nothing to release."
+          fi
+
+      - name: Bump the patch version
+        if: steps.bump.outputs.release == 'true'
+        id: version
+        run: |
+          new=$(python3 - <<'PY'
+          import version
+          major, minor, patch = version.__version__.split(".")
+          print(f"{major}.{minor}.{int(patch) + 1}")
+          PY
+          )
+          sed -i "s/^__version__ = .*/__version__ = \"$new\"/" version.py
+          # uv.lock records the project's own version, so it has to follow.
+          uv lock
+          echo "version=$new" >> "$GITHUB_OUTPUT"
+          echo "Releasing $new"
+
+      - name: Tag it
+        if: steps.bump.outputs.release == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -am "Bump version to $VERSION"
+          git tag "v$VERSION"
+          git push origin master "v$VERSION"
+
+      # A tag pushed with the GITHUB_TOKEN does not trigger a workflow, on purpose,
+      # so that a bot cannot start a build loop. workflow_dispatch is the documented
+      # exception, so ask for the build explicitly rather than reaching for a PAT
+      # that will expire quietly, the way the yt-dlp sync token did.
+      - name: Build and publish the release
+        if: steps.bump.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: gh workflow run "Build & Release" --ref "v$VERSION"

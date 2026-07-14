@@ -73,6 +73,8 @@ uv run pyinstaller specs/Windows-video-dl.spec   # ou macOS-, ou Linux-
 
 Le binaire Windows est signé en Authenticode et horodaté avec un certificat Certum Open Source Code Signing. Le certificat ne passe jamais par la CI : le build envoie le binaire à un hôte de signature via SSH, et la publication est refusée si Windows ne déclare pas la signature valide.
 
+L'APK est signé avec une clé de release, et le build relit la signature dans l'APK terminé : la publication est refusée si l'empreinte n'est pas celle attendue. Android n'a pas d'autorité de certification — tous les APK sont auto-signés — donc il n'y a rien à acheter chez Certum ici, et la réputation s'attache à la clé de signature elle-même. D'où l'accueil de Play Protect à la première installation, *Play Protect n'a jamais vu d'appli de ce développeur avant* : c'est une remarque sur l'âge de la clé, pas sur l'application. Faites *Plus de détails → Installer quand même*. Le message ne disparaît que pour les applications du Play Store, et le Play Store n'accepte pas les applications qui téléchargent des vidéos depuis YouTube.
+
 - Commits, relecture et approbation : [Kenshin9977](https://github.com/Kenshin9977)
 
 ## Vie privée

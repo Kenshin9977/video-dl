@@ -179,7 +179,7 @@ jobs:
 
       - name: Cache the NDK
         id: ndk-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ env.ANDROID_HOME }}/ndk/${{ env.NDK_VERSION }}
           key: ndk-${{ env.NDK_VERSION }}
@@ -216,7 +216,7 @@ jobs:
 
       - name: Cache the QuickJS build
         id: quickjs-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: android_libs/qjs
           key: quickjs-${{ env.QUICKJS_COMMIT }}-ndk-${{ env.NDK_VERSION }}

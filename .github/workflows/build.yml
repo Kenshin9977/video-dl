@@ -415,7 +415,7 @@ jobs:
           echo "=== Binaries ===" && ls -la binaries/
           echo "=== Tufup ===" && ls -la tufup/
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: |
             binaries/*

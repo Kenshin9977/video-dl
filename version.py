@@ -9,4 +9,4 @@ on macOS. It was not in sync: pyproject said 2.2.4 and the macOS bundle said 2.2
 Keep this module free of imports: the PyInstaller spec runs it on its own.
 """
 
-__version__ = "2.3.3"
+__version__ = "2.3.4"

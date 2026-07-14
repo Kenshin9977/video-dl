@@ -334,7 +334,15 @@ jobs:
           "$apksigner" verify --print-certs --verbose release_apk/video-dl-arm64-v8a.apk | tee certs.txt
           grep -qx "Verified using v2 scheme (APK Signature Scheme v2): true" certs.txt \
             || { echo "::error::APK is not v2-signed"; exit 1; }
-          actual=$(grep -m1 "Signer #1 certificate SHA-256 digest:" certs.txt | awk '{print $NF}')
+          # Match on "certificate SHA-256 digest:" alone. --verbose labels the line
+          # "V2 Signer:" where plain --print-certs labels it "Signer #1", and only
+          # the certificate lines carry that phrase, the public key ones say
+          # "public key SHA-256 digest". Anchoring on the label matched neither.
+          actual=$(grep -m1 "certificate SHA-256 digest:" certs.txt | awk '{print $NF}')
+          if [ -z "$actual" ]; then
+            echo "::error::could not read a signer fingerprint out of apksigner's output"
+            exit 1
+          fi
           expected=$(echo "$EXPECTED_SHA256" | tr -d ': ' | tr 'A-Z' 'a-z')
           if [ "$actual" != "$expected" ]; then
             echo "::error::APK signed with the wrong key: got $actual, expected $expected"

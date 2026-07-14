@@ -73,6 +73,8 @@ uv run pyinstaller specs/Windows-video-dl.spec   # or macOS-, or Linux-
 
 The Windows binary is Authenticode-signed and timestamped with a Certum Open Source Code Signing certificate. The certificate never touches CI: the build streams the binary to a signing host over SSH, and the release refuses to publish if Windows does not report the signature as valid.
 
+The APK is signed with a release key, and the build reads the signature back out of the finished APK and refuses to publish unless its fingerprint is the pinned one. Android has no certificate authority — every APK is self-signed — so there is nothing to buy from Certum here, and reputation attaches to the signing key itself. Which is why Play Protect greets a first install with *Play Protect has never seen this developer before*: it is a statement about the key's age, not about the app. Tap *More details → Install anyway*. The warning goes away only for apps on the Play Store, and the Play Store does not accept apps that download videos from YouTube.
+
 - Committers, reviewers and approvers: [Kenshin9977](https://github.com/Kenshin9977)
 
 ## Privacy

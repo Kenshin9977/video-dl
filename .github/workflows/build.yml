@@ -264,12 +264,30 @@ jobs:
           cp "$ANDROID_LIBS/qjs" "$JNILIBS/libqjs.so"
           cp "$ANDROID_LIBS/aria2c" "$JNILIBS/libaria2c.so"
 
+      # Without a signing config, Flutter falls back to the Android debug key, which
+      # is public and shared by every debug build on earth. An APK signed with it
+      # accrues no Play Protect reputation, and Android refuses an update signed by a
+      # different key, so shipping on the debug key means every user has to uninstall
+      # to ever get off it. Sign with the release key; the check after the build
+      # refuses to publish if this ever silently falls back again.
+      - name: Decode the release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is unset, and an unsigned release APK is not worth publishing"
+            exit 1
+          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+
       # arm64-v8a only, on purpose. The native libs above are injected into that
       # ABI alone, and ffmpeg, aria2c and qjs are only built for aarch64 upstream,
       # so an armeabi-v7a or x86_64 APK would install and then fail at the first
       # download or mux. Publishing one working APK beats publishing three of
       # which two are broken.
       - name: Build APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           uv run flet build apk \
             --project video-dl \
@@ -285,7 +303,11 @@ jobs:
               htmlcov .tox build Makefile "*.icns" "*.ico" "*.spec" \
               check_results.txt test_outdir android_libs \
             --android-permissions INTERNET=True WRITE_EXTERNAL_STORAGE=True READ_EXTERNAL_STORAGE=True MANAGE_EXTERNAL_STORAGE=True \
-            --android-adaptive-icon-background "#7C3AED"
+            --android-adaptive-icon-background "#7C3AED" \
+            --android-signing-key-store "$RUNNER_TEMP/release.jks" \
+            --android-signing-key-store-password "$ANDROID_KEYSTORE_PASSWORD" \
+            --android-signing-key-password "$ANDROID_KEYSTORE_PASSWORD" \
+            --android-signing-key-alias video-dl
 
       - name: Keep only the ABI we ship
         run: |
@@ -299,13 +321,48 @@ jobs:
           mv "${apk[0]}" release_apk/video-dl-arm64-v8a.apk
           ls -lh release_apk/
 
+      # The fingerprint of the release key, in the clear on purpose: it is the same
+      # value registered with the Android Developer Console, and it is public by
+      # construction, every installed APK carries the certificate it was signed with.
+      # Pinning it here is what makes the signature mean something. A build signed
+      # with anything else, the debug key included, does not leave this job.
+      - name: Verify the APK signature
+        env:
+          EXPECTED_SHA256: "8A:67:2B:69:DA:85:AE:7C:33:CE:61:F1:CC:E1:A8:99:9B:F7:A7:22:F9:18:36:AE:72:6B:02:45:85:E7:69:30"
+        run: |
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          "$apksigner" verify --print-certs --verbose release_apk/video-dl-arm64-v8a.apk | tee certs.txt
+          grep -qx "Verified using v2 scheme (APK Signature Scheme v2): true" certs.txt \
+            || { echo "::error::APK is not v2-signed"; exit 1; }
+          # Match on "certificate SHA-256 digest:" alone. --verbose labels the line
+          # "V2 Signer:" where plain --print-certs labels it "Signer #1", and only
+          # the certificate lines carry that phrase, the public key ones say
+          # "public key SHA-256 digest". Anchoring on the label matched neither.
+          actual=$(grep -m1 "certificate SHA-256 digest:" certs.txt | awk '{print $NF}')
+          if [ -z "$actual" ]; then
+            echo "::error::could not read a signer fingerprint out of apksigner's output"
+            exit 1
+          fi
+          expected=$(echo "$EXPECTED_SHA256" | tr -d ': ' | tr 'A-Z' 'a-z')
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::APK signed with the wrong key: got $actual, expected $expected"
+            exit 1
+          fi
+
       - uses: actions/upload-artifact@v7
         with:
           name: android-apk
           path: release_apk/video-dl-arm64-v8a.apk
 
+  # Everything up to here builds and verifies. Everything from here publishes, and
+  # publishing only ever makes sense for a tag: the version is read out of the ref
+  # (`${GITHUB_REF_NAME#v}`), and the tufup channel's version counters only go up.
+  # A workflow_dispatch on a branch used to walk straight into the release job and
+  # publish "master". Now it stops here, which also makes a dispatch on a branch the
+  # way to dry-run a build. auto-release dispatches on the tag ref, so it is unaffected.
   sign:
     needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -395,6 +452,7 @@ jobs:
 
   release:
     needs: [build, android, sign]
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v8

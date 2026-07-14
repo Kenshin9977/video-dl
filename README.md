@@ -43,13 +43,11 @@ Every [release](https://github.com/Kenshin9977/video-dl/releases) is here. The a
 
 ## Under the hood
 
-video-dl uses **upstream yt-dlp**, straight from PyPI, pinned to an exact version. It does not fork it.
+Upstream yt-dlp from PyPI, pinned to an exact version. No fork.
 
-That is worth saying because it used to. yt-dlp reports no progress while it runs FFmpeg, or while aria2c is doing the downloading, so this project carried a fork of the whole of yt-dlp to add it, republished it to PyPI on a cron, and ended up shipping a yt-dlp that was months behind upstream. YouTube breaks faster than that.
+yt-dlp reports no progress while FFmpeg runs or while aria2c downloads. Four extensions in this repository add it (`core/ytdlp_patch.py`, `core/ffmpegfd_progress.py`, `core/aria2c_progress.py`, `core/vk_extractor.py`), on yt-dlp's own extension points. A hook that stops applying costs a progress bar, never a download. CI checks each hook against the installed yt-dlp, and the packaged binary refuses to build if one no longer applies.
 
-Progress reporting is now four small extensions that live in this repository (`core/ytdlp_patch.py`, `core/ffmpegfd_progress.py`, `core/aria2c_progress.py`, `core/vk_extractor.py`), hooked onto extension points yt-dlp already has. They fail soft: if a yt-dlp release moves one of them, you lose a progress bar, never a download. And they fail loudly where it costs nothing: CI asserts every hook against the yt-dlp that is actually installed, and the packaged binary refuses to build if one of them no longer applies.
-
-So yt-dlp gets bumped the day it publishes, a robot opens the pull request, CI proves it still works by downloading a real file, and the release ships itself.
+yt-dlp bumps are opened, tested and released automatically.
 
 ## Build from source
 
@@ -73,10 +71,9 @@ uv run pyinstaller specs/Windows-video-dl.spec   # or macOS-, or Linux-
 
 ## Code signing
 
-The Windows binary is Authenticode-signed and timestamped, with a Certum Open Source Code Signing certificate issued to Rogelio MENDOZA. Windows will show that name. The certificate never touches CI: the build streams the binary to a signing host over SSH, and the release refuses to publish if Windows does not report the signature as valid.
+The Windows binary is Authenticode-signed and timestamped with a Certum Open Source Code Signing certificate. The certificate never touches CI: the build streams the binary to a signing host over SSH, and the release refuses to publish if Windows does not report the signature as valid.
 
-- Committers and reviewers: Rogelio MENDOZA ([Kenshin9977](https://github.com/Kenshin9977))
-- Approvers: Rogelio MENDOZA ([Kenshin9977](https://github.com/Kenshin9977))
+- Committers, reviewers and approvers: [Kenshin9977](https://github.com/Kenshin9977)
 
 ## Privacy
 

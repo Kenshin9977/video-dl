@@ -36,6 +36,32 @@ jobs:
       - uses: actions/checkout@v7
       - run: npx --yes --package renovate -- renovate-config-validator --strict
 
+      # The validator only checks the schema. It says nothing about whether Renovate
+      # can actually *do* anything with what it extracted, and that is where this bit
+      # us: it read both binary pins, decided `autobuild-2026-06-15-18-44` and
+      # `release-2.0.1` were "unversioned" under `versioning=loose`, and skipped them.
+      # No error, no PR, ever. The pins were on rails to nowhere.
+      #
+      # So run Renovate itself against this checkout and fail if it skips one of them.
+      - name: Renovate must not silently skip a pin
+        env:
+          LOG_LEVEL: debug
+          RENOVATE_TOKEN: ${{ github.token }}
+          GITHUB_COM_TOKEN: ${{ github.token }}
+        run: |
+          npx --yes --package renovate -- renovate --platform=local --dry-run=lookup > renovate.log 2>&1 || true
+
+          # Deliberately not every dependency: the Windows signing action is pinned to
+          # a moving tag on purpose, and Renovate skipping that one is the right call.
+          skipped=$(grep -E "DEBUG: Skipping (Kenshin9977/FFmpeg-Builds|Kenshin9977/aria2|quickjs)" renovate.log || true)
+          if [ -n "$skipped" ]; then
+            echo "::error::Renovate read a deps.py pin and then dropped it. It will never be bumped."
+            echo "$skipped"
+            grep -E "unsupported/unversioned" renovate.log || true
+            exit 1
+          fi
+          echo "Renovate tracks every pin in deps.py."
+
   # The shipped binary is Windows first, and the Windows specific paths (winreg,
   # the ffmpeg install under LOCALAPPDATA) used to never run in CI on any OS.
   test:

@@ -118,7 +118,7 @@ jobs:
           ssh-key: ${{ secrets.SIGN_SSH_KEY }}
           known-hosts: ${{ secrets.SIGN_SSH_KNOWN_HOSTS }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}
@@ -299,7 +299,7 @@ jobs:
           mv "${apk[0]}" release_apk/video-dl-arm64-v8a.apk
           ls -lh release_apk/
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: android-apk
           path: release_apk/video-dl-arm64-v8a.apk
@@ -317,7 +317,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --extra dev
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
@@ -388,7 +388,7 @@ jobs:
           cp repository/targets/*-${{ steps.version.outputs.version }}.tar.gz signed/ 2>/dev/null || true
           tar -czf signed/tufup-repo.tar.gz -C . repository/
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: tufup-signed
           path: signed/
@@ -397,7 +397,7 @@ jobs:
     needs: [build, android, sign]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true

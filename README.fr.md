@@ -43,13 +43,11 @@ Toutes les [versions](https://github.com/Kenshin9977/video-dl/releases) sont ici
 
 ## Sous le capot
 
-video-dl utilise le **yt-dlp officiel**, directement depuis PyPI, épinglé à une version exacte. Il ne le forke pas.
+Le yt-dlp officiel depuis PyPI, épinglé à une version exacte. Pas de fork.
 
-Cela mérite d'être dit, parce que c'était le cas avant. yt-dlp ne rapporte aucune progression pendant qu'il fait tourner FFmpeg, ni pendant qu'aria2c télécharge : ce projet maintenait donc un fork de yt-dlp tout entier pour l'ajouter, le republiait sur PyPI via un cron, et finissait par livrer un yt-dlp vieux de plusieurs mois. YouTube casse plus vite que ça.
+yt-dlp ne rapporte aucune progression pendant que FFmpeg tourne ni pendant qu'aria2c télécharge. Quatre extensions de ce dépôt l'ajoutent (`core/ytdlp_patch.py`, `core/ffmpegfd_progress.py`, `core/aria2c_progress.py`, `core/vk_extractor.py`), sur les points d'extension de yt-dlp lui-même. Une accroche qui cesse de s'appliquer coûte une barre de progression, jamais un téléchargement. La CI vérifie chaque accroche contre le yt-dlp installé, et le binaire packagé refuse de se construire si l'une d'elles ne s'applique plus.
 
-La progression tient désormais dans quatre petites extensions qui vivent dans ce dépôt (`core/ytdlp_patch.py`, `core/ffmpegfd_progress.py`, `core/aria2c_progress.py`, `core/vk_extractor.py`), accrochées à des points d'extension que yt-dlp offre déjà. Elles échouent en douceur : si une version de yt-dlp en déplace une, vous perdez une barre de progression, jamais un téléchargement. Et elles échouent bruyamment là où ça ne coûte rien : la CI vérifie chaque accroche contre le yt-dlp réellement installé, et le binaire packagé refuse de se construire si l'une d'elles ne s'applique plus.
-
-Résultat : yt-dlp est mis à jour le jour même de sa publication, un robot ouvre la pull request, la CI prouve que tout marche encore en téléchargeant un vrai fichier, et la version part toute seule.
+Les mises à jour de yt-dlp sont ouvertes, testées et publiées automatiquement.
 
 ## Compiler depuis les sources
 
@@ -73,10 +71,9 @@ uv run pyinstaller specs/Windows-video-dl.spec   # ou macOS-, ou Linux-
 
 ## Signature du code
 
-Le binaire Windows est signé en Authenticode et horodaté, avec un certificat Certum Open Source Code Signing délivré à Rogelio MENDOZA. C'est ce nom que Windows affiche. Le certificat ne passe jamais par la CI : le build envoie le binaire à un hôte de signature via SSH, et la publication est refusée si Windows ne déclare pas la signature valide.
+Le binaire Windows est signé en Authenticode et horodaté avec un certificat Certum Open Source Code Signing. Le certificat ne passe jamais par la CI : le build envoie le binaire à un hôte de signature via SSH, et la publication est refusée si Windows ne déclare pas la signature valide.
 
-- Commits et relecture : Rogelio MENDOZA ([Kenshin9977](https://github.com/Kenshin9977))
-- Approbation : Rogelio MENDOZA ([Kenshin9977](https://github.com/Kenshin9977))
+- Commits, relecture et approbation : [Kenshin9977](https://github.com/Kenshin9977)
 
 ## Vie privée
 

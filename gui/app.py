@@ -525,7 +525,7 @@ class VideodlApp:
             expanded=False,
             maintain_state=True,
             on_change=self._advanced_toggle,
-            controls_padding=ft.padding.only(top=10, left=10, right=10),
+            controls_padding=ft.Padding.only(top=10, left=10, right=10),
             controls=self._build_advanced_controls(timecode_rows),
         )
         logger.debug(
@@ -615,7 +615,7 @@ class VideodlApp:
         if self._mobile and self._encode_label:
             self._encode_row = ft.Container(
                 content=Row(controls=[self.encode_indicator, self._encode_label]),
-                padding=ft.padding.only(bottom=6),
+                padding=ft.Padding.only(bottom=6),
                 visible=False,
             )
             rows.append(self._encode_row)
@@ -1400,7 +1400,7 @@ class VideodlApp:
             on_change=on_change,
         )
         sheet = ft.BottomSheet(
-            content=ft.Container(content=picker, height=216, padding=ft.padding.only(top=6)),
+            content=ft.Container(content=picker, height=216, padding=ft.Padding.only(top=6)),
             dismissible=True,
             on_dismiss=on_dismiss,
         )

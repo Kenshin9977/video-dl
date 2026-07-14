@@ -1125,9 +1125,9 @@ dev = [
 requires-dist = [
     { name = "darkdetect", marker = "extra == 'desktop'" },
     { name = "darkdetect", marker = "extra == 'dev'" },
-    { name = "flet", specifier = ">=0.81" },
-    { name = "flet-desktop", marker = "extra == 'desktop'", specifier = ">=0.81" },
-    { name = "flet-desktop", marker = "extra == 'dev'", specifier = ">=0.81" },
+    { name = "flet", specifier = "==0.81.0" },
+    { name = "flet-desktop", marker = "extra == 'desktop'", specifier = "==0.81.0" },
+    { name = "flet-desktop", marker = "extra == 'dev'", specifier = "==0.81.0" },
     { name = "mypy", marker = "extra == 'dev'" },
     { name = "pillow", marker = "extra == 'dev'" },
     { name = "pyinstaller", marker = "extra == 'dev'" },

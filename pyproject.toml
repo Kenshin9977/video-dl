@@ -6,7 +6,19 @@ description = "A Flet-based GUI for yt-dlp with hardware-accelerated encoding"
 authors = [{ name = "Rogelio MENDOZA" }]
 requires-python = ">=3.12"
 dependencies = [
-    "flet>=0.81",
+    # Pinned exactly, and deliberately NOT taken to 0.83 or later.
+    #
+    # 0.83 took the Flutter runtime out of the flet-desktop package and put it on
+    # GitHub Releases. The frozen binary then drops from 76 MB to 36 MB, and on first
+    # launch it downloads 95 MB from GitHub with urlretrieve, with no checksum, into
+    # ~/.flet, and runs it. An Authenticode-signed exe would be fetching and executing
+    # an unsigned binary, and a user with no network would have no app at all.
+    #
+    # Nothing in 0.82 to 0.85 is used here: Router, use_dialog, Auth0, Maps,
+    # AudioRecorder, ads, CodeEditor. The code migration is three lines (ft.padding.only
+    # is gone, ft.Padding replaces it), verified by running the app on 0.85.3, so the
+    # code is not what holds this back. Revisit when the runtime can be bundled again.
+    "flet==0.81.0",
     "quantiphy",
     "tomlkit",
     # Upstream yt-dlp, not a fork. ffmpeg progress reporting, the one thing the
@@ -25,12 +37,12 @@ dependencies = [
 [project.optional-dependencies]
 desktop = [
     "darkdetect",
-    "flet-desktop>=0.81",
+    "flet-desktop==0.81.0",
     "tufup>=0.10",
 ]
 dev = [
     "darkdetect",
-    "flet-desktop>=0.81",
+    "flet-desktop==0.81.0",
     "mypy",
     "Pillow",
     "pyinstaller",
@@ -78,6 +90,14 @@ disable_error_code = ["no-any-return", "var-annotated"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Flet announces a removal a few versions ahead, and it was right: it said
+# `padding.only()` would go in 0.83, nobody read the warning, and 0.85 broke the app
+# on startup while every test stayed green. A Flet deprecation is now a red test,
+# months before the version that enforces it.
+filterwarnings = [
+    "error::DeprecationWarning:flet.*",
+    "error:.*deprecated since version.*:DeprecationWarning",
+]
 # The network tests are the gate an unattended dependency bump has to pass, so they
 # are real: a real download, a real ffmpeg run. They are excluded by default, and
 # run by the `download` CI job and the daily canary with `-m network`.

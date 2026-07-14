@@ -883,6 +883,16 @@ class VideodlApp:
         self.cookies.tooltip = gt(GF.login_from_tooltip)
         self._proxy_field.label = gt(GF.proxy)
         self._proxy_field.hint_text = gt(GF.proxy_placeholder)
+        # These four were left out, so the whole Chrome cookies panel stayed in the
+        # system language: it never followed the language the user picked, nor the one
+        # restored from the config at startup.
+        self._chrome_cookies_info.value = gt(GF.chrome_cookies_dialog_body)
+        # `.content`, not `.text`: a TextButton has no `text`, and assigning one just
+        # creates an attribute nobody reads, which looks exactly like a working fix.
+        self._chrome_cookies_store_link.content = gt(GF.chrome_cookies_store_link)
+        self._chrome_cookies_pick_btn.content = gt(GF.chrome_cookies_extract_button)
+        self._refresh_chrome_cookies_status()
+        self.download_status_banner.tooltip = gt(GF.error_click_for_details)
         self.open_folder_button.tooltip = gt(GF.open_folder)
         self.queue_button.tooltip = gt(GF.queue_button_tooltip)
         self._queue_textfield.hint_text = gt(GF.queue_dialog_hint)

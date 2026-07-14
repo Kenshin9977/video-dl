@@ -1,106 +1,91 @@
-# video-dl (a yt-dlp GUI)
+# video-dl
 
-The purpose of this script is to simplify the usage of [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+**English** · [Français](README.fr.md)
+
+A desktop and Android app that puts a window in front of [yt-dlp](https://github.com/yt-dlp/yt-dlp): paste a link, pick what you want, download. It downloads from every site yt-dlp supports, and it hands you a file your video editor will actually open.
+
+[![CI](https://github.com/Kenshin9977/video-dl/actions/workflows/ci.yml/badge.svg)](https://github.com/Kenshin9977/video-dl/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/Kenshin9977/video-dl)](https://github.com/Kenshin9977/video-dl/releases/latest)
+
 <p align="center">
-<img src="https://i.imgur.com/Ji0CuT2.png" width=400>
+<img src="assets/screenshot-en.png" width="420" alt="video-dl on Windows">
 </p>
 
+## Download
 
-## Requirements
+| Windows | macOS | Linux | Android |
+|:-------:|:-----:|:-----:|:-------:|
+| [video-dl-windows.exe](https://github.com/Kenshin9977/video-dl/releases/latest/download/video-dl-windows.exe) | [video-dl-macos.dmg](https://github.com/Kenshin9977/video-dl/releases/latest/download/video-dl-macos.dmg) | [video-dl-linux](https://github.com/Kenshin9977/video-dl/releases/latest/download/video-dl-linux) | [video-dl-arm64-v8a.apk](https://github.com/Kenshin9977/video-dl/releases/latest/download/video-dl-arm64-v8a.apk) |
 
-### Windows
-All the requirements are embedded within the installer. FFmpeg is automatically downloaded on first launch if missing.
+Every [release](https://github.com/Kenshin9977/video-dl/releases) is here. The app updates itself: new versions are downloaded and verified against a signed update channel.
 
-### Linux
-* You need to install both `ffmpeg` and `ffprobe` manually. Most Linux distributions have these in their package manager.
-* In order to use QSV, you must have the `intel-mediasdk` (apt) or `intel-media-sdk` (pacman) package installed.
+## What it needs
 
-### macOS
-* Homebrew has the `ffmpeg` package which includes `ffprobe`: `brew install ffmpeg`
+**Windows** and **Android**: nothing. FFmpeg, aria2c and QuickJS are fetched on first launch (Windows) or shipped inside the APK.
 
-## Downloads
+**Linux**: install `ffmpeg` (which brings `ffprobe`) from your package manager. For Intel QuickSync, add `intel-mediasdk` (apt) or `intel-media-sdk` (pacman).
 
-| Windows | macOS | Linux |
-|:-------:|:-----:|:-----:|
-| [video-dl-windows.exe](https://github.com/Kenshin9977/video-dl/releases/latest/download/video-dl-windows.exe) | [video-dl-macos.dmg](https://github.com/Kenshin9977/video-dl/releases/latest/download/video-dl-macos.dmg) | [video-dl-linux](https://github.com/Kenshin9977/video-dl/releases/latest/download/video-dl-linux) |
+**macOS**: `brew install ffmpeg`.
 
-Or browse all releases [here](https://github.com/Kenshin9977/video-dl/releases).
+## What it does
 
-## Usage
+- **Downloads from anything yt-dlp supports.** [The list](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md) is long.
+- **Hands you an editable file.** *NLE Ready* remuxes the video when the codec is already one your editor likes, which is instant and lossless, and re-encodes only when it has to. Hardware encoders (NVENC, QuickSync, AMF, VideoToolbox) are detected and used instead of your CPU.
+- **Picks the quality you asked for**, and the closest one below when it does not exist.
+- **Audio only**, in the codec of your choice. *Song only* goes further and cuts the non-music parts out, using SponsorBlock.
+- **Cuts a range**, with a start and an end timecode.
+- **Whole playlists**, or the exact items you name.
+- **Videos that need a login**, using the cookies from your browser. On Windows, Chrome 127+ encrypts its cookie store so that only Chrome can read it: export a `cookies.txt` and hand it to the app, or use Firefox or Edge, which it can read directly.
+- **Subtitles**, and a proxy if you need one.
+- **Several links at a time**: queue them up with the `+` button.
+- Downloads run through **aria2c** over several connections, and both bars, the download and the processing one, actually move.
+- English, French and German. Light and dark.
 
-Simply run the binary.
+## Under the hood
 
-Launch video-dl, enter a valid URL of a supported website, select the options you want then click "Download".
-Each option should be self explanatory. If it isn't, don't hesitate to create an issue so that I can fix that.
+video-dl uses **upstream yt-dlp**, straight from PyPI, pinned to an exact version. It does not fork it.
 
-## Features
+That is worth saying because it used to. yt-dlp reports no progress while it runs FFmpeg, or while aria2c is doing the downloading, so this project carried a fork of the whole of yt-dlp to add it, republished it to PyPI on a cron, and ended up shipping a yt-dlp that was months behind upstream. YouTube breaks faster than that.
 
-* Works with every website yt-dlp [supports](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
-* Allows you to choose the max framerate and resolution. It will try to find it but will get a lower value if this resolution/framerate isn't available.
-* Allows you to only download the audio of a video.
-* Allows you to choose among the most common audio codecs if you only want the audio.
-* Let you choose the start and end time of the video you want to download.
-* Allows you to get cookies from your browser in order to access restricted videos only accessible if you log in.
-* Saves videos with the name of the video followed by the author's name.
-* Remuxes videos if the downloaded file's codec matches the targeted video codec (faster than recode and lossless) to ensure compatibility with every NLE software.
-* Recodes the video in the targeted codec if it is encoded with something else.
-* Detects hardware encoders (h264/h265/ProRes/AV1) and uses them instead of the CPU when available.
-* Can download subtitles.
+Progress reporting is now four small extensions that live in this repository (`core/ytdlp_patch.py`, `core/ffmpegfd_progress.py`, `core/aria2c_progress.py`, `core/vk_extractor.py`), hooked onto extension points yt-dlp already has. They fail soft: if a yt-dlp release moves one of them, you lose a progress bar, never a download. And they fail loudly where it costs nothing: CI asserts every hook against the yt-dlp that is actually installed, and the packaged binary refuses to build if one of them no longer applies.
 
-## Build from sources
+So yt-dlp gets bumped the day it publishes, a robot opens the pull request, CI proves it still works by downloading a real file, and the release ships itself.
 
-### Prerequisites
+## Build from source
 
-* Python >= 3.12
-* ffmpeg and ffprobe
+Needs Python >= 3.12, [uv](https://docs.astral.sh/uv/), and ffmpeg on your PATH.
 
 ```bash
 git clone https://github.com/Kenshin9977/video-dl.git
 cd video-dl
-python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-pip install -e ".[dev]"
+uv sync --extra dev
+
+uv run python main.py            # run it
+uv run python main.py --debug    # with logs
+uv run pytest                    # the tests
 ```
 
-Add [this plugin](https://github.com/seproDev/yt-dlp-ChromeCookieUnlock?tab=readme-ov-file) in your venv so that cookie extraction works with Chromium-based browsers.
-
-### Run
+Package it:
 
 ```bash
-python main.py          # normal
-python main.py --debug  # debug mode
+uv run pyinstaller specs/Windows-video-dl.spec   # or macOS-, or Linux-
 ```
 
-### Package
+## Code signing
 
-#### Windows
-```bash
-pyinstaller specs/Windows-video-dl.spec
-```
-
-#### macOS
-```bash
-pyinstaller specs/macOS-video-dl.spec
-```
-
-#### Linux
-```bash
-pyinstaller specs/Linux-video-dl.spec
-```
-
-## Code signing policy
-
-Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+The Windows binary is Authenticode-signed and timestamped, with a Certum Open Source Code Signing certificate issued to Rogelio MENDOZA. Windows will show that name. The certificate never touches CI: the build streams the binary to a signing host over SSH, and the release refuses to publish if Windows does not report the signature as valid.
 
 - Committers and reviewers: Rogelio MENDOZA ([Kenshin9977](https://github.com/Kenshin9977))
 - Approvers: Rogelio MENDOZA ([Kenshin9977](https://github.com/Kenshin9977))
 
-## Privacy policy
+## Privacy
 
-This program will not transfer any information to other networked systems unless specifically requested by the user (e.g. downloading a video from a URL provided by the user).
+This program sends nothing anywhere, except what you ask it to: fetching the video at the URL you gave it, and checking for its own updates.
 
-## Software used
+## Built with
 
-* [yt-dlp](https://github.com/yt-dlp/yt-dlp)
-* [FFmpeg](https://github.com/yt-dlp/FFmpeg-Builds)
-* [Flet](https://flet.dev/)
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp)
+- [FFmpeg](https://github.com/yt-dlp/FFmpeg-Builds)
+- [aria2](https://aria2.github.io/)
+- [Flet](https://flet.dev/)
+- [tufup](https://github.com/dennisvang/tufup), for signed updates

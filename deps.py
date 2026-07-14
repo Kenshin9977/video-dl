@@ -24,7 +24,10 @@ Deliberately not pinned here:
 # publishes no androidarm64 asset, hence the fork. Pinned to an immutable autobuild
 # tag: the `latest` tag these projects also publish is mutable, so a release could
 # never be rebuilt byte for byte.
-# renovate: datasource=github-releases depName=Kenshin9977/FFmpeg-Builds versioning=loose
+# The tag is a timestamp, not a version, and `loose` cannot read it: Renovate
+# extracted the pin, called it unversioned, and skipped it without a word. Spell
+# the grammar out so it can compare two autobuilds and know which is newer.
+# renovate: datasource=github-releases depName=Kenshin9977/FFmpeg-Builds versioning=regex:^autobuild-(?<major>\d+)-(?<minor>\d+)-(?<patch>\d+)-(?<build>\d+-\d+)$
 FFMPEG_ANDROID_TAG = "autobuild-2026-06-15-18-44"
 FFMPEG_ANDROID_REPO = "Kenshin9977/FFmpeg-Builds"
 # A pattern, not a name, and that is the whole point: the rolling `latest` release
@@ -37,7 +40,8 @@ FFMPEG_ANDROID_ASSET_PATTERN = "*androidarm64-gpl-shared.tar.xz"
 
 # aria2c, both bundled into the APK and downloaded on first run on desktop. The
 # same tag for both, or the two platforms ship different binaries.
-# renovate: datasource=github-releases depName=Kenshin9977/aria2 versioning=loose
+# Same again: `release-2.0.1` is a version wearing a prefix, and `loose` skipped it.
+# renovate: datasource=github-releases depName=Kenshin9977/aria2 versioning=regex:^release-(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
 ARIA2_TAG = "release-2.0.1"
 ARIA2_REPO = "Kenshin9977/aria2"
 

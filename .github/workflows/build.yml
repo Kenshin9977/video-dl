@@ -128,15 +128,37 @@ jobs:
             | awk '/Developer ID Application/{print $2; exit}')
           test -n "$IDENTITY"
 
-          # Sign inner-out: every Mach-O with the hardened runtime, deepest first, so
-          # each seal is valid when the enclosing bundle is sealed over it. The main
-          # executable and bundle carry the entitlements; dylibs neither need nor
-          # accept them.
-          find "$APP" -type f | while IFS= read -r f; do
-            if file "$f" | grep -q 'Mach-O'; then echo "$f"; fi
-          done | awk '{print gsub(/\//,"/"), $0}' | sort -rn | cut -d' ' -f2- | while IFS= read -r f; do
-            codesign --force --options runtime --timestamp --sign "$IDENTITY" "$f"
-          done
+          # Sign every Mach-O under a directory tree, inner-out (deepest first) so each
+          # seal is valid when its enclosing bundle is sealed over it. Runtime on all;
+          # the caller re-signs bundle main-executables with entitlements afterward.
+          sign_tree() {
+            find "$1" -type f | while IFS= read -r f; do
+              if file "$f" | grep -q 'Mach-O'; then echo "$f"; fi
+            done | awk '{print gsub(/\//,"/"), $0}' | sort -rn | cut -d' ' -f2- \
+            | while IFS= read -r f; do
+              codesign --force --options runtime --timestamp --sign "$IDENTITY" "$f"
+            done
+          }
+
+          # flet ships the Flutter UI as an unsigned Flet.app inside this tarball. find
+          # never sees it (it is compressed), but the notary service unpacks the archive
+          # and rejects the whole submission over it. Extract, sign Flet.app, repack —
+          # before the outer app is sealed over the tarball's bytes below.
+          FLET_TGZ=$(find "$APP/Contents" -name 'flet-macos.tar.gz' | head -1)
+          if [ -n "$FLET_TGZ" ]; then
+            work="$RUNNER_TEMP/flet"
+            rm -rf "$work"; mkdir -p "$work"
+            tar -xzf "$FLET_TGZ" -C "$work"
+            sign_tree "$work"
+            FLET_APP=$(find "$work" -maxdepth 2 -name 'Flet.app' | head -1)
+            codesign --force --options runtime --timestamp \
+              --entitlements specs/macos-entitlements.plist --sign "$IDENTITY" "$FLET_APP"
+            tar -czf "$FLET_TGZ" -C "$work" $(ls "$work")
+          fi
+
+          # The main executable and bundle carry the entitlements; dylibs neither need
+          # nor accept them.
+          sign_tree "$APP"
           codesign --force --options runtime --timestamp \
             --entitlements specs/macos-entitlements.plist \
             --sign "$IDENTITY" "$APP"

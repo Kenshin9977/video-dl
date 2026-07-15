@@ -168,11 +168,7 @@ jobs:
           # the ticket onto the .app itself so first launch works offline.
           echo "$MACOS_NOTARY_KEY" | base64 -d > "$RUNNER_TEMP/notary.p8"
           ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/app.zip"
-          xcrun notarytool submit "$RUNNER_TEMP/app.zip" \
-            --key "$RUNNER_TEMP/notary.p8" \
-            --key-id "$MACOS_NOTARY_KEY_ID" \
-            --issuer "$MACOS_NOTARY_ISSUER" \
-            --wait
+          NOTARY_KEY="$RUNNER_TEMP/notary.p8" bash tools/notarize.sh "$RUNNER_TEMP/app.zip"
           xcrun stapler staple "$APP"
 
       - name: Package artifact (macOS)
@@ -198,11 +194,7 @@ jobs:
           IDENTITY=$(security find-identity -v -p codesigning "$RUNNER_TEMP/signing.keychain-db" \
             | awk '/Developer ID Application/{print $2; exit}')
           codesign --force --timestamp --sign "$IDENTITY" "$DMG"
-          xcrun notarytool submit "$DMG" \
-            --key "$RUNNER_TEMP/notary.p8" \
-            --key-id "$MACOS_NOTARY_KEY_ID" \
-            --issuer "$MACOS_NOTARY_ISSUER" \
-            --wait
+          NOTARY_KEY="$RUNNER_TEMP/notary.p8" bash tools/notarize.sh "$DMG"
           xcrun stapler staple "$DMG"
           # Gatekeeper's own verdict, or the release does not go out. --deep for the
           # app is deprecated, but for a DMG spctl assesses the mounted contents.

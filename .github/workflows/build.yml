@@ -32,11 +32,12 @@ jobs:
 
     runs-on: ${{ matrix.os }}
 
-    # Hoisted to the job so the signing step's `if:` can test it. A step's own
+    # Hoisted to the job so the signing steps' `if:` can test them. A step's own
     # `env:` is not visible to its own `if:` — the condition is evaluated first —
     # and the `secrets` context is not available there at all.
     env:
       SIGN_SSH_HOST: ${{ secrets.SIGN_SSH_HOST }}
+      MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
 
     steps:
       - uses: actions/checkout@v7
@@ -92,6 +93,66 @@ jobs:
         shell: bash
         run: mv dist/video-dl "${{ matrix.artifact }}"
 
+      # Developer ID signing + notarization, the non-App-Store path. It runs before
+      # the DMG is built (the app has to be signed and stapled first) and, like the
+      # Windows signing below, before the artifact is uploaded, so the tufup `sign`
+      # job hashes signed bytes. Skipped, non-fatally, when the cert secret is
+      # absent — a fork still builds green, just unsigned.
+      #
+      # The keychain, notary key and identity set up here persist on the runner for
+      # the DMG-signing step in the same job.
+      - name: Sign and notarize the app (macOS)
+        if: runner.os == 'macOS' && env.MACOS_CERT_P12 != ''
+        env:
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_ISSUER: ${{ secrets.MACOS_NOTARY_ISSUER }}
+        run: |
+          set -euo pipefail
+          APP=dist/video-dl.app
+
+          # An ephemeral keychain with a random password, torn down with the runner.
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PW=$(uuidgen)
+          security create-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+          echo "$MACOS_CERT_P12" | base64 -d > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$MACOS_CERT_PASSWORD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PW" "$KEYCHAIN" >/dev/null
+          # Put it on the search list so codesign and notarytool find the identity.
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | sed s/\"//g)
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" \
+            | awk '/Developer ID Application/{print $2; exit}')
+          test -n "$IDENTITY"
+
+          # Sign inner-out: every Mach-O with the hardened runtime, deepest first, so
+          # each seal is valid when the enclosing bundle is sealed over it. The main
+          # executable and bundle carry the entitlements; dylibs neither need nor
+          # accept them.
+          find "$APP" -type f | while IFS= read -r f; do
+            if file "$f" | grep -q 'Mach-O'; then echo "$f"; fi
+          done | awk '{print gsub(/\//,"/"), $0}' | sort -rn | cut -d' ' -f2- | while IFS= read -r f; do
+            codesign --force --options runtime --timestamp --sign "$IDENTITY" "$f"
+          done
+          codesign --force --options runtime --timestamp \
+            --entitlements specs/macos-entitlements.plist \
+            --sign "$IDENTITY" "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+          # notarytool wants an archive, not a raw .app. Zip it, submit, then staple
+          # the ticket onto the .app itself so first launch works offline.
+          echo "$MACOS_NOTARY_KEY" | base64 -d > "$RUNNER_TEMP/notary.p8"
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/app.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/app.zip" \
+            --key "$RUNNER_TEMP/notary.p8" \
+            --key-id "$MACOS_NOTARY_KEY_ID" \
+            --issuer "$MACOS_NOTARY_ISSUER" \
+            --wait
+          xcrun stapler staple "$APP"
+
       - name: Package artifact (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -99,6 +160,31 @@ jobs:
             -srcfolder dist/video-dl.app \
             -ov -format UDZO \
             "${{ matrix.artifact }}"
+
+      # Sign, notarize and staple the DMG too: the .app inside is already stapled,
+      # but stapling the DMG means the download the user actually double-clicks
+      # passes Gatekeeper offline as well. Reuses the keychain and notary key the
+      # app-signing step left on the runner.
+      - name: Sign and notarize the DMG (macOS)
+        if: runner.os == 'macOS' && env.MACOS_CERT_P12 != ''
+        env:
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_ISSUER: ${{ secrets.MACOS_NOTARY_ISSUER }}
+        run: |
+          set -euo pipefail
+          DMG="${{ matrix.artifact }}"
+          IDENTITY=$(security find-identity -v -p codesigning "$RUNNER_TEMP/signing.keychain-db" \
+            | awk '/Developer ID Application/{print $2; exit}')
+          codesign --force --timestamp --sign "$IDENTITY" "$DMG"
+          xcrun notarytool submit "$DMG" \
+            --key "$RUNNER_TEMP/notary.p8" \
+            --key-id "$MACOS_NOTARY_KEY_ID" \
+            --issuer "$MACOS_NOTARY_ISSUER" \
+            --wait
+          xcrun stapler staple "$DMG"
+          # Gatekeeper's own verdict, or the release does not go out. --deep for the
+          # app is deprecated, but for a DMG spctl assesses the mounted contents.
+          spctl --assess --type open --context context:primary-signature -vv "$DMG"
 
       # Authenticode-sign here, inside the build job, BEFORE the artifact is
       # uploaded — the `sign` job below hashes these artifacts into the tufup

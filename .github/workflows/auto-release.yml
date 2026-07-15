@@ -9,12 +9,17 @@ name: Auto release
 #
 # Only a yt-dlp bump releases automatically. Every other dependency rides along with
 # the next release: nobody needs an app update because flet moved a patch version.
+#
+# A fix that does not touch yt-dlp (a signing change, a packaging fix) still deserves
+# a release, but not on every merge. workflow_dispatch is that door: run this workflow
+# by hand and it bumps and releases whatever is on master, no yt-dlp diff required.
 
 on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
     branches: [master]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -22,7 +27,9 @@ permissions:
 
 jobs:
   release:
-    if: github.event.workflow_run.conclusion == 'success'
+    # workflow_dispatch carries no workflow_run payload, so its conclusion is null;
+    # let the manual run through, and gate the automatic one on CI having passed.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -32,10 +39,13 @@ jobs:
 
       - uses: astral-sh/setup-uv@v8.3.2
 
-      - name: Did the merged commit bump yt-dlp?
+      - name: Should we release?
         id: bump
         run: |
-          if git diff HEAD~1 HEAD -- pyproject.toml | grep -qE '^\+.*"yt-dlp\['; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual dispatch, releasing whatever is on master."
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          elif git diff HEAD~1 HEAD -- pyproject.toml | grep -qE '^\+.*"yt-dlp\['; then
             echo "yt-dlp: $(git diff HEAD~1 HEAD -- pyproject.toml | grep -E '^\+.*yt-dlp\[')"
             echo "release=true" >> "$GITHUB_OUTPUT"
           else

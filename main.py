@@ -1,10 +1,37 @@
 import argparse
 import logging
+import platform
+import sys
 import warnings
 
 from videodl_logger import videodl_logger
 
 warnings.filterwarnings("ignore", message="urllib3.*doesn't match a supported version")
+
+
+def _patch_mac_ver() -> None:
+    """Give platform.mac_ver() a real version string on macOS.
+
+    Python 3.14's mac_ver() returns '' on macOS 26, and darkdetect (and anything
+    else that parses the version) then does int('') and crashes the whole GUI at
+    import. sw_vers reports the real version regardless of the interpreter bug, so
+    fill the gap from it. A no-op when mac_ver() already works.
+    """
+    if sys.platform != "darwin" or platform.mac_ver()[0]:
+        return
+    import subprocess
+
+    try:
+        version = subprocess.run(
+            ["sw_vers", "-productVersion"], capture_output=True, text=True, timeout=5
+        ).stdout.strip()
+    except Exception:
+        return
+    if version:
+        platform.mac_ver = lambda: (version, ("", "", ""), platform.machine())
+
+
+_patch_mac_ver()
 
 
 # yt-dlp imports these lazily, inside try/except ImportError, and degrades

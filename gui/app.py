@@ -15,8 +15,11 @@ import flet as ft
 
 try:
     from darkdetect import isDark
-except ImportError:
-
+except (ImportError, ValueError):
+    # ValueError: darkdetect parses platform.mac_ver() at import and blows up on the
+    # empty string Python 3.14 hands it on macOS 26. main.py patches mac_ver so this
+    # normally imports fine; this stays as a seatbelt so a version quirk can never
+    # take the whole GUI down with it.
     def isDark():
         return True
 

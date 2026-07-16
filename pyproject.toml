@@ -36,12 +36,10 @@ dependencies = [
 
 [project.optional-dependencies]
 desktop = [
-    "darkdetect",
     "flet-desktop==0.81.0",
     "tufup>=0.10",
 ]
 dev = [
-    "darkdetect",
     "flet-desktop==0.81.0",
     "mypy",
     "Pillow",

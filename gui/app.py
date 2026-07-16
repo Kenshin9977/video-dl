@@ -12,18 +12,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import flet as ft
-
-try:
-    from darkdetect import isDark
-except (ImportError, ValueError):
-    # ValueError: darkdetect parses platform.mac_ver() at import and blows up on the
-    # empty string Python 3.14 hands it on macOS 26. main.py patches mac_ver so this
-    # normally imports fine; this stays as a seatbelt so a version quirk can never
-    # take the whole GUI down with it.
-    def isDark():
-        return True
-
-
 from flet import (
     Button,
     Checkbox,
@@ -117,6 +105,16 @@ def _urls_share_host(urls: list[str]) -> bool:
     return len(hosts) == 1
 
 
+def _system_is_dark(page: ft.Page) -> bool:
+    """OS dark mode via Flet's own brightness.
+
+    Replaces the unmaintained darkdetect, which parsed platform.mac_ver() at import
+    and crashed on the empty string Python 3.14 hands it on macOS 26. Flet already
+    knows the OS brightness, so ask it instead of shipping a dependency for it.
+    """
+    return page.platform_brightness == ft.Brightness.DARK
+
+
 DISABLED_COLOR = Colors.ON_INVERSE_SURFACE
 
 
@@ -160,7 +158,7 @@ class _AppStatusCallback:
 
 class VideodlApp:
     def __init__(self, page: Page, *, mobile: bool = False):
-        is_dark = bool(isDark())
+        is_dark = _system_is_dark(page)
         self.page = page
         self._mobile = mobile
         self.page.title = "Video-dl"
@@ -601,7 +599,7 @@ class VideodlApp:
             hint_text=gt(GF.queue_dialog_hint),
             expand=True,
         )
-        self.tomlconfig = VideodlConfig()
+        self.tomlconfig = VideodlConfig(default_dark=_system_is_dark(self.page))
 
     async def _pick_directory(self, e):
         result = await self.file_picker.get_directory_path()

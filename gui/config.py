@@ -14,14 +14,6 @@ from i18n.lang import get_available_languages_name, get_current_language_name, s
 from i18n.lang import get_text as gt
 from utils.sys_utils import get_default_browser, get_default_download_path
 
-try:
-    from darkdetect import isDark
-except ImportError:
-
-    def isDark():
-        return True
-
-
 _config_filename: str | None = None
 USER_OPTIONS = "User options"
 
@@ -55,7 +47,10 @@ CK_PROXY = "Proxy"
 
 
 class VideodlConfig:
-    def __init__(self):
+    def __init__(self, default_dark: bool = True):
+        # Only used to seed the theme when no config exists yet; the user's choice
+        # is persisted from then on. Stored so _load()'s repair path can reach it too.
+        self._default_dark = default_dark
         if isfile(_get_config_filename()):
             self.config = self._load()
         else:
@@ -70,7 +65,7 @@ class VideodlConfig:
         config = {
             USER_OPTIONS: {
                 CK_LANGUAGE: get_current_language_name(),
-                CK_THEME: bool(isDark()),
+                CK_THEME: self._default_dark,
                 CK_DEST_FOLDER: get_default_download_path(),
                 CK_PLAYLIST: False,
                 CK_INDICES: False,

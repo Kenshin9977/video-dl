@@ -27,8 +27,11 @@ def build_file_opts(
     }
     if indices_enabled:
         opts["playlist_items"] = indices_value or 1
-    if ff_path.get("ffmpeg") != "ffmpeg":
-        opts["ffmpeg_location"] = ff_path["ffmpeg"]
+    # .get() throughout: an empty ff_path used to reach ff_path["ffmpeg"] and raise
+    # KeyError. "ffmpeg" means "on PATH", so no explicit location is needed.
+    ffmpeg = ff_path.get("ffmpeg")
+    if ffmpeg and ffmpeg != "ffmpeg":
+        opts["ffmpeg_location"] = ffmpeg
     return opts
 
 

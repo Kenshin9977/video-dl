@@ -12,15 +12,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import flet as ft
-
-try:
-    from darkdetect import isDark
-except ImportError:
-
-    def isDark():
-        return True
-
-
 from flet import (
     Button,
     Checkbox,
@@ -49,6 +40,12 @@ from flet import (
 from yt_dlp.utils import DownloadCancelled as YtdlpDownloadCancelled
 
 import runtime
+
+# Imported as a module, not `from sys_vars import FF_PATH, ...`: init_paths()
+# reassigns these globals at startup, and a bare import would freeze the empty
+# pre-init values into this module if gui.app is ever imported before init_paths
+# runs (the macOS bundle patch does exactly that).
+import sys_vars
 from core.download import create_ydl, download
 from core.error_report import ErrorReport, build_error_report
 from core.progress import compute_progress, parse_quantity, parse_speed, timecodes_are_valid
@@ -93,7 +90,6 @@ from i18n.lang import (
     set_current_language,
 )
 from i18n.lang import get_text as gt
-from sys_vars import ARIA2C_PATH, FF_PATH, QJS_PATH
 from utils.parse_util import simple_traverse, validate_url
 from utils.sponsor_block_dict import CATEGORIES
 from utils.sys_utils import APP_VERSION, PLATFORM, get_default_download_path
@@ -112,6 +108,31 @@ def _urls_share_host(urls: list[str]) -> bool:
 
     hosts = {urlparse(u).hostname for u in urls if u}
     return len(hosts) == 1
+
+
+def _aria2c_would_be_throttled(url: str | None) -> bool:
+    """True for hosts that throttle aria2c's connections far below the native
+    downloader. Measured on a YouTube short: ~100 KB/s via aria2c vs ~27 MB/s
+    native, because Google throttles aria2c's request pattern. yt-dlp's own
+    downloader handles these; aria2c only wins on plain direct HTTP. Extend the
+    tuple as other sites turn up.
+    """
+    if not url:
+        return False
+    from urllib.parse import urlparse
+
+    host = (urlparse(url).hostname or "").lower()
+    return host.endswith(("youtube.com", "youtu.be", "googlevideo.com"))
+
+
+def _system_is_dark(page: ft.Page) -> bool:
+    """OS dark mode via Flet's own brightness.
+
+    Replaces the unmaintained darkdetect, which parsed platform.mac_ver() at import
+    and crashed on the empty string Python 3.14 hands it on macOS 26. Flet already
+    knows the OS brightness, so ask it instead of shipping a dependency for it.
+    """
+    return page.platform_brightness == ft.Brightness.DARK
 
 
 DISABLED_COLOR = Colors.ON_INVERSE_SURFACE
@@ -157,7 +178,7 @@ class _AppStatusCallback:
 
 class VideodlApp:
     def __init__(self, page: Page, *, mobile: bool = False):
-        is_dark = bool(isDark())
+        is_dark = _system_is_dark(page)
         self.page = page
         self._mobile = mobile
         self.page.title = "Video-dl"
@@ -598,7 +619,7 @@ class VideodlApp:
             hint_text=gt(GF.queue_dialog_hint),
             expand=True,
         )
-        self.tomlconfig = VideodlConfig()
+        self.tomlconfig = VideodlConfig(default_dark=_system_is_dark(self.page))
 
     async def _pick_directory(self, e):
         result = await self.file_picker.get_directory_path()
@@ -647,9 +668,14 @@ class VideodlApp:
         Returns:
             dict: yt-dlp options
         """
-        self.ydl_opts = {"verbose": True}
-        if QJS_PATH:
-            self.ydl_opts["js_runtimes"] = {"quickjs": {"path": QJS_PATH}}
+        # Download HLS/DASH fragments in parallel — the biggest speed lever across
+        # every site, since most HD formats are segmented and yt-dlp fetches one
+        # fragment at a time by default. 4 is the safe sweet spot: a real speedup
+        # without the 429/403 rate-limiting that a single IP draws at 16+, and
+        # yt-dlp retries any fragment that does get throttled (fragment_retries=10).
+        self.ydl_opts = {"verbose": True, "concurrent_fragment_downloads": 4}
+        if sys_vars.QJS_PATH:
+            self.ydl_opts["js_runtimes"] = {"quickjs": {"path": sys_vars.QJS_PATH}}
         self._gen_file_opts()
         self._gen_av_opts()
         self._gen_ffmpeg_opts()
@@ -657,16 +683,24 @@ class VideodlApp:
         self._gen_browser_opts()
         self._gen_proxy_opts()
         self._gen_sponsor_block_opts()
-        # aria2c is slower than native on sites with auth/cookies (YouTube, etc.)
-        # Only use it for generic http/https downloads where multi-connection helps
+        # aria2c only wins on plain direct HTTP where its many connections help. On
+        # sites that throttle it (YouTube) or need cookies, the native downloader is
+        # faster, so leave those to yt-dlp. The opts are shared across the whole batch,
+        # so one throttled URL opts the batch out.
         has_cookies = "cookiesfrombrowser" in self.ydl_opts or "cookiesfile" in self.ydl_opts
+        urls = [self.media_link.value, *self._url_queue]
         if (
-            ARIA2C_PATH
+            sys_vars.ARIA2C_PATH
             and not has_cookies
+            and not any(_aria2c_would_be_throttled(u) for u in urls)
             and "external_downloader" not in self.ydl_opts
             and "download_ranges" not in self.ydl_opts
         ):
-            self.ydl_opts["external_downloader"] = {"http": ARIA2C_PATH}
+            self.ydl_opts["external_downloader"] = {"http": sys_vars.ARIA2C_PATH}
+            # 16 connections with a 1M split is aria2's standard multi-connection
+            # setup, and the whole reason to use it here: on the permissive direct-HTTP
+            # servers this path is reserved for, it multiplies throughput.
+            self.ydl_opts["external_downloader_args"] = {"aria2c": ["-x", "16", "-s", "16", "-k", "1M"]}
         return self.ydl_opts
 
     def _gen_file_opts(self):
@@ -676,7 +710,7 @@ class VideodlApp:
                 dest_folder=str(self.download_path_text.value),
                 indices_enabled=bool(self.indices.value),
                 indices_value=self.indices_selected.value,
-                ff_path=FF_PATH,
+                ff_path=sys_vars.FF_PATH,
                 progress_hook=self._update_download_bar,
                 postprocessor_hook=self._update_process_bar,
             )
@@ -1043,8 +1077,8 @@ class VideodlApp:
                 self.video_preview.visible = True
                 self._safe_update()
                 opts = {"quiet": True, "no_warnings": True, "noplaylist": True}
-            if QJS_PATH:
-                opts["js_runtimes"] = {"quickjs": {"path": QJS_PATH}}
+            if sys_vars.QJS_PATH:
+                opts["js_runtimes"] = {"quickjs": {"path": sys_vars.QJS_PATH}}
             with YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=False)
             if info is None:
@@ -1557,7 +1591,7 @@ class VideodlApp:
         status_cb = _AppStatusCallback(self)
         ydl_opts = self._gen_ydl_opts()
         try:
-            ydl = await asyncio.to_thread(create_ydl, ydl_opts, status_cb, FF_PATH)
+            ydl = await asyncio.to_thread(create_ydl, ydl_opts, status_cb, sys_vars.FF_PATH)
         except Exception as e:
             report = build_error_report(e)
             logger.error(report.short_message)
@@ -1593,7 +1627,7 @@ class VideodlApp:
                 url=url or self.media_link.value,
                 audio_only=bool(self.audio_only.value),
                 target_vcodec=target_vcodec,
-                ff_path=FF_PATH,
+                ff_path=sys_vars.FF_PATH,
                 ydl_opts=ydl_opts,
             )
             try:

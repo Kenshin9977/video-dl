@@ -1,10 +1,37 @@
 import argparse
 import logging
+import platform
+import sys
 import warnings
 
 from videodl_logger import videodl_logger
 
 warnings.filterwarnings("ignore", message="urllib3.*doesn't match a supported version")
+
+
+def _patch_mac_ver() -> None:
+    """Give platform.mac_ver() a real version string on macOS.
+
+    Python 3.14's mac_ver() returns '' on macOS 26, and darkdetect (and anything
+    else that parses the version) then does int('') and crashes the whole GUI at
+    import. sw_vers reports the real version regardless of the interpreter bug, so
+    fill the gap from it. A no-op when mac_ver() already works.
+    """
+    if sys.platform != "darwin" or platform.mac_ver()[0]:
+        return
+    import subprocess
+
+    try:
+        version = subprocess.run(
+            ["sw_vers", "-productVersion"], capture_output=True, text=True, timeout=5
+        ).stdout.strip()
+    except Exception:
+        return
+    if version:
+        platform.mac_ver = lambda: (version, ("", "", ""), platform.machine())
+
+
+_patch_mac_ver()
 
 
 # yt-dlp imports these lazily, inside try/except ImportError, and degrades
@@ -23,6 +50,11 @@ def selftest() -> None:
     release. Paths are deliberately not initialized: that would try to download
     ffmpeg on a bare runner.
     """
+    # Loads the C extension behind XML/plist parsing. On macOS it links libexpat,
+    # which the build repoints at a bundled copy; import it here so a broken repoint
+    # fails CI instead of crashing a user the first time the app reads a plist.
+    import plistlib  # noqa: F401
+
     import flet  # noqa: F401
     import tufup  # noqa: F401
     from yt_dlp.dependencies import available_dependencies
@@ -79,6 +111,15 @@ def main():
 
     app_has_been_updated = check_for_updates()
     if not app_has_been_updated:
+        # On macOS, point Flet at the icon-patched bundle before the first window
+        # opens. init_paths() below can open the aria2 install progress window, and
+        # without this it would carry Flet's default icon instead of video-dl's.
+        # Idempotent: videodl_gui() calls it again and it returns early.
+        if sys.platform == "darwin":
+            from gui.app import _patch_flet_macos_bundle
+
+            _patch_flet_macos_bundle()
+
         logger.debug("Initializing binary paths")
         from sys_vars import init_paths
 

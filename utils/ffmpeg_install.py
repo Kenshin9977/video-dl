@@ -92,7 +92,9 @@ def ffmpeg_progress_page(page: ft.Page) -> None:
         except Exception as e:
             logger.error(f"FFmpeg installation error: {e}")
         finally:
-            page.window.destroy()
+            # Coroutine in Flet 0.81, so schedule it rather than calling it bare from
+            # this worker thread, where it would never run and hang the app.
+            page.run_task(page.window.close)
 
     def download_ffmpeg(bits_archi: str, download_folder) -> str:
         api_url = "https://api.github.com/repos/yt-dlp/FFmpeg-Builds/releases/latest"
@@ -137,9 +139,12 @@ _FFMPEG_MISSING: dict[str, _FfmpegMissingInfo] = {
         "url": "[Open an issue on GitHub](https://github.com/Kenshin9977/video-dl/issues)",
     },
     "Darwin": {
-        "width": 344,
-        "message": "FFmpeg is missing. On MacOS you can follow this guide to install it:",
-        "url": "[Install FFmpeg](https://macappstore.org/ffmpeg/)",
+        "width": 460,
+        "message": (
+            "FFmpeg is missing or won't run. A Homebrew update can leave it broken; "
+            "install or repair it from a terminal with:  brew reinstall ffmpeg"
+        ),
+        "url": "[Get Homebrew](https://brew.sh)",
     },
     "Linux": {
         "width": 344,

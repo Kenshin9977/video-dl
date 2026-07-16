@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import os
 import subprocess
@@ -85,11 +86,15 @@ def get_ff(ffmpeg_name, ffprobe_name):
         ff_missing_function = ffmpeg_missing_on_mac
 
     ffmpeg_path = _find_executable(ffmpeg_name)
-    if ffmpeg_path:
+    if ffmpeg_path and _runs_ok(ffmpeg_path, "-version"):
         ffprobe_path = _find_executable(ffprobe_name) or ffprobe_name
         logger.info(f"FFmpeg found at {ffmpeg_path}")
         return {"ffmpeg": ffmpeg_path, "ffprobe": ffprobe_path}
 
+    if ffmpeg_path:
+        # Present but won't launch — yt-dlp would just report "ffmpeg is not
+        # installed" with no hint. The dialog tells the user to reinstall it.
+        logger.error(f"FFmpeg at {ffmpeg_path} is present but fails to run (broken dependency?)")
     ft.run(ff_missing_function)
     sys.exit(-1)
 
@@ -110,6 +115,21 @@ def _find_executable(name):
             return candidate
 
     return None
+
+
+def _runs_ok(path, *args, timeout=15) -> bool:
+    """True if the binary at `path` actually runs and exits cleanly.
+
+    Existence is not enough on macOS: a tool whose dynamic dependency was upgraded
+    out from under it — Homebrew's ffmpeg after an x265 bump, our downloaded aria2c
+    after a libxml2 bump — is still a valid executable file that the dynamic linker
+    aborts the instant it launches (a negative return code). Only a clean exit
+    proves it will work when yt-dlp shells out to it.
+    """
+    try:
+        return subprocess.run([path, *args], capture_output=True, timeout=timeout).returncode == 0
+    except Exception:
+        return False
 
 
 def get_quickjs_path() -> str | None:
@@ -180,23 +200,31 @@ def get_aria2c_path() -> str | None:
     """
     ext = _get_extension_for_platform()
     aria2c_name = f"aria2c{ext}"
-
-    # Check our install folder first
     install_folder = get_aria2c_install_folder()
     aria2c_path = os.path.join(install_folder, aria2c_name)
-    if Path(aria2c_path).exists():
-        logger.info(f"aria2c found at {aria2c_path}")
-        return aria2c_path
 
-    # Auto-download from fork
-    logger.info("aria2c not found, downloading from Kenshin9977/aria2...")
+    # A cached binary that no longer runs (an older release linked to libraries the
+    # user turned out not to have) is deleted, not kept: fall through and re-download
+    # the current release, so an app that ships a fixed aria2c heals itself instead of
+    # leaving the user stuck on the fallback with the old broken binary in place.
+    if Path(aria2c_path).exists():
+        if _runs_ok(aria2c_path, "--version"):
+            logger.info(f"aria2c found at {aria2c_path}")
+            return aria2c_path
+        logger.warning(f"cached aria2c at {aria2c_path} won't run; re-downloading")
+        with contextlib.suppress(OSError):
+            os.remove(aria2c_path)
+
+    logger.info("Downloading aria2c from Kenshin9977/aria2...")
     ft.run(aria2c_progress_page)
 
-    if Path(aria2c_path).exists():
+    if Path(aria2c_path).exists() and _runs_ok(aria2c_path, "--version"):
         logger.info(f"aria2c installed at {aria2c_path}")
         return aria2c_path
 
-    logger.warning("aria2c installation failed, continuing without it")
+    # aria2c is only a download accelerator, so its absence is a soft failure: the
+    # app runs on yt-dlp's native downloader.
+    logger.warning("aria2c unavailable; falling back to yt-dlp's native downloader")
     return None
 
 

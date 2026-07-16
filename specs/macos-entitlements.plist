@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened runtime is mandatory for notarization, and a PyInstaller app dies on
+  launch under it without these four. The Python interpreter maps writable-then-
+  executable memory (allow-unsigned-executable-memory), the bootloader loads
+  dylibs Apple never signed (disable-library-validation) and sets DYLD_ vars to
+  find them (allow-dyld-environment-variables), and CPython's ctypes/JIT paths
+  want allow-jit. Drop one and the app notarizes clean but crashes for the user.
+-->
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<true/>
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+	<key>com.apple.security.cs.allow-dyld-environment-variables</key>
+	<true/>
+</dict>
+</plist>

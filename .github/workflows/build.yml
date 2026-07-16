@@ -102,7 +102,10 @@ jobs:
 
           APP=dist/video-dl.app
           dyld=$(dirname "$(find "$APP" -name 'pyexpat*.so' | head -1)")
-          cp /tmp/expat-out/lib/libexpat.*.dylib "$dyld/libexpat.1.dylib"
+          # -type f picks the real dylib, not the libexpat.1.dylib / libexpat.dylib
+          # symlinks make install also drops next to it.
+          src=$(find /tmp/expat-out/lib -name 'libexpat.*.dylib' -type f | head -1)
+          cp "$src" "$dyld/libexpat.1.dylib"
           chmod u+w "$dyld/libexpat.1.dylib"
           install_name_tool -id @loader_path/libexpat.1.dylib "$dyld/libexpat.1.dylib"
           codesign --force --sign - "$dyld/libexpat.1.dylib"

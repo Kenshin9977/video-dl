@@ -92,7 +92,9 @@ def ffmpeg_progress_page(page: ft.Page) -> None:
         except Exception as e:
             logger.error(f"FFmpeg installation error: {e}")
         finally:
-            page.window.destroy()
+            # Coroutine in Flet 0.81, so schedule it rather than calling it bare from
+            # this worker thread, where it would never run and hang the app.
+            page.run_task(page.window.close)
 
     def download_ffmpeg(bits_archi: str, download_folder) -> str:
         api_url = "https://api.github.com/repos/yt-dlp/FFmpeg-Builds/releases/latest"

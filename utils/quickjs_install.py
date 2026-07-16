@@ -88,7 +88,9 @@ def quickjs_progress_page(page: ft.Page) -> None:
         except Exception as e:
             logger.error(f"QuickJS installation error: {e}")
         finally:
-            page.window.destroy()
+            # Coroutine in Flet 0.81, so schedule it rather than calling it bare from
+            # this worker thread, where it would never run and hang the app.
+            page.run_task(page.window.close)
 
     def download_quickjs(platform_tag: str, download_folder) -> str:
         try:

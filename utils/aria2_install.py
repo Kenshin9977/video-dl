@@ -137,6 +137,10 @@ def aria2c_progress_page(page: ft.Page) -> None:
             page.update()
         finally:
             time.sleep(1)
-            page.window.destroy()
+            # window.close() is a coroutine in Flet 0.81; calling it bare from this
+            # worker thread never ran, so the window stayed open and ft.run() never
+            # returned — the app hung after "Installation complete!". Schedule it on
+            # the page's event loop instead.
+            page.run_task(page.window.close)
 
     threading.Thread(target=install, daemon=True).start()

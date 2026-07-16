@@ -111,6 +111,15 @@ def main():
 
     app_has_been_updated = check_for_updates()
     if not app_has_been_updated:
+        # On macOS, point Flet at the icon-patched bundle before the first window
+        # opens. init_paths() below can open the aria2 install progress window, and
+        # without this it would carry Flet's default icon instead of video-dl's.
+        # Idempotent: videodl_gui() calls it again and it returns early.
+        if sys.platform == "darwin":
+            from gui.app import _patch_flet_macos_bundle
+
+            _patch_flet_macos_bundle()
+
         logger.debug("Initializing binary paths")
         from sys_vars import init_paths
 

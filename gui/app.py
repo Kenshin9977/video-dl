@@ -668,7 +668,12 @@ class VideodlApp:
         Returns:
             dict: yt-dlp options
         """
-        self.ydl_opts = {"verbose": True}
+        # Download HLS/DASH fragments in parallel — the biggest speed lever across
+        # every site, since most HD formats are segmented and yt-dlp fetches one
+        # fragment at a time by default. 4 is the safe sweet spot: a real speedup
+        # without the 429/403 rate-limiting that a single IP draws at 16+, and
+        # yt-dlp retries any fragment that does get throttled (fragment_retries=10).
+        self.ydl_opts = {"verbose": True, "concurrent_fragment_downloads": 4}
         if sys_vars.QJS_PATH:
             self.ydl_opts["js_runtimes"] = {"quickjs": {"path": sys_vars.QJS_PATH}}
         self._gen_file_opts()
@@ -692,6 +697,10 @@ class VideodlApp:
             and "download_ranges" not in self.ydl_opts
         ):
             self.ydl_opts["external_downloader"] = {"http": sys_vars.ARIA2C_PATH}
+            # 16 connections with a 1M split is aria2's standard multi-connection
+            # setup, and the whole reason to use it here: on the permissive direct-HTTP
+            # servers this path is reserved for, it multiplies throughput.
+            self.ydl_opts["external_downloader_args"] = {"aria2c": ["-x", "16", "-s", "16", "-k", "1M"]}
         return self.ydl_opts
 
     def _gen_file_opts(self):

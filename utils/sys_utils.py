@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import os
 import subprocess
@@ -199,35 +200,31 @@ def get_aria2c_path() -> str | None:
     """
     ext = _get_extension_for_platform()
     aria2c_name = f"aria2c{ext}"
-
-    # Check our install folder first
     install_folder = get_aria2c_install_folder()
     aria2c_path = os.path.join(install_folder, aria2c_name)
-    if Path(aria2c_path).exists():
-        return _aria2c_if_runnable(aria2c_path)
 
-    # Auto-download from fork
-    logger.info("aria2c not found, downloading from Kenshin9977/aria2...")
+    # A cached binary that no longer runs (an older release linked to libraries the
+    # user turned out not to have) is deleted, not kept: fall through and re-download
+    # the current release, so an app that ships a fixed aria2c heals itself instead of
+    # leaving the user stuck on the fallback with the old broken binary in place.
+    if Path(aria2c_path).exists():
+        if _runs_ok(aria2c_path, "--version"):
+            logger.info(f"aria2c found at {aria2c_path}")
+            return aria2c_path
+        logger.warning(f"cached aria2c at {aria2c_path} won't run; re-downloading")
+        with contextlib.suppress(OSError):
+            os.remove(aria2c_path)
+
+    logger.info("Downloading aria2c from Kenshin9977/aria2...")
     ft.run(aria2c_progress_page)
 
-    if Path(aria2c_path).exists():
-        return _aria2c_if_runnable(aria2c_path)
-
-    logger.warning("aria2c installation failed, continuing without it")
-    return None
-
-
-def _aria2c_if_runnable(aria2c_path: str) -> str | None:
-    """aria2c is only an accelerator, so a broken one must not break downloads.
-
-    The binary links Homebrew libs, and a version bump can leave it aborting on
-    launch. If it won't run, return None so the app falls back to yt-dlp's native
-    downloader instead of handing yt-dlp a binary that dies mid-download.
-    """
-    if _runs_ok(aria2c_path, "--version"):
-        logger.info(f"aria2c found at {aria2c_path}")
+    if Path(aria2c_path).exists() and _runs_ok(aria2c_path, "--version"):
+        logger.info(f"aria2c installed at {aria2c_path}")
         return aria2c_path
-    logger.warning(f"aria2c at {aria2c_path} won't run; falling back to yt-dlp's native downloader")
+
+    # aria2c is only a download accelerator, so its absence is a soft failure: the
+    # app runs on yt-dlp's native downloader.
+    logger.warning("aria2c unavailable; falling back to yt-dlp's native downloader")
     return None
 
 

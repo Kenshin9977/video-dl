@@ -40,6 +40,12 @@ from flet import (
 from yt_dlp.utils import DownloadCancelled as YtdlpDownloadCancelled
 
 import runtime
+
+# Imported as a module, not `from sys_vars import FF_PATH, ...`: init_paths()
+# reassigns these globals at startup, and a bare import would freeze the empty
+# pre-init values into this module if gui.app is ever imported before init_paths
+# runs (the macOS bundle patch does exactly that).
+import sys_vars
 from core.download import create_ydl, download
 from core.error_report import ErrorReport, build_error_report
 from core.progress import compute_progress, parse_quantity, parse_speed, timecodes_are_valid
@@ -84,7 +90,6 @@ from i18n.lang import (
     set_current_language,
 )
 from i18n.lang import get_text as gt
-from sys_vars import ARIA2C_PATH, FF_PATH, QJS_PATH
 from utils.parse_util import simple_traverse, validate_url
 from utils.sponsor_block_dict import CATEGORIES
 from utils.sys_utils import APP_VERSION, PLATFORM, get_default_download_path
@@ -649,8 +654,8 @@ class VideodlApp:
             dict: yt-dlp options
         """
         self.ydl_opts = {"verbose": True}
-        if QJS_PATH:
-            self.ydl_opts["js_runtimes"] = {"quickjs": {"path": QJS_PATH}}
+        if sys_vars.QJS_PATH:
+            self.ydl_opts["js_runtimes"] = {"quickjs": {"path": sys_vars.QJS_PATH}}
         self._gen_file_opts()
         self._gen_av_opts()
         self._gen_ffmpeg_opts()
@@ -662,12 +667,12 @@ class VideodlApp:
         # Only use it for generic http/https downloads where multi-connection helps
         has_cookies = "cookiesfrombrowser" in self.ydl_opts or "cookiesfile" in self.ydl_opts
         if (
-            ARIA2C_PATH
+            sys_vars.ARIA2C_PATH
             and not has_cookies
             and "external_downloader" not in self.ydl_opts
             and "download_ranges" not in self.ydl_opts
         ):
-            self.ydl_opts["external_downloader"] = {"http": ARIA2C_PATH}
+            self.ydl_opts["external_downloader"] = {"http": sys_vars.ARIA2C_PATH}
         return self.ydl_opts
 
     def _gen_file_opts(self):
@@ -677,7 +682,7 @@ class VideodlApp:
                 dest_folder=str(self.download_path_text.value),
                 indices_enabled=bool(self.indices.value),
                 indices_value=self.indices_selected.value,
-                ff_path=FF_PATH,
+                ff_path=sys_vars.FF_PATH,
                 progress_hook=self._update_download_bar,
                 postprocessor_hook=self._update_process_bar,
             )
@@ -1044,8 +1049,8 @@ class VideodlApp:
                 self.video_preview.visible = True
                 self._safe_update()
                 opts = {"quiet": True, "no_warnings": True, "noplaylist": True}
-            if QJS_PATH:
-                opts["js_runtimes"] = {"quickjs": {"path": QJS_PATH}}
+            if sys_vars.QJS_PATH:
+                opts["js_runtimes"] = {"quickjs": {"path": sys_vars.QJS_PATH}}
             with YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=False)
             if info is None:
@@ -1558,7 +1563,7 @@ class VideodlApp:
         status_cb = _AppStatusCallback(self)
         ydl_opts = self._gen_ydl_opts()
         try:
-            ydl = await asyncio.to_thread(create_ydl, ydl_opts, status_cb, FF_PATH)
+            ydl = await asyncio.to_thread(create_ydl, ydl_opts, status_cb, sys_vars.FF_PATH)
         except Exception as e:
             report = build_error_report(e)
             logger.error(report.short_message)
@@ -1594,7 +1599,7 @@ class VideodlApp:
                 url=url or self.media_link.value,
                 audio_only=bool(self.audio_only.value),
                 target_vcodec=target_vcodec,
-                ff_path=FF_PATH,
+                ff_path=sys_vars.FF_PATH,
                 ydl_opts=ydl_opts,
             )
             try:

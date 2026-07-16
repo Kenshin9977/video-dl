@@ -110,6 +110,21 @@ def _urls_share_host(urls: list[str]) -> bool:
     return len(hosts) == 1
 
 
+def _aria2c_would_be_throttled(url: str | None) -> bool:
+    """True for hosts that throttle aria2c's connections far below the native
+    downloader. Measured on a YouTube short: ~100 KB/s via aria2c vs ~27 MB/s
+    native, because Google throttles aria2c's request pattern. yt-dlp's own
+    downloader handles these; aria2c only wins on plain direct HTTP. Extend the
+    tuple as other sites turn up.
+    """
+    if not url:
+        return False
+    from urllib.parse import urlparse
+
+    host = (urlparse(url).hostname or "").lower()
+    return host.endswith(("youtube.com", "youtu.be", "googlevideo.com"))
+
+
 def _system_is_dark(page: ft.Page) -> bool:
     """OS dark mode via Flet's own brightness.
 
@@ -663,12 +678,16 @@ class VideodlApp:
         self._gen_browser_opts()
         self._gen_proxy_opts()
         self._gen_sponsor_block_opts()
-        # aria2c is slower than native on sites with auth/cookies (YouTube, etc.)
-        # Only use it for generic http/https downloads where multi-connection helps
+        # aria2c only wins on plain direct HTTP where its many connections help. On
+        # sites that throttle it (YouTube) or need cookies, the native downloader is
+        # faster, so leave those to yt-dlp. The opts are shared across the whole batch,
+        # so one throttled URL opts the batch out.
         has_cookies = "cookiesfrombrowser" in self.ydl_opts or "cookiesfile" in self.ydl_opts
+        urls = [self.media_link.value, *self._url_queue]
         if (
             sys_vars.ARIA2C_PATH
             and not has_cookies
+            and not any(_aria2c_would_be_throttled(u) for u in urls)
             and "external_downloader" not in self.ydl_opts
             and "download_ranges" not in self.ydl_opts
         ):

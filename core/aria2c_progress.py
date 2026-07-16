@@ -67,7 +67,15 @@ def install() -> bool:
         return original_call_downloader(self, tmpfilename, info_dict)
 
     def _make_cmd(self, tmpfilename, info_dict):
-        return original_make_cmd(self, tmpfilename, info_dict) + rpc_flags(info_dict)
+        cmd = original_make_cmd(self, tmpfilename, info_dict)
+        flags = rpc_flags(info_dict)
+        if not flags:
+            return cmd
+        # Inject right after the executable, not at the end. yt-dlp puts the URL last,
+        # and aria2 stops treating tokens as options once it hits the URL, so flags
+        # appended after it are read as URIs ("Unrecognized URI: --enable-rpc"). Before
+        # the URL they are always parsed as options.
+        return [cmd[0], *flags, *cmd[1:]]
 
     def _call_process(self, cmd, info_dict):
         if "__rpc" not in info_dict:

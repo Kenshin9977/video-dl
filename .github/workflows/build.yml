@@ -79,6 +79,52 @@ jobs:
         if: runner.os == 'Linux'
         run: ./dist/video-dl --selftest
 
+      # Python 3.14 (python-build-standalone) builds the stdlib's pyexpat against
+      # CPython's vendored expat 2.7.2+, but links it to the system
+      # /usr/lib/libexpat.1.dylib, which on macOS is older and lacks
+      # XML_SetAllocTrackerActivationThreshold. Reading any XML or .plist then crashes
+      # the app on machines whose system expat is too old (macOS 26 among them). Ship
+      # our own expat and point the stdlib .so files at it, so the app stops depending
+      # on whatever expat the OS happens to carry. Runs for every macOS build, signed
+      # or not; the signing step below re-signs the .so files it rewrites here.
+      - name: Bundle a current libexpat (macOS)
+        if: runner.os == 'macOS'
+        env:
+          EXPAT_VERSION: "2.7.5"
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/expat.tar.gz \
+            "https://github.com/libexpat/libexpat/releases/download/R_${EXPAT_VERSION//./_}/expat-${EXPAT_VERSION}.tar.gz"
+          tar xf /tmp/expat.tar.gz -C /tmp
+          (cd "/tmp/expat-${EXPAT_VERSION}" && \
+            ./configure --prefix=/tmp/expat-out --without-docbook --without-examples --without-tests >/dev/null && \
+            make -j3 >/dev/null && make install >/dev/null)
+
+          APP=dist/video-dl.app
+          dyld=$(dirname "$(find "$APP" -name 'pyexpat*.so' | head -1)")
+          cp /tmp/expat-out/lib/libexpat.*.dylib "$dyld/libexpat.1.dylib"
+          chmod u+w "$dyld/libexpat.1.dylib"
+          install_name_tool -id @loader_path/libexpat.1.dylib "$dyld/libexpat.1.dylib"
+          codesign --force --sign - "$dyld/libexpat.1.dylib"
+
+          # pyexpat and _elementtree both link expat, both live next to it in
+          # lib-dynload, so @loader_path resolves for each. Ad-hoc re-sign here so an
+          # unsigned fork build still loads them; the Developer ID step re-signs later.
+          repointed=0
+          while IFS= read -r so; do
+            if otool -L "$so" | grep -q '/usr/lib/libexpat.1.dylib'; then
+              chmod u+w "$so"
+              install_name_tool -change /usr/lib/libexpat.1.dylib @loader_path/libexpat.1.dylib "$so"
+              codesign --force --sign - "$so"
+              echo "repointed $(basename "$so")"
+              repointed=$((repointed + 1))
+            fi
+          done < <(find "$APP" -name '*.so')
+          if [ "$repointed" -eq 0 ]; then
+            echo "::error::no .so linked the system libexpat; the bundling assumption changed"
+            exit 1
+          fi
+
       - name: Smoke test (macOS)
         if: runner.os == 'macOS'
         run: ./dist/video-dl.app/Contents/MacOS/video-dl --selftest

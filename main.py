@@ -52,6 +52,12 @@ def selftest() -> None:
     """
     import flet  # noqa: F401
     import tufup  # noqa: F401
+
+    # Loads the C extension behind XML/plist parsing. On macOS it links libexpat,
+    # which the build repoints at a bundled copy; import it here so a broken repoint
+    # fails CI instead of crashing a user the first time the app reads a plist.
+    import plistlib  # noqa: F401
+
     from yt_dlp.dependencies import available_dependencies
     from yt_dlp.version import __version__ as yt_dlp_version
 

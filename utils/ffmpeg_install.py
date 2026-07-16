@@ -137,9 +137,12 @@ _FFMPEG_MISSING: dict[str, _FfmpegMissingInfo] = {
         "url": "[Open an issue on GitHub](https://github.com/Kenshin9977/video-dl/issues)",
     },
     "Darwin": {
-        "width": 344,
-        "message": "FFmpeg is missing. On MacOS you can follow this guide to install it:",
-        "url": "[Install FFmpeg](https://macappstore.org/ffmpeg/)",
+        "width": 460,
+        "message": (
+            "FFmpeg is missing or won't run. A Homebrew update can leave it broken; "
+            "install or repair it from a terminal with:  brew reinstall ffmpeg"
+        ),
+        "url": "[Get Homebrew](https://brew.sh)",
     },
     "Linux": {
         "width": 344,

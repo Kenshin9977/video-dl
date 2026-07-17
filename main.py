@@ -31,7 +31,32 @@ def _patch_mac_ver() -> None:
         platform.mac_ver = lambda: (version, ("", "", ""), platform.machine())
 
 
+def _silence_windows_loader_dialogs() -> None:
+    """Stop Windows from popping a message box when a child process can't load a DLL.
+
+    aria2c, ffmpeg and qjs are launched as subprocesses. When one is missing a DLL,
+    the Windows loader shows a "code execution cannot proceed" dialog per missing
+    library — the app has no way to catch or dismiss it, and the user just sees a
+    stack of errors on startup. This bit a user with a dynamically-linked aria2c
+    that shipped without its DLLs: _runs_ok() launching it to check it worked was
+    itself what raised the dialogs.
+
+    SetErrorMode with SEM_FAILCRITICALERRORS makes the loader return an error code
+    instead. It is process-wide and inherited by every child, including the ones
+    yt-dlp spawns, so a broken binary now fails quietly and the app falls back.
+    """
+    if sys.platform != "win32":
+        return
+    import ctypes
+
+    SEM_FAILCRITICALERRORS = 0x0001
+    SEM_NOGPFAULTERRORBOX = 0x0002
+    SEM_NOOPENFILEERRORBOX = 0x8000
+    ctypes.windll.kernel32.SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX)
+
+
 _patch_mac_ver()
+_silence_windows_loader_dialogs()
 
 
 # yt-dlp imports these lazily, inside try/except ImportError, and degrades

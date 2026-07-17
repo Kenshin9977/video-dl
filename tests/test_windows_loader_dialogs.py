@@ -30,7 +30,7 @@ class TestSilenceWindowsLoaderDialogs:
 
         SEM_FAILCRITICALERRORS = 0x0001
         main._silence_windows_loader_dialogs()
-        assert ctypes.windll.kernel32.GetErrorMode() & SEM_FAILCRITICALERRORS
+        assert ctypes.windll.kernel32.GetErrorMode() & SEM_FAILCRITICALERRORS  # type: ignore[attr-defined]
 
     @pytest.mark.skipif(sys.platform != "win32", reason="SetErrorMode is Windows only")
     def test_a_child_that_cannot_load_a_dll_fails_with_a_code_not_a_dialog(self, tmp_path):
@@ -45,7 +45,7 @@ class TestSilenceWindowsLoaderDialogs:
         # the loader directly: LoadLibrary of a missing DLL under this error mode must
         # return 0 (failure) rather than raising a dialog.
         main._silence_windows_loader_dialogs()
-        handle = ctypes.windll.kernel32.LoadLibraryW("this-dll-does-not-exist-videodl.dll")
+        handle = ctypes.windll.kernel32.LoadLibraryW("this-dll-does-not-exist-videodl.dll")  # type: ignore[attr-defined]
         assert handle == 0
 
         # And a real subprocess launch of a missing executable returns, never hangs.

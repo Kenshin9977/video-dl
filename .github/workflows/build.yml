@@ -286,16 +286,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          choco install innosetup --no-progress -y
+          iscc="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
+          # Inno Setup is preinstalled on the runner; install only if a future image
+          # drops it.
+          [ -f "$iscc" ] || choco install innosetup --no-progress -y
           mkdir -p installer_build
           cp "${{ matrix.artifact }}" installer_build/video-dl.exe
           cp root.json icon.ico installer_build/
           version=$(python -c "import version; print(version.__version__)")
-          # Leading // survives MSYS path mangling as a single / to ISCC. pwd -W gives
-          # a native C:/... path so Inno resolves SourceDir on Windows.
-          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" \
-            "//DAppVersion=$version" \
-            "//DSourceDir=$(pwd -W)/installer_build" \
+          # MSYS_NO_PATHCONV stops Git-bash rewriting the /D... options and the C:/
+          # path into POSIX paths; without it ISCC sees "//DSourceDir=..." and rejects
+          # it. pwd -W gives a native path Inno can resolve.
+          MSYS_NO_PATHCONV=1 "$iscc" \
+            "/DAppVersion=$version" \
+            "/DSourceDir=$(pwd -W)/installer_build" \
             installer/video-dl.iss
           mv installer_build/video-dl-windows-setup.exe .
 

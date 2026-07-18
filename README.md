@@ -15,7 +15,9 @@ A desktop and Android app that puts a window in front of [yt-dlp](https://github
 
 | Windows | macOS | Linux | Android |
 |:-------:|:-----:|:-----:|:-------:|
-| [video-dl-windows.exe](https://github.com/Kenshin9977/video-dl/releases/latest/download/video-dl-windows.exe) | [video-dl-macos.dmg](https://github.com/Kenshin9977/video-dl/releases/latest/download/video-dl-macos.dmg) | [video-dl-linux](https://github.com/Kenshin9977/video-dl/releases/latest/download/video-dl-linux) | [video-dl-arm64-v8a.apk](https://github.com/Kenshin9977/video-dl/releases/latest/download/video-dl-arm64-v8a.apk) |
+| [Installer](https://github.com/Kenshin9977/video-dl/releases/latest/download/video-dl-windows-setup.exe) | [video-dl-macos.dmg](https://github.com/Kenshin9977/video-dl/releases/latest/download/video-dl-macos.dmg) | [video-dl-linux](https://github.com/Kenshin9977/video-dl/releases/latest/download/video-dl-linux) | [video-dl-arm64-v8a.apk](https://github.com/Kenshin9977/video-dl/releases/latest/download/video-dl-arm64-v8a.apk) |
+
+On Windows the installer adds Start Menu and desktop shortcuts. If you would rather not install, the [portable exe](https://github.com/Kenshin9977/video-dl/releases/latest/download/video-dl-windows.exe) runs on its own.
 
 Every [release](https://github.com/Kenshin9977/video-dl/releases) is here. The app updates itself: new versions are downloaded and verified against a signed update channel.
 

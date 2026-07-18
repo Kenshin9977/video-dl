@@ -42,7 +42,7 @@ FFMPEG_ANDROID_ASSET_PATTERN = "*androidarm64-gpl-shared.tar.xz"
 # same tag for both, or the two platforms ship different binaries.
 # Same again: `release-2.0.1` is a version wearing a prefix, and `loose` skipped it.
 # renovate: datasource=github-releases depName=Kenshin9977/aria2 versioning=regex:^release-(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-ARIA2_TAG = "release-2.0.2"
+ARIA2_TAG = "release-2.0.3"
 ARIA2_REPO = "Kenshin9977/aria2"
 
 # QuickJS, compiled from source for Android. Pinned to a commit: the project has no

@@ -272,6 +272,49 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}
 
+      # A bare portable exe leaves a non-technical user with a file in Downloads and
+      # no shortcut, not knowing how to launch it. The installer gives them a Start
+      # Menu and desktop entry. It is a first-run convenience only: it installs to a
+      # per-user location tufup can write to, and updates still happen in place, so
+      # the installer is never part of the tufup update channel.
+      #
+      # It wraps the already-signed portable exe, so this must run after signing.
+      # root.json is installed next to the exe because the onefile build keeps it
+      # inside the archive, where the updater cannot find it to bootstrap trust.
+      - name: Build the Windows installer
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          choco install innosetup --no-progress -y
+          mkdir -p installer_build
+          cp "${{ matrix.artifact }}" installer_build/video-dl.exe
+          cp root.json icon.ico installer_build/
+          version=$(python -c "import version; print(version.__version__)")
+          # Leading // survives MSYS path mangling as a single / to ISCC. pwd -W gives
+          # a native C:/... path so Inno resolves SourceDir on Windows.
+          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" \
+            "//DAppVersion=$version" \
+            "//DSourceDir=$(pwd -W)/installer_build" \
+            installer/video-dl.iss
+          mv installer_build/video-dl-windows-setup.exe .
+
+      - name: Sign the Windows installer
+        if: runner.os == 'Windows' && env.SIGN_SSH_HOST != ''
+        uses: Kenshin9977/Discord-Overlay/.github/actions/sign-windows@sign-windows-v1
+        with:
+          files: video-dl-windows-setup.exe
+          ssh-host: ${{ secrets.SIGN_SSH_HOST }}
+          ssh-key: ${{ secrets.SIGN_SSH_KEY }}
+          known-hosts: ${{ secrets.SIGN_SSH_KNOWN_HOSTS }}
+
+      - name: Upload the installer
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: video-dl-windows-setup.exe
+          path: video-dl-windows-setup.exe
+
   android:
     runs-on: ubuntu-latest
     env:
@@ -615,7 +658,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p binaries tufup
-          for binary in video-dl-windows.exe video-dl-linux video-dl-macos.dmg video-dl-arm64-v8a.apk; do
+          for binary in video-dl-windows.exe video-dl-windows-setup.exe video-dl-linux video-dl-macos.dmg video-dl-arm64-v8a.apk; do
             mv "artifacts/$binary" binaries/
           done
           mv artifacts/* tufup/
@@ -632,7 +675,9 @@ jobs:
 
             | Windows | macOS | Linux | Android (ARM64) |
             |:-------:|:-----:|:-----:|:---------------:|
-            | [video-dl-windows.exe](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-windows.exe) | [video-dl-macos.dmg](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-macos.dmg) | [video-dl-linux](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-linux) | [video-dl-arm64-v8a.apk](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-arm64-v8a.apk) |
+            | [Installer](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-windows-setup.exe) | [video-dl-macos.dmg](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-macos.dmg) | [video-dl-linux](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-linux) | [video-dl-arm64-v8a.apk](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-arm64-v8a.apk) |
+
+            On Windows the installer creates Start Menu and desktop shortcuts. The [portable exe](https://github.com/Kenshin9977/video-dl/releases/download/${{ github.ref_name }}/video-dl-windows.exe) is also available for those who prefer it.
 
             <details>
             <summary>Auto-update files (internal)</summary>

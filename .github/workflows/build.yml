@@ -650,6 +650,14 @@ jobs:
     needs: [build, android, sign]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+
+    outputs:
+      version: ${{ steps.hashes.outputs.version }}
+      setup_url: ${{ steps.hashes.outputs.setup_url }}
+      setup_sha256: ${{ steps.hashes.outputs.setup_sha256 }}
+      portable_url: ${{ steps.hashes.outputs.portable_url }}
+      portable_sha256: ${{ steps.hashes.outputs.portable_sha256 }}
+
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -668,6 +676,26 @@ jobs:
           mv artifacts/* tufup/
           echo "=== Binaries ===" && ls -la binaries/
           echo "=== Tufup ===" && ls -la tufup/
+
+      # Hashed from the exact bytes about to be uploaded, rather than downstream
+      # from a re-download that could differ. Both package managers pin on these.
+      - name: Record the artifact hashes
+        id: hashes
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
+
+          setup=$(sha256sum binaries/video-dl-windows-setup.exe | cut -d' ' -f1 | tr 'a-f' 'A-F')
+          portable=$(sha256sum binaries/video-dl-windows.exe | cut -d' ' -f1 | tr 'a-f' 'A-F')
+
+          {
+            echo "version=$version"
+            echo "setup_url=$base/video-dl-windows-setup.exe"
+            echo "setup_sha256=$setup"
+            echo "portable_url=$base/video-dl-windows.exe"
+            echo "portable_sha256=$portable"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: softprops/action-gh-release@v3
         with:
@@ -688,3 +716,96 @@ jobs:
 
             The remaining files in this release are used by the built-in auto-updater (tufup). You can safely ignore them.
             </details>
+
+  # Windows package managers. Separate jobs so a rejected submission or an
+  # expired token cannot fail a release that is already built, signed and
+  # published.
+  #
+  # The two channels get different artifacts on purpose. installer/video-dl.iss
+  # sets PrivilegesRequired=lowest and installs into {localappdata}; Chocolatey
+  # runs elevated, so the installer there would land in the administrator's
+  # profile and be invisible to whoever typed the command. WinGet can declare
+  # user scope and gets the installer; Chocolatey gets the portable exe,
+  # machine-wide, and owns the updates.
+  chocolatey:
+    name: Publish to Chocolatey
+    needs: release
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fill in the package for this version
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+          URL: ${{ needs.release.outputs.portable_url }}
+          SHA: ${{ needs.release.outputs.portable_sha256 }}
+        run: |
+          $install = 'packaging/chocolatey/tools/chocolateyinstall.ps1'
+          $text = [IO.File]::ReadAllText($install)
+          [IO.File]::WriteAllText($install, $text.Replace('$url64$', $env:URL).Replace('$checksum64$', $env:SHA))
+
+          $nuspec = 'packaging/chocolatey/video-dl.nuspec'
+          [IO.File]::WriteAllText($nuspec, [IO.File]::ReadAllText($nuspec).Replace('$version$', $env:VERSION))
+
+      # A wrong checksum fails on every user's machine at install time, which is
+      # the worst place to discover it.
+      - name: Prove the download and the checksum agree
+        shell: pwsh
+        env:
+          URL: ${{ needs.release.outputs.portable_url }}
+          SHA: ${{ needs.release.outputs.portable_sha256 }}
+        run: |
+          $tmp = Join-Path $env:RUNNER_TEMP 'probe.exe'
+          Invoke-WebRequest -Uri $env:URL -OutFile $tmp
+          $actual = (Get-FileHash $tmp -Algorithm SHA256).Hash
+          if ($actual -ne $env:SHA) {
+            Write-Error "Checksum mismatch. Manifest says $($env:SHA), the release serves $actual."
+            exit 1
+          }
+
+      - name: Pack
+        run: choco pack packaging/chocolatey/video-dl.nuspec --out packaging/chocolatey
+
+      - name: Push
+        shell: pwsh
+        env:
+          CHOCO_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CHOCO_API_KEY)) {
+            Write-Warning 'CHOCOLATEY_API_KEY is not set. Skipping the push; the .nupkg above still built.'
+            exit 0
+          }
+          $pkg = Get-ChildItem packaging/chocolatey -Filter *.nupkg | Select-Object -First 1
+          choco push $pkg.FullName --source https://push.chocolatey.org/ --api-key $env:CHOCO_API_KEY
+
+  winget:
+    name: Publish to WinGet
+    needs: release
+    runs-on: windows-latest
+
+    steps:
+      # wingetcreate carries the scope and the ProductCode forward from the
+      # manifest already in winget-pkgs, so this only works once the first
+      # submission has been merged by hand. Until then it reports what it would
+      # have done rather than failing the run. See docs/packaging.md.
+      - name: Submit the new version
+        shell: pwsh
+        env:
+          TOKEN: ${{ secrets.WINGET_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+          URL: ${{ needs.release.outputs.setup_url }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:TOKEN)) {
+            Write-Warning "WINGET_TOKEN is not set. Would have submitted $($env:VERSION) from $($env:URL)."
+            exit 0
+          }
+
+          Invoke-WebRequest -Uri https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+
+          .\wingetcreate.exe update Kenshin9977.video-dl `
+            --version $env:VERSION `
+            --urls "$($env:URL)|x64" `
+            --submit `
+            --token $env:TOKEN

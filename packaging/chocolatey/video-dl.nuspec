@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>video-dl</id>
+    <version>$version$</version>
+    <packageSourceUrl>https://github.com/Kenshin9977/video-dl/tree/master/packaging/chocolatey</packageSourceUrl>
+    <owners>Kenshin9977</owners>
+
+    <title>video-dl</title>
+    <authors>Kenshin9977</authors>
+    <projectUrl>https://github.com/Kenshin9977/video-dl</projectUrl>
+    <licenseUrl>https://github.com/Kenshin9977/video-dl/blob/master/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/Kenshin9977/video-dl</projectSourceUrl>
+    <bugTrackerUrl>https://github.com/Kenshin9977/video-dl/issues</bugTrackerUrl>
+    <docsUrl>https://github.com/Kenshin9977/video-dl#readme</docsUrl>
+    <iconUrl>https://raw.githubusercontent.com/Kenshin9977/video-dl/master/icon.png</iconUrl>
+    <tags>yt-dlp youtube-dl gui video download media frontend cross-platform</tags>
+
+    <dependencies>
+      <!-- Bundled inside the executable, so nothing is declared here. Listed as
+           a note rather than a dependency because Chocolatey moderators ask: the
+           portable build carries its own ffmpeg and yt-dlp. -->
+    </dependencies>
+
+    <summary>A graphical front end for yt-dlp, for people who would rather not use a command line.</summary>
+    <description><![CDATA[
+video-dl puts a window in front of [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+Paste a link, pick a quality and a format, choose where it goes. The options
+that normally live behind command-line flags are checkboxes.
+
+It carries its own copies of yt-dlp and ffmpeg, so there is nothing else to
+install and nothing to add to PATH.
+
+Useful for the things people actually use yt-dlp for: archiving your own
+uploads, keeping conference talks and lectures for offline viewing, pulling
+footage you hold the rights to, and downloading from the many sites that offer
+their own material for download but make it awkward.
+
+What you may download is set by the terms of the site you are downloading from
+and by your local law, neither of which this tool knows anything about. That
+judgement is yours.
+
+**About this package**
+
+Installs the portable build, machine-wide, and updates through Chocolatey. The
+installer on the releases page installs per user instead and updates itself.
+]]></description>
+
+    <releaseNotes>https://github.com/Kenshin9977/video-dl/releases/tag/v$version$</releaseNotes>
+  </metadata>
+
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

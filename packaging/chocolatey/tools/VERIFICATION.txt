@@ -1,0 +1,38 @@
+VERIFICATION
+
+Verification is intended to assist the Chocolatey moderators and any user who
+wants to confirm that what this package downloads is what the publisher built.
+
+This package embeds no binary. It downloads a single executable from the
+project's own GitHub release and checks it against a SHA-256 recorded in
+tools\chocolateyinstall.ps1 at pack time.
+
+To verify:
+
+1. Note the URL and the checksum in tools\chocolateyinstall.ps1.
+
+2. Download that executable yourself:
+
+     https://github.com/Kenshin9977/video-dl/releases
+
+3. Compare the checksum:
+
+     Get-FileHash .\video-dl-windows.exe -Algorithm SHA256
+
+   It must equal the value of $checksum64 in chocolateyinstall.ps1.
+
+4. It is Authenticode-signed and RFC3161 timestamped:
+
+     Get-AuthenticodeSignature .\video-dl-windows.exe
+
+The executable is a PyInstaller bundle. It carries its own copies of yt-dlp and
+ffmpeg, which is why it is large and why the package declares no dependencies.
+Both are open source and both are listed in the project's pyproject.toml and
+build workflow.
+
+Source for this package and for the application:
+
+     https://github.com/Kenshin9977/video-dl
+
+The software is published under the MIT licence in LICENSE at the repository
+root.

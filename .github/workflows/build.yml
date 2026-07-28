@@ -303,6 +303,39 @@ jobs:
             installer/video-dl.iss
           mv installer_build/video-dl-windows-setup.exe .
 
+      # The Microsoft Store runs the installer unattended, and an installer that
+      # opens a window fails certification. WinGet needs the same thing. Inno's
+      # default is a wizard, so silence is a flag rather than a given, and this
+      # proves the flag still does what the manifests claim.
+      #
+      # /VERYSILENT rather than /SILENT: the latter still shows a progress
+      # window, which is a UI as far as certification is concerned.
+      - name: Prove the installer installs and uninstalls silently
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $install = Join-Path $env:LOCALAPPDATA 'Programs\video-dl'
+
+          $setup = Start-Process .\video-dl-windows-setup.exe `
+            -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -PassThru -Wait
+          if ($setup.ExitCode -ne 0) { Write-Error "Silent install exited $($setup.ExitCode)."; exit 1 }
+          if (-not (Test-Path $install)) { Write-Error 'Silent install produced no installation.'; exit 1 }
+
+          # The Store also matches on the uninstall entry, which is where the
+          # ProductCode in the WinGet manifest comes from. A mismatch there means
+          # `winget upgrade` never sees its own installs.
+          $entry = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue |
+                   Where-Object { $_.PSChildName -like '*video-dl*_is1' }
+          if (-not $entry) { Write-Error 'No uninstall entry matching the manifest ProductCode.'; exit 1 }
+          Write-Output "Uninstall key: $($entry.PSChildName)"
+
+          $uninstaller = Join-Path $install 'unins000.exe'
+          $removal = Start-Process $uninstaller -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -PassThru -Wait
+          if ($removal.ExitCode -ne 0) { Write-Error "Silent uninstall exited $($removal.ExitCode)."; exit 1 }
+
+          Start-Sleep -Seconds 5
+          Write-Output 'Installs silently and uninstalls cleanly.'
+
       - name: Sign the Windows installer
         if: runner.os == 'Windows' && env.SIGN_SSH_HOST != ''
         uses: Kenshin9977/Discord-Overlay/.github/actions/sign-windows@sign-windows-v1

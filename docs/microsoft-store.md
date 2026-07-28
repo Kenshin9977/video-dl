@@ -37,7 +37,7 @@ The Store takes plain EXE installers hosted by you: no MSIX, no repackaging.
 | Field | Value |
 | --- | --- |
 | App type | EXE |
-| Package URL | `https://github.com/Kenshin9977/video-dl/releases/download/v<version>/video-dl-windows-setup.exe` |
+| Package URL | `https://github.com/Kenshin9977/video-dl/releases/download/v<version>/video-dl-windows-store-setup.exe` |
 | Architecture | x64 |
 | Installer parameters | `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART` |
 | Languages | `en-us`, `fr-fr` |
@@ -52,10 +52,15 @@ is a wizard, so silence is not optional.
 
 ## Two things to settle first
 
-**Self-updating.** tufup updates the app in place, so a Store install would move
-to a version the Store did not certify. Either accept that, as most Win32 Store
-apps do, or build a Store variant with the updater off and let the Store be the
-update channel.
+**Self-updating is already handled.** Every release builds a second installer,
+`video-dl-windows-store-setup.exe`, which lays down a `STORE_EDITION` marker
+beside the executable. `updater/client.py` sees it and skips the tufup check
+entirely, so the Store stays the update channel and the binary it certified is
+the one that keeps running. The build workflow installs it and fails if the
+marker is missing, because a missing marker is otherwise invisible.
+
+The ordinary `video-dl-windows-setup.exe` is unchanged and still self-updates;
+that is what WinGet, Chocolatey and the download link get.
 
 **The bundled yt-dlp.** The portable build carries its own yt-dlp and ffmpeg.
 That is fine, and it is worth stating plainly in the listing rather than leaving

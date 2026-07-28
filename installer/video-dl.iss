@@ -33,7 +33,15 @@ DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir={#SourceDir}
+; Two installers from one script. The store edition drops a marker beside the
+; exe that turns self-updating off, because a store certifies one binary and
+; delivers its own updates. Same AppId on purpose: they are the same app, so
+; moving between them upgrades in place rather than stacking a second copy.
+#ifdef StoreEdition
+OutputBaseFilename=video-dl-windows-store-setup
+#else
 OutputBaseFilename=video-dl-windows-setup
+#endif
 SetupIconFile={#SourceDir}\icon.ico
 UninstallDisplayIcon={app}\{#AppExe}
 Compression=lzma2
@@ -57,6 +65,10 @@ Source: "{#SourceDir}\video-dl.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; inside the archive, but the updater looks for it next to the exe, so it has to be
 ; installed alongside or the update channel never bootstraps.
 Source: "{#SourceDir}\root.json"; DestDir: "{app}"; Flags: ignoreversion
+#ifdef StoreEdition
+; Read by updater/client.py. Its presence, not its contents, is the signal.
+Source: "{#SourceDir}\STORE_EDITION"; DestDir: "{app}"; Flags: ignoreversion
+#endif
 
 [Icons]
 ; Directly under Programs, not in a one-app subfolder, so the Start Menu shows a

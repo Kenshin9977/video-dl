@@ -303,6 +303,18 @@ jobs:
             installer/video-dl.iss
           mv installer_build/video-dl-windows-setup.exe .
 
+          # The store edition: same binary, plus a marker beside it that turns
+          # self-updating off. A store certifies one binary and delivers its own
+          # updates, so an app that replaces itself afterwards is running code
+          # the store never reviewed.
+          touch installer_build/STORE_EDITION
+          MSYS_NO_PATHCONV=1 "$iscc" \
+            "/DAppVersion=$version" \
+            "/DStoreEdition=1" \
+            "/DSourceDir=$(pwd -W)/installer_build" \
+            installer/video-dl.iss
+          mv installer_build/video-dl-windows-store-setup.exe .
+
       # The Microsoft Store runs the installer unattended, and an installer that
       # opens a window fails certification. WinGet needs the same thing. Inno's
       # default is a wizard, so silence is a flag rather than a given, and this
@@ -336,11 +348,39 @@ jobs:
           Start-Sleep -Seconds 5
           Write-Output 'Installs silently and uninstalls cleanly.'
 
+      # The store edition must install the marker that turns self-updating off.
+      # Without it the Store would distribute a binary that replaces itself with
+      # code the Store never reviewed, which is the whole reason the edition
+      # exists. A missing marker is silent and invisible, so it is checked.
+      - name: Prove the store edition has self-updating disabled
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $install = Join-Path $env:LOCALAPPDATA 'Programs\video-dl'
+
+          $setup = Start-Process .\video-dl-windows-store-setup.exe `
+            -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -PassThru -Wait
+          if ($setup.ExitCode -ne 0) { Write-Error "Store install exited $($setup.ExitCode)."; exit 1 }
+
+          if (-not (Test-Path (Join-Path $install 'STORE_EDITION'))) {
+            Write-Error 'The store installer did not lay down the STORE_EDITION marker; this build would update itself.'
+            exit 1
+          }
+
+          $removal = Start-Process (Join-Path $install 'unins000.exe') `
+            -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -PassThru -Wait
+          if ($removal.ExitCode -ne 0) { Write-Error "Store uninstall exited $($removal.ExitCode)."; exit 1 }
+
+          Start-Sleep -Seconds 5
+          Write-Output 'Store edition installs silently with self-updating off.'
+
       - name: Sign the Windows installer
         if: runner.os == 'Windows' && env.SIGN_SSH_HOST != ''
         uses: Kenshin9977/Discord-Overlay/.github/actions/sign-windows@sign-windows-v1
         with:
-          files: video-dl-windows-setup.exe
+          files: |
+            video-dl-windows-setup.exe
+            video-dl-windows-store-setup.exe
           ssh-host: ${{ secrets.SIGN_SSH_HOST }}
           ssh-key: ${{ secrets.SIGN_SSH_KEY }}
           known-hosts: ${{ secrets.SIGN_SSH_KNOWN_HOSTS }}
@@ -351,6 +391,13 @@ jobs:
         with:
           name: video-dl-windows-setup.exe
           path: video-dl-windows-setup.exe
+
+      - name: Upload the store installer
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: video-dl-windows-store-setup.exe
+          path: video-dl-windows-store-setup.exe
 
   android:
     runs-on: ubuntu-latest
@@ -690,6 +737,8 @@ jobs:
       setup_sha256: ${{ steps.hashes.outputs.setup_sha256 }}
       portable_url: ${{ steps.hashes.outputs.portable_url }}
       portable_sha256: ${{ steps.hashes.outputs.portable_sha256 }}
+      store_url: ${{ steps.hashes.outputs.store_url }}
+      store_sha256: ${{ steps.hashes.outputs.store_sha256 }}
 
     steps:
       - uses: actions/download-artifact@v8
@@ -703,7 +752,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p binaries tufup
-          for binary in video-dl-windows.exe video-dl-windows-setup.exe video-dl-linux video-dl-macos.dmg video-dl-arm64-v8a.apk; do
+          for binary in video-dl-windows.exe video-dl-windows-setup.exe video-dl-windows-store-setup.exe video-dl-linux video-dl-macos.dmg video-dl-arm64-v8a.apk; do
             mv "artifacts/$binary" binaries/
           done
           mv artifacts/* tufup/
@@ -721,13 +770,19 @@ jobs:
 
           setup=$(sha256sum binaries/video-dl-windows-setup.exe | cut -d' ' -f1 | tr 'a-f' 'A-F')
           portable=$(sha256sum binaries/video-dl-windows.exe | cut -d' ' -f1 | tr 'a-f' 'A-F')
+          store=$(sha256sum binaries/video-dl-windows-store-setup.exe | cut -d' ' -f1 | tr 'a-f' 'A-F')
 
+          # WinGet and Chocolatey take the self-updating build: their users
+          # expect the app to behave as it does when downloaded directly. Only
+          # a store gets the one with updating switched off.
           {
             echo "version=$version"
             echo "setup_url=$base/video-dl-windows-setup.exe"
             echo "setup_sha256=$setup"
             echo "portable_url=$base/video-dl-windows.exe"
             echo "portable_sha256=$portable"
+            echo "store_url=$base/video-dl-windows-store-setup.exe"
+            echo "store_sha256=$store"
           } >> "$GITHUB_OUTPUT"
 
       - uses: softprops/action-gh-release@v3

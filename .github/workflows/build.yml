@@ -303,11 +303,84 @@ jobs:
             installer/video-dl.iss
           mv installer_build/video-dl-windows-setup.exe .
 
+          # The store edition: same binary, plus a marker beside it that turns
+          # self-updating off. A store certifies one binary and delivers its own
+          # updates, so an app that replaces itself afterwards is running code
+          # the store never reviewed.
+          touch installer_build/STORE_EDITION
+          MSYS_NO_PATHCONV=1 "$iscc" \
+            "/DAppVersion=$version" \
+            "/DStoreEdition=1" \
+            "/DSourceDir=$(pwd -W)/installer_build" \
+            installer/video-dl.iss
+          mv installer_build/video-dl-windows-store-setup.exe .
+
+      # The Microsoft Store runs the installer unattended, and an installer that
+      # opens a window fails certification. WinGet needs the same thing. Inno's
+      # default is a wizard, so silence is a flag rather than a given, and this
+      # proves the flag still does what the manifests claim.
+      #
+      # /VERYSILENT rather than /SILENT: the latter still shows a progress
+      # window, which is a UI as far as certification is concerned.
+      - name: Prove the installer installs and uninstalls silently
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $install = Join-Path $env:LOCALAPPDATA 'Programs\video-dl'
+
+          $setup = Start-Process .\video-dl-windows-setup.exe `
+            -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -PassThru -Wait
+          if ($setup.ExitCode -ne 0) { Write-Error "Silent install exited $($setup.ExitCode)."; exit 1 }
+          if (-not (Test-Path $install)) { Write-Error 'Silent install produced no installation.'; exit 1 }
+
+          # The Store also matches on the uninstall entry, which is where the
+          # ProductCode in the WinGet manifest comes from. A mismatch there means
+          # `winget upgrade` never sees its own installs.
+          $entry = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue |
+                   Where-Object { $_.PSChildName -like '*video-dl*_is1' }
+          if (-not $entry) { Write-Error 'No uninstall entry matching the manifest ProductCode.'; exit 1 }
+          Write-Output "Uninstall key: $($entry.PSChildName)"
+
+          $uninstaller = Join-Path $install 'unins000.exe'
+          $removal = Start-Process $uninstaller -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -PassThru -Wait
+          if ($removal.ExitCode -ne 0) { Write-Error "Silent uninstall exited $($removal.ExitCode)."; exit 1 }
+
+          Start-Sleep -Seconds 5
+          Write-Output 'Installs silently and uninstalls cleanly.'
+
+      # The store edition must install the marker that turns self-updating off.
+      # Without it the Store would distribute a binary that replaces itself with
+      # code the Store never reviewed, which is the whole reason the edition
+      # exists. A missing marker is silent and invisible, so it is checked.
+      - name: Prove the store edition has self-updating disabled
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $install = Join-Path $env:LOCALAPPDATA 'Programs\video-dl'
+
+          $setup = Start-Process .\video-dl-windows-store-setup.exe `
+            -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -PassThru -Wait
+          if ($setup.ExitCode -ne 0) { Write-Error "Store install exited $($setup.ExitCode)."; exit 1 }
+
+          if (-not (Test-Path (Join-Path $install 'STORE_EDITION'))) {
+            Write-Error 'The store installer did not lay down the STORE_EDITION marker; this build would update itself.'
+            exit 1
+          }
+
+          $removal = Start-Process (Join-Path $install 'unins000.exe') `
+            -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -PassThru -Wait
+          if ($removal.ExitCode -ne 0) { Write-Error "Store uninstall exited $($removal.ExitCode)."; exit 1 }
+
+          Start-Sleep -Seconds 5
+          Write-Output 'Store edition installs silently with self-updating off.'
+
       - name: Sign the Windows installer
         if: runner.os == 'Windows' && env.SIGN_SSH_HOST != ''
         uses: Kenshin9977/Discord-Overlay/.github/actions/sign-windows@sign-windows-v1
         with:
-          files: video-dl-windows-setup.exe
+          files: |
+            video-dl-windows-setup.exe
+            video-dl-windows-store-setup.exe
           ssh-host: ${{ secrets.SIGN_SSH_HOST }}
           ssh-key: ${{ secrets.SIGN_SSH_KEY }}
           known-hosts: ${{ secrets.SIGN_SSH_KNOWN_HOSTS }}
@@ -318,6 +391,13 @@ jobs:
         with:
           name: video-dl-windows-setup.exe
           path: video-dl-windows-setup.exe
+
+      - name: Upload the store installer
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: video-dl-windows-store-setup.exe
+          path: video-dl-windows-store-setup.exe
 
   android:
     runs-on: ubuntu-latest
@@ -650,6 +730,16 @@ jobs:
     needs: [build, android, sign]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+
+    outputs:
+      version: ${{ steps.hashes.outputs.version }}
+      setup_url: ${{ steps.hashes.outputs.setup_url }}
+      setup_sha256: ${{ steps.hashes.outputs.setup_sha256 }}
+      portable_url: ${{ steps.hashes.outputs.portable_url }}
+      portable_sha256: ${{ steps.hashes.outputs.portable_sha256 }}
+      store_url: ${{ steps.hashes.outputs.store_url }}
+      store_sha256: ${{ steps.hashes.outputs.store_sha256 }}
+
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -662,12 +752,38 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p binaries tufup
-          for binary in video-dl-windows.exe video-dl-windows-setup.exe video-dl-linux video-dl-macos.dmg video-dl-arm64-v8a.apk; do
+          for binary in video-dl-windows.exe video-dl-windows-setup.exe video-dl-windows-store-setup.exe video-dl-linux video-dl-macos.dmg video-dl-arm64-v8a.apk; do
             mv "artifacts/$binary" binaries/
           done
           mv artifacts/* tufup/
           echo "=== Binaries ===" && ls -la binaries/
           echo "=== Tufup ===" && ls -la tufup/
+
+      # Hashed from the exact bytes about to be uploaded, rather than downstream
+      # from a re-download that could differ. Both package managers pin on these.
+      - name: Record the artifact hashes
+        id: hashes
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
+
+          setup=$(sha256sum binaries/video-dl-windows-setup.exe | cut -d' ' -f1 | tr 'a-f' 'A-F')
+          portable=$(sha256sum binaries/video-dl-windows.exe | cut -d' ' -f1 | tr 'a-f' 'A-F')
+          store=$(sha256sum binaries/video-dl-windows-store-setup.exe | cut -d' ' -f1 | tr 'a-f' 'A-F')
+
+          # WinGet and Chocolatey take the self-updating build: their users
+          # expect the app to behave as it does when downloaded directly. Only
+          # a store gets the one with updating switched off.
+          {
+            echo "version=$version"
+            echo "setup_url=$base/video-dl-windows-setup.exe"
+            echo "setup_sha256=$setup"
+            echo "portable_url=$base/video-dl-windows.exe"
+            echo "portable_sha256=$portable"
+            echo "store_url=$base/video-dl-windows-store-setup.exe"
+            echo "store_sha256=$store"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: softprops/action-gh-release@v3
         with:
@@ -688,3 +804,96 @@ jobs:
 
             The remaining files in this release are used by the built-in auto-updater (tufup). You can safely ignore them.
             </details>
+
+  # Windows package managers. Separate jobs so a rejected submission or an
+  # expired token cannot fail a release that is already built, signed and
+  # published.
+  #
+  # The two channels get different artifacts on purpose. installer/video-dl.iss
+  # sets PrivilegesRequired=lowest and installs into {localappdata}; Chocolatey
+  # runs elevated, so the installer there would land in the administrator's
+  # profile and be invisible to whoever typed the command. WinGet can declare
+  # user scope and gets the installer; Chocolatey gets the portable exe,
+  # machine-wide, and owns the updates.
+  chocolatey:
+    name: Publish to Chocolatey
+    needs: release
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fill in the package for this version
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+          URL: ${{ needs.release.outputs.portable_url }}
+          SHA: ${{ needs.release.outputs.portable_sha256 }}
+        run: |
+          $install = 'packaging/chocolatey/tools/chocolateyinstall.ps1'
+          $text = [IO.File]::ReadAllText($install)
+          [IO.File]::WriteAllText($install, $text.Replace('$url64$', $env:URL).Replace('$checksum64$', $env:SHA))
+
+          $nuspec = 'packaging/chocolatey/video-dl.nuspec'
+          [IO.File]::WriteAllText($nuspec, [IO.File]::ReadAllText($nuspec).Replace('$version$', $env:VERSION))
+
+      # A wrong checksum fails on every user's machine at install time, which is
+      # the worst place to discover it.
+      - name: Prove the download and the checksum agree
+        shell: pwsh
+        env:
+          URL: ${{ needs.release.outputs.portable_url }}
+          SHA: ${{ needs.release.outputs.portable_sha256 }}
+        run: |
+          $tmp = Join-Path $env:RUNNER_TEMP 'probe.exe'
+          Invoke-WebRequest -Uri $env:URL -OutFile $tmp
+          $actual = (Get-FileHash $tmp -Algorithm SHA256).Hash
+          if ($actual -ne $env:SHA) {
+            Write-Error "Checksum mismatch. Manifest says $($env:SHA), the release serves $actual."
+            exit 1
+          }
+
+      - name: Pack
+        run: choco pack packaging/chocolatey/video-dl.nuspec --out packaging/chocolatey
+
+      - name: Push
+        shell: pwsh
+        env:
+          CHOCO_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CHOCO_API_KEY)) {
+            Write-Warning 'CHOCOLATEY_API_KEY is not set. Skipping the push; the .nupkg above still built.'
+            exit 0
+          }
+          $pkg = Get-ChildItem packaging/chocolatey -Filter *.nupkg | Select-Object -First 1
+          choco push $pkg.FullName --source https://push.chocolatey.org/ --api-key $env:CHOCO_API_KEY
+
+  winget:
+    name: Publish to WinGet
+    needs: release
+    runs-on: windows-latest
+
+    steps:
+      # wingetcreate carries the scope and the ProductCode forward from the
+      # manifest already in winget-pkgs, so this only works once the first
+      # submission has been merged by hand. Until then it reports what it would
+      # have done rather than failing the run. See docs/packaging.md.
+      - name: Submit the new version
+        shell: pwsh
+        env:
+          TOKEN: ${{ secrets.WINGET_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+          URL: ${{ needs.release.outputs.setup_url }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:TOKEN)) {
+            Write-Warning "WINGET_TOKEN is not set. Would have submitted $($env:VERSION) from $($env:URL)."
+            exit 0
+          }
+
+          Invoke-WebRequest -Uri https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+
+          .\wingetcreate.exe update Kenshin9977.video-dl `
+            --version $env:VERSION `
+            --urls "$($env:URL)|x64" `
+            --submit `
+            --token $env:TOKEN

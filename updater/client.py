@@ -31,7 +31,29 @@ def _get_update_cache_dir() -> pathlib.Path:
     return base / APP_NAME / "update_cache"
 
 
+def is_store_edition() -> bool:
+    """Whether this install came from a store that delivers its own updates.
+
+    Marked by a file the store installer lays down beside the executable.
+    There is no compile-time constant to use here the way a C# build has one,
+    and a marker beside the exe is checked the same way whether the app is
+    frozen or run from source.
+
+    A user who creates the file by hand simply turns self-updating off, which
+    is a reasonable thing to want and not worth defending against.
+    """
+    return (_get_install_dir() / "STORE_EDITION").exists()
+
+
 def check_for_updates() -> bool:
+    # The Store certifies one binary and distributes it. An app that replaces
+    # itself afterwards is running code the Store never reviewed, and leaves
+    # the listing describing a version nobody has. There, updating is the
+    # store's job.
+    if is_store_edition():
+        logger.info("Store edition: updates come from the store, not from the app.")
+        return False
+
     try:
         from tufup.client import Client
 

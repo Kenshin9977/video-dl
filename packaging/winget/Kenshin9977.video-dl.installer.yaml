@@ -1,0 +1,33 @@
+# WinGet installer manifest, for the first submission to microsoft/winget-pkgs.
+#
+# Once merged, releases update it automatically: the release workflow runs
+# `wingetcreate update`, which carries everything below forward and changes only
+# the version, the URL and the hash.
+
+PackageIdentifier: Kenshin9977.video-dl
+PackageVersion: <FILL:VERSION>
+
+MinimumOSVersion: 10.0.17763.0
+
+# Inno Setup. Declaring the type rather than the switches lets WinGet use the
+# silent flags it already knows for Inno, which stay right if the installer is
+# ever regenerated with a different Inno version.
+InstallerType: inno
+
+# installer/video-dl.iss sets PrivilegesRequired=lowest and installs into
+# {localappdata}\Programs. Declaring user scope is a description of that, not a
+# preference: an elevated install would land in the wrong profile.
+Scope: user
+
+# Inno registers its uninstall entry as <AppId>_is1. This is what lets WinGet
+# recognise an existing install; without it `winget upgrade` would never offer
+# this package and `winget install` would reinstall over the top.
+ProductCode: '{6F3A2C41-8B7D-4E29-9C15-video-dl-0001}_is1'
+
+Installers:
+  - Architecture: x64
+    InstallerUrl: <FILL:URL>
+    InstallerSha256: <FILL:SHA256>
+
+ManifestType: installer
+ManifestVersion: 1.6.0

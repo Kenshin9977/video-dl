@@ -32,7 +32,11 @@ pytestmark = [
 # A small, stable, direct http file. Deliberately not YouTube: YouTube blocks
 # datacenter IPs often enough that gating a merge on it would train us to ignore a
 # red CI. The YouTube run is a separate, informational CI step.
-SAMPLE = "https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4"
+#
+# Not Big Buck Bunny any more: blender.org re-hosted that whole directory as .zip in
+# July 2026 and the plain .mp4 started 404ing, which held every merge gate red for
+# seven weeks. This trailer has sat at the same URL since 2010.
+SAMPLE = "https://download.blender.org/durian/trailer/sintel_trailer-480p.mp4"
 
 
 @pytest.fixture

@@ -69,6 +69,7 @@ jobs:
       - name: Open an issue, or add to the open one
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.latest-ytdlp.outputs.version }}
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |

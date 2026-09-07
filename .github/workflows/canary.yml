@@ -24,6 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.ytdlp.outputs.version }}
+    # Without this, every `uv run` below re-syncs the environment from uv.lock and
+    # quietly undoes the upgrade, so the canary tests the pinned yt-dlp instead of
+    # the newest one. It did exactly that, greenly, until it was noticed.
+    env:
+      UV_NO_SYNC: "1"
     steps:
       - uses: actions/checkout@v7
 
@@ -64,6 +69,7 @@ jobs:
       - name: Open an issue, or add to the open one
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.latest-ytdlp.outputs.version }}
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |

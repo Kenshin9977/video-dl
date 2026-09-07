@@ -18,7 +18,7 @@ dependencies = [
     # AudioRecorder, ads, CodeEditor. The code migration is three lines (ft.padding.only
     # is gone, ft.Padding replaces it), verified by running the app on 0.85.3, so the
     # code is not what holds this back. Revisit when the runtime can be bundled again.
-    "flet==0.81.0",
+    "flet==0.86.5",
     "quantiphy",
     "tomlkit",
     # Upstream yt-dlp, not a fork. ffmpeg progress reporting, the one thing the
@@ -36,11 +36,11 @@ dependencies = [
 
 [project.optional-dependencies]
 desktop = [
-    "flet-desktop==0.81.0",
+    "flet-desktop==0.86.5",
     "tufup>=0.10",
 ]
 dev = [
-    "flet-desktop==0.81.0",
+    "flet-desktop==0.86.5",
     "mypy",
     "Pillow",
     "pyinstaller",

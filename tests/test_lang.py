@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 from unittest.mock import patch
 
@@ -67,10 +68,21 @@ class TestGetLanguage:
         mock_locale.getlocale.return_value = ("ja_JP", "UTF-8")
         assert _get_language() == Language.english
 
+    # A None locale is not the end of the lookup: _get_language falls through to
+    # LANG and friends, so mocking locale alone leaves the answer up to whoever runs
+    # the test. This asserted english and quietly meant "english, unless your shell
+    # says otherwise" — green on the en_US runners, red on a French machine.
+    @patch.dict(os.environ, {}, clear=True)
     @patch("i18n.lang.locale")
-    def test_none_locale_defaults_to_english(self, mock_locale):
+    def test_none_locale_and_no_env_defaults_to_english(self, mock_locale):
         mock_locale.getlocale.return_value = (None, None)
         assert _get_language() == Language.english
+
+    @patch.dict(os.environ, {"LANG": "de_DE.UTF-8"}, clear=True)
+    @patch("i18n.lang.locale")
+    def test_none_locale_falls_back_to_the_environment(self, mock_locale):
+        mock_locale.getlocale.return_value = (None, None)
+        assert _get_language() == Language.german
 
 
 class TestGetText:

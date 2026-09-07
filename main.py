@@ -16,6 +16,10 @@ def _patch_mac_ver() -> None:
     else that parses the version) then does int('') and crashes the whole GUI at
     import. sw_vers reports the real version regardless of the interpreter bug, so
     fill the gap from it. A no-op when mac_ver() already works.
+
+    The replacement swallows arguments because the real mac_ver() takes three
+    optional ones. Nothing here passes any, but a stdlib signature is not ours to
+    narrow, and dropping the *_ makes mypy right for the wrong reason.
     """
     if sys.platform != "darwin" or platform.mac_ver()[0]:
         return
@@ -28,7 +32,7 @@ def _patch_mac_ver() -> None:
     except Exception:
         return
     if version:
-        platform.mac_ver = lambda: (version, ("", "", ""), platform.machine())
+        platform.mac_ver = lambda *_: (version, ("", "", ""), platform.machine())
 
 
 def _silence_windows_loader_dialogs() -> None:

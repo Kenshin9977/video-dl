@@ -36,11 +36,11 @@ dependencies = [
 
 [project.optional-dependencies]
 desktop = [
-    "flet-desktop==0.86.5",
+    "flet-desktop==1.0.1",
     "tufup>=0.10",
 ]
 dev = [
-    "flet-desktop==0.86.5",
+    "flet-desktop==1.0.1",
     "mypy",
     "Pillow",
     "pyinstaller",

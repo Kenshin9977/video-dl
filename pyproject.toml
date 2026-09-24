@@ -18,7 +18,7 @@ dependencies = [
     # AudioRecorder, ads, CodeEditor. The code migration is three lines (ft.padding.only
     # is gone, ft.Padding replaces it), verified by running the app on 0.85.3, so the
     # code is not what holds this back. Revisit when the runtime can be bundled again.
-    "flet==0.86.5",
+    "flet==1.0.1",
     "quantiphy",
     "tomlkit",
     # Upstream yt-dlp, not a fork. ffmpeg progress reporting, the one thing the

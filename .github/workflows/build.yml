@@ -93,7 +93,7 @@ jobs:
           EXPAT_VERSION: "2.7.5"
         run: |
           set -euo pipefail
-          curl -fsSL -o /tmp/expat.tar.gz \
+          curl -fsSL --retry 5 --retry-all-errors -o /tmp/expat.tar.gz \
             "https://github.com/libexpat/libexpat/releases/download/R_${EXPAT_VERSION//./_}/expat-${EXPAT_VERSION}.tar.gz"
           tar xf /tmp/expat.tar.gz -C /tmp
           (cd "/tmp/expat-${EXPAT_VERSION}" && \
@@ -390,8 +390,14 @@ jobs:
         run: |
           mkdir -p "$ANDROID_LIBS"
           rm -rf /tmp/ffmpeg-android && mkdir -p /tmp/ffmpeg-android
-          gh release download "$FFMPEG_ANDROID_TAG" --repo "$(python3 deps.py FFMPEG_ANDROID_REPO)" \
-            --pattern "$FFMPEG_ANDROID_ASSET_PATTERN" --dir /tmp/ffmpeg-android
+          # A single connection reset here once cancelled a whole release (v2.3.10),
+          # so retry: gh release download has no flag for it.
+          for attempt in 1 2 3 4 5; do
+            gh release download "$FFMPEG_ANDROID_TAG" --repo "$(python3 deps.py FFMPEG_ANDROID_REPO)" \
+              --pattern "$FFMPEG_ANDROID_ASSET_PATTERN" --dir /tmp/ffmpeg-android --clobber && break
+            [ "$attempt" = 5 ] && exit 1
+            sleep $((attempt * 10))
+          done
           # The asset carries the build number, and the directory inside it carries
           # the same. Read both back rather than guessing either.
           archive=$(find /tmp/ffmpeg-android -name '*.tar.xz')
@@ -404,8 +410,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download "$ARIA2_TAG" --repo "$(python3 deps.py ARIA2_REPO)" \
-            --pattern "aria2c-android-aarch64" --pattern "SHA256SUMS" --dir /tmp --clobber
+          for attempt in 1 2 3 4 5; do
+            gh release download "$ARIA2_TAG" --repo "$(python3 deps.py ARIA2_REPO)" \
+              --pattern "aria2c-android-aarch64" --pattern "SHA256SUMS" --dir /tmp --clobber && break
+            [ "$attempt" = 5 ] && exit 1
+            sleep $((attempt * 10))
+          done
           (cd /tmp && grep " aria2c-android-aarch64$" SHA256SUMS | sha256sum -c -)
           cp /tmp/aria2c-android-aarch64 "$ANDROID_LIBS/aria2c"
           chmod +x "$ANDROID_LIBS/aria2c"
@@ -447,7 +457,7 @@ jobs:
           ejs_version=$(uv run python -c "import importlib.metadata as m; print(m.version('yt-dlp-ejs'))")
           echo "yt-dlp resolved yt-dlp-ejs $ejs_version"
           ejs_dir=$(uv run python -c "import yt_dlp, os; print(os.path.join(os.path.dirname(yt_dlp.__file__), 'extractor/youtube/jsc/_builtin/vendor'))")
-          curl -fSL -o "$ejs_dir/yt.solver.lib.js" \
+          curl -fSL --retry 5 --retry-all-errors -o "$ejs_dir/yt.solver.lib.js" \
             "https://github.com/yt-dlp/ejs/releases/download/${ejs_version}/yt.solver.lib.js"
 
       - name: Inject native libs
@@ -688,3 +698,23 @@ jobs:
 
             The remaining files in this release are used by the built-in auto-updater (tufup). You can safely ignore them.
             </details>
+
+  # A failed release is silent: auto-release already pushed the tag, so nothing
+  # retries and nothing turns red where anyone looks. v2.3.10 sat unreleased for 17
+  # days behind one connection reset. Say so where it will be seen.
+  report:
+    needs: [build, android, sign, release]
+    if: failure() && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open an issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue create --title "Release ${{ github.ref_name }} failed to build" --body "The tag is pushed but the release is not published: $RUN
+
+          If the failure looks transient, re-run the failed jobs from that page; the jobs that passed keep their artifacts."

@@ -76,6 +76,11 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --locked --extra dev
+      # tests/test_aria2c_progress.py drives a real aria2c when there is one: it is
+      # what caught every finished file waiting 4 s for aria2c to exit.
+      - name: aria2c for the real-aria2c test
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y aria2
       - run: uv run pytest --cov=core --cov=gui --cov=i18n --cov=utils --cov-report=term-missing
 
   # The gate that lets a yt-dlp bump merge unattended. Everything else in the suite

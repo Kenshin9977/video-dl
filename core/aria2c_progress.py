@@ -24,6 +24,8 @@ import contextlib
 import functools
 import json
 import logging
+import os
+import signal
 import subprocess
 import time
 import uuid
@@ -212,9 +214,7 @@ def _download_with_progress(downloader, cmd, info_dict, popen_class, traverse_ob
                 downloader._hook_progress(status, info_dict)
 
                 if not active and done:
-                    with contextlib.suppress(ConnectionError):
-                        call("aria2.shutdown")
-                    returncode = process.wait()
+                    returncode = _stop(process, call)
                     break
 
                 # Nothing active and nothing finished means aria2c is wedged. Without
@@ -223,9 +223,7 @@ def _download_with_progress(downloader, cmd, info_dict, popen_class, traverse_ob
                     idle_since = idle_since or time.time()
                     if time.time() - idle_since > _IDLE_TIMEOUT:
                         downloader.to_screen("[aria2c] RPC reports no download at all, shutting it down")
-                        with contextlib.suppress(ConnectionError):
-                            call("aria2.shutdown")
-                        returncode = process.wait()
+                        returncode = _stop(process, call)
                         break
                 else:
                     idle_since = None
@@ -240,6 +238,24 @@ def _download_with_progress(downloader, cmd, info_dict, popen_class, traverse_ob
 
         _, stderr = process.communicate()
         return "", stderr, returncode
+
+
+def _stop(process, call) -> int:
+    """Stop an aria2c that is done, and wait for it to go.
+
+    In RPC mode aria2c does not exit when its download ends; it has to be told.
+    Told over RPC (aria2.shutdown, or forceShutdown), it takes a flat 4 seconds to
+    exit, and that sat between every finished file and the next step: a 4 MB file
+    fetched in 0.2 s took 4.6. SIGTERM is the same clean shutdown (exit code 0, file
+    intact, no .aria2 left behind) in 1 second. Windows has no SIGTERM, only
+    TerminateProcess, which is a kill: keep asking over RPC there.
+    """
+    if os.name == "posix":
+        process.send_signal(signal.SIGTERM)
+    else:
+        with contextlib.suppress(ConnectionError):
+            call("aria2.shutdown")
+    return process.wait()
 
 
 def _wait_for_rpc(downloader, call, process) -> bool:

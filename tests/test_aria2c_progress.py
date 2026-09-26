@@ -1,5 +1,9 @@
 import inspect
+import os
+import shutil
 import sys
+import threading
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -219,3 +223,42 @@ class TestProgressReporting:
         assert returncode == 0
         process.wait.assert_called()
         assert any("no download at all" in str(c) for c in downloader.to_screen.call_args_list)
+
+
+@pytest.mark.skipif(not shutil.which("aria2c"), reason="aria2c not on PATH")
+@pytest.mark.skipif(os.name != "posix", reason="Windows still stops aria2c over RPC, 4 s and all")
+class TestAgainstRealAria2c:
+    def test_a_finished_download_does_not_wait_4_seconds_for_aria2c(self, tmp_path):
+        """Told to stop over RPC, aria2c took a flat 4 s to exit after every file."""
+        from functools import partial
+        from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+        from yt_dlp import YoutubeDL
+
+        served = tmp_path / "served"
+        served.mkdir()
+        payload = os.urandom(4_000_000)
+        (served / "clip.mp4").write_bytes(payload)
+
+        class Quiet(SimpleHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), partial(Quiet, directory=str(served)))
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        try:
+            aria2c_progress.install()
+            opts = {
+                "quiet": True,
+                "outtmpl": str(tmp_path / "out.%(ext)s"),
+                "external_downloader": {"http": shutil.which("aria2c")},
+            }
+            started = time.monotonic()
+            with YoutubeDL(opts) as ydl:
+                assert ydl.download([f"http://127.0.0.1:{httpd.server_address[1]}/clip.mp4"]) == 0
+            elapsed = time.monotonic() - started
+        finally:
+            httpd.shutdown()
+
+        assert (tmp_path / "out.mp4").read_bytes() == payload
+        assert elapsed < 3, f"a 4 MB local file took {elapsed:.1f} s through aria2c"

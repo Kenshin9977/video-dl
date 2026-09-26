@@ -173,7 +173,7 @@ def _ffmpeg_missing_page(platform: str):
             page.add(
                 ft.Markdown(
                     info["url"],
-                    on_tap_link=lambda e: page.launch_url(e.data),
+                    auto_follow_links=True,
                 )
             )
         page.update()

@@ -20,6 +20,12 @@ on:
     types: [completed]
     branches: [master]
   workflow_dispatch:
+    inputs:
+      bump:
+        description: "Which part of the version to raise: patch for fixes, minor for a new feature, major for a break."
+        type: choice
+        options: [patch, minor, major]
+        default: patch
 
 permissions:
   contents: write
@@ -52,14 +58,26 @@ jobs:
             echo "No yt-dlp bump in this commit, nothing to release."
           fi
 
-      - name: Bump the patch version
+      # An automatic release is a yt-dlp bump, so always a patch. A manual one says
+      # what it is: a new feature is a minor (2.3.12 -> 2.4.0), and resets the patch.
+      - name: Bump the version
         if: steps.bump.outputs.release == 'true'
         id: version
+        env:
+          BUMP: ${{ inputs.bump || 'patch' }}
         run: |
           new=$(python3 - <<'PY'
+          import os
           import version
-          major, minor, patch = version.__version__.split(".")
-          print(f"{major}.{minor}.{int(patch) + 1}")
+          major, minor, patch = map(int, version.__version__.split("."))
+          bump = os.environ["BUMP"]
+          if bump == "major":
+              major, minor, patch = major + 1, 0, 0
+          elif bump == "minor":
+              minor, patch = minor + 1, 0
+          else:
+              patch += 1
+          print(f"{major}.{minor}.{patch}")
           PY
           )
           sed -i "s/^__version__ = .*/__version__ = \"$new\"/" version.py

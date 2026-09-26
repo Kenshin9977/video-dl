@@ -54,7 +54,6 @@ _TIME_WITH_UNIT = re.compile(r"(?P<value>\d+)(?P<unit>[mu]?s)")
 # [[HH:]MM:]SS, so `1:30` is a minute and a half, not an hour and thirty seconds.
 # The hours group only exists when a minutes group follows it.
 _TIME_HMS = re.compile(r"(?:(?:(?P<hours>\d+):)?(?P<minutes>\d+):)?(?P<seconds>\d+)(\.(?P<fraction>\d+))?")
-_BITRATE = re.compile(r"(?P<value>\d+)(\.(?P<fraction>\d+))?(?P<prefix>[gmk])?bits/s")
 
 _SEEK_FLAGS = ("-ss", "-sseof", "-to", "-t")
 
@@ -84,21 +83,6 @@ def ffmpeg_time_to_seconds(value: str) -> float:
         fraction = hms.group("fraction")
         seconds += int(fraction) / (10 ** len(fraction))
     return seconds
-
-
-def bitrate_to_bits_per_second(value: str) -> float:
-    """Parse ffmpeg's `bitrate=` field, e.g. `1234.5kbits/s`. Returns 0 when ffmpeg reports `N/A`."""
-    match = _BITRATE.fullmatch(value)
-    if not match:
-        return 0.0
-
-    bitrate = float(match.group("value"))
-    if match.group("fraction"):
-        fraction = match.group("fraction")
-        bitrate += int(fraction) / (10 ** len(fraction))
-
-    multiplier = {"g": 1_000_000_000, "m": 1_000_000, "k": 1_000}.get(match.group("prefix") or "", 1)
-    return bitrate * multiplier
 
 
 def to_int(value: str | None) -> int:
@@ -231,13 +215,18 @@ class FFmpegProgressReporter:
             # far into the media it has got is the honest measure.
             done = int(out_time / self._duration * self._total_bytes) if self._duration else 0
 
+        # Bytes per second of real work. It used to be ffmpeg's `bitrate=`, which is
+        # the bitrate of the media, not how fast ffmpeg is going: a 2 Mbit/s video
+        # read ~250 kB/s whether it remuxed at 300x or encoded at 0.5x, while the bar
+        # raced ahead. And it was in bits, shown as bytes by the download bar.
+        elapsed = time.time() - self._started_at
         self._status.update(
             {
                 self._bytes_key: done,
                 "total_bytes": self._total_bytes or None,
-                "speed": bitrate_to_bits_per_second(report.group("bitrate")) or None,
+                "speed": done / elapsed if done and elapsed > 0 else None,
                 "eta": self._eta(report.group("speed"), out_time),
-                "elapsed": time.time() - self._started_at,
+                "elapsed": elapsed,
             }
         )
         self._on_progress(self._status.copy())

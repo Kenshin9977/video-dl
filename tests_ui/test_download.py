@@ -23,19 +23,6 @@ async def test_a_download_lands_on_disk(tester, server, download_dir):
     await wait_for(tester, exact("Download finished."))
 
 
-async def test_audio_only_keeps_just_the_sound(tester, server, download_dir):
-    await tester.tap(await tester.find_by_text("Audio only"))
-    try:
-        await enter_url(tester, f"{server}/sample.mp4")
-        await tester.tap(await tester.find_by_key("download_button"))
-        await wait_for_file(tester, download_dir, {".m4a", ".mp3", ".aac", ".opus", ".ogg"})
-        # Let it finish post-processing: until then the controls stay disabled.
-        await wait_for(tester, exact("Download finished."))
-        assert not [f for f in download_dir.iterdir() if f.suffix == ".mp4"]
-    finally:
-        await tester.tap(await tester.find_by_text("Audio only"))
-
-
 async def test_cancel_stops_a_download(tester, server):
     await enter_url(tester, f"{server}/slow.mp4")
     await tester.tap(await tester.find_by_key("download_button"))
@@ -53,3 +40,16 @@ async def test_a_failed_download_explains_itself(tester, server):
     assert (await tester.find_by_text("Copy")).count == 1
     await tester.tap(await tester.find_by_text("Close"))
     await wait_gone(tester, exact("Open log"))
+
+
+async def test_audio_only_keeps_just_the_sound(tester, server, download_dir):
+    await tester.tap(await tester.find_by_text("Audio only"))
+    try:
+        await enter_url(tester, f"{server}/sample.mp4")
+        await tester.tap(await tester.find_by_key("download_button"))
+        await wait_for_file(tester, download_dir, {".m4a", ".mp3", ".aac", ".opus", ".ogg"})
+        # Let it finish post-processing: until then the controls stay disabled.
+        await wait_for(tester, exact("Download finished."))
+        assert not [f for f in download_dir.iterdir() if f.suffix == ".mp4"]
+    finally:
+        await tester.tap(await tester.find_by_text("Audio only"))

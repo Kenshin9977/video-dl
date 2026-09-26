@@ -39,7 +39,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev \
-            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev xvfb
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev xvfb ffmpeg
 
       - name: Drive the app
         run: xvfb-run -a make ui-test

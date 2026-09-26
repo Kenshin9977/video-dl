@@ -61,6 +61,29 @@ def _silence_windows_loader_dialogs() -> None:
 
 
 _patch_mac_ver()
+
+
+def _use_the_bundled_flet_client() -> None:
+    """On Linux, make flet pick the client archive the build put in the binary.
+
+    flet names the archive it looks for after the distro it detects at runtime
+    (flet-linux-ubuntu24.04-amd64.tar.gz on one machine, debian12 on another), so the
+    one bundled at build time only matched machines like the build runner. Anywhere
+    else flet downloaded a client instead. There is one bundled archive: use it.
+    """
+    if sys.platform != "linux" or not getattr(sys, "frozen", False):
+        return
+    import glob
+
+    import flet_desktop
+
+    bundled = glob.glob(os.path.join(flet_desktop.get_package_bin_dir(), "flet-linux-*.tar.gz"))
+    if len(bundled) == 1:
+        name = os.path.basename(bundled[0])
+        flet_desktop.get_artifact_filename = lambda: name
+
+
+_use_the_bundled_flet_client()
 _silence_windows_loader_dialogs()
 
 

@@ -1,12 +1,16 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
 from PyInstaller.utils.hooks import collect_data_files
+import sys
+sys.path.insert(0, SPECPATH)
+from flet_client import bundled_flet_client  # noqa: E402
 ROOTDIR = os.path.abspath(os.path.join(SPECPATH, '..'))
 
 block_cipher = None
 
 flet_data = collect_data_files('flet')
-flet_desktop_data = collect_data_files('flet_desktop')
+# The client flet runs as the window. See specs/flet_client.py.
+flet_desktop_data = collect_data_files('flet_desktop') + bundled_flet_client()
 
 a = Analysis(
     [os.path.join(ROOTDIR, 'main.py')],

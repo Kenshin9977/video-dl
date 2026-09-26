@@ -1,0 +1,61 @@
+name: UI
+
+# The rest of the suite replaces Flet with a MagicMock, and the one test that builds
+# the window against real Flet stops at construction. None of it has ever clicked a
+# button. This builds the app the way `flet build` does, launches it with embedded
+# Python on a headless Linux desktop, and drives it through Flutter's test harness:
+# find a control, type into it, tap it, look at what the window shows.
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ui:
+    name: ui (${{ matrix.suite }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: core
+            tests: not test_downloads
+            allowed_to_fail: false
+          # Every assertion in test_downloads.py passes, but a run that downloads
+          # fails the Flutter side of the harness now and then, with no exception
+          # printed. Kept visible, not gating, until that is understood.
+          - suite: downloads
+            tests: test_downloads
+            allowed_to_fail: true
+    continue-on-error: ${{ matrix.allowed_to_fail }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v8.3.2
+        with:
+          enable-cache: true
+      - run: uv sync --locked --extra dev
+
+      - name: Read the Flutter version flet was built against
+        id: flutter
+        run: echo "version=$(uv run python -c 'from flet.version import flutter_version; print(flutter_version)')" >> "$GITHUB_OUTPUT"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ steps.flutter.outputs.version }}
+          channel: stable
+          cache: true
+
+      - name: Linux desktop toolchain and a virtual display
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev xvfb ffmpeg
+
+      - name: Drive the app
+        run: xvfb-run -a make ui-test UI_K="${{ matrix.tests }}"
+

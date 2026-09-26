@@ -219,6 +219,7 @@ class VideodlApp:
         self.file_picker = FilePicker()
         self.page.services.append(self.file_picker)
         self.media_link = TextField(
+            key="media_link",
             label=gt(GF.link),
             autofocus=not mobile,
             dense=True,
@@ -246,6 +247,7 @@ class VideodlApp:
         )
         self._preview_spinner = ft.ProgressRing(width=12, height=12, stroke_width=2, visible=False)
         self._preview_text = Text(size=12, color=Colors.ON_SURFACE_VARIANT)
+        self._preview_url: str | None = None
         self.video_preview = Row(
             controls=[self._preview_spinner, self._preview_text],
             spacing=6,
@@ -556,7 +558,11 @@ class VideodlApp:
             self._mobile,
         )
         self.download_button = Button(
-            content="Download", on_click=self._download_clicked, disabled=True, tooltip=gt(GF.invalid_url)
+            key="download_button",
+            content="Download",
+            on_click=self._download_clicked,
+            disabled=True,
+            tooltip=gt(GF.invalid_url),
         )
         self.cancel_button = Button(
             content=gt(GF.cancel_button),
@@ -572,9 +578,14 @@ class VideodlApp:
         )
         self._error_report: ErrorReport | None = None
         self.download_status_text = Text(visible=False)
+        # Its own Text, not download_status_text: a control has one parent, and the
+        # shared one ended up rendered inside this banner, hidden whenever the banner
+        # is. Every plain status ("Download finished.", "Download cancelled.") went
+        # to the screen that way and never showed.
+        self._download_error_text = Text()
         self.download_status_banner = ft.Container(
             content=Row(
-                [Icon(Icons.ERROR_OUTLINE, color="red", size=18), self.download_status_text],
+                [Icon(Icons.ERROR_OUTLINE, color="red", size=18), self._download_error_text],
                 spacing=6,
             ),
             on_click=self._show_error_dialog,
@@ -613,6 +624,7 @@ class VideodlApp:
             on_click=self._open_queue_dialog,
         )
         self._queue_textfield = TextField(
+            key="queue_urls",
             multiline=True,
             min_lines=5,
             max_lines=10,
@@ -1023,6 +1035,9 @@ class VideodlApp:
 
     def _url_validate(self, url):
         self._clear_original_dropdowns()
+        # Every keystroke that forms a valid URL starts a preview, and they finish in
+        # any order. Only the preview for what is in the field now may touch the UI.
+        self._preview_url = url
         if not url:
             self.media_link.border_color = None
             self.video_preview.visible = False
@@ -1081,7 +1096,10 @@ class VideodlApp:
                 opts["js_runtimes"] = {"quickjs": {"path": sys_vars.QJS_PATH}}
             with YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=False)
+            if url != self._preview_url:
+                return
             if info is None:
+                self._hide_preview()
                 return
             title = info.get("title", "")
             duration = info.get("duration")
@@ -1099,9 +1117,19 @@ class VideodlApp:
             if formats and not want_playlist:
                 self._populate_original_dropdowns(formats)
                 self._update_encode_indicator()
-        except Exception:
-            self._preview_spinner.visible = False
-            self._original_spinner.visible = False
+        except Exception as e:
+            # A link yt-dlp cannot read. Say nothing rather than leave "Fetching video
+            # info..." spinning forever: the download reports the real error.
+            logger.info("Preview failed for %s: %s", url, e)
+            if url == self._preview_url:
+                self._hide_preview()
+                return
+        self._safe_update()
+
+    def _hide_preview(self):
+        self._preview_spinner.visible = False
+        self._original_spinner.visible = False
+        self.video_preview.visible = False
         self._safe_update()
 
     def _populate_original_dropdowns(self, formats):
@@ -1479,13 +1507,13 @@ class VideodlApp:
 
     def _show_error(self, report: ErrorReport):
         self._error_report = report
-        self.download_status_text.value = report.short_message
-        self.download_status_text.visible = True
-        self.download_status_text.color = report.color
-        if report.has_detail:
-            self.download_status_banner.visible = True
-        else:
-            self.download_status_banner.visible = False
+        # With detail to show, the clickable banner carries the message; without,
+        # the plain status text does. Never both, or it shows twice.
+        target = self._download_error_text if report.has_detail else self.download_status_text
+        target.value = report.short_message
+        target.color = report.color
+        self.download_status_banner.visible = report.has_detail
+        self.download_status_text.visible = not report.has_detail
 
     def _show_error_dialog(self, e):
         if not self._error_report or not self._error_report.has_detail:

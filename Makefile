@@ -99,9 +99,10 @@ UI_FLUTTER = $(HOME)/flutter/$(shell $(RUN) python -c "from flet.version import 
 UI_EXCLUDE = .venv venv dist .git .mypy_cache .ruff_cache .pytest_cache __pycache__ .coverage \
 	"*.log" "*.egg-info" tests docs htmlcov .tox build Makefile "*.icns" "*.ico" "*.spec" android_libs tests_ui
 
-ui-test: ## Build the app and drive its real window (tests_ui/)
+ui-test: ## Build the app and drive its real window (tests_ui/). UI_K="..." filters like pytest -k
 	PATH="$(UI_FLUTTER):$$PATH" $(if $(filter Darwin,$(shell uname)),DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer) \
-		$(RUN) --extra uitest flet test --module-name uitest_main --tests-dir tests_ui --exclude $(UI_EXCLUDE)
+		$(RUN) --extra uitest flet test --module-name uitest_main --tests-dir tests_ui \
+		$(if $(UI_K),-k "$(UI_K)") --exclude $(UI_EXCLUDE)
 
 lint: ## Run ruff check + format check
 	$(RUN) ruff check .

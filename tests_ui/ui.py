@@ -78,3 +78,15 @@ async def wait_for_file(tester, folder: Path, suffixes: set[str], timeout: float
         f"no {sorted(suffixes)} file in {folder} after {timeout:.0f}s: {sorted(f.name for f in folder.iterdir())}"
     )
     raise AssertionError  # unreachable, pytest.fail raises
+
+
+async def wait_idle(tester) -> None:
+    """Wait until the app is back at rest after a download.
+
+    "Download finished." shows before the app resets: it still has to hide the
+    progress bars and resize the window. Ending a test (or the session) in the
+    middle of that fails the Flutter side of the run, even with every assertion
+    green. The progress rows are the last thing to go.
+    """
+    await wait_gone(tester, r"^Processing")
+    await tester.pump_and_settle()

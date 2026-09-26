@@ -94,6 +94,7 @@ async def app(download_dir, server, tmp_path_factory):
     flet_app = ftt.FletTestApp(flutter_app_dir=Path(os.environ["FLET_TEST_FLUTTER_APP_DIR"]), device_mode=True)
     await flet_app.start()
     yield flet_app
+    await flet_app.tester.pump_and_settle()
     await flet_app.teardown()
 
 

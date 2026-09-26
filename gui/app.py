@@ -101,6 +101,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("videodl")
 
+# Seconds the link has to stay unchanged before its preview is fetched.
+PREVIEW_DELAY = 0.6
+
 
 def _urls_share_host(urls: list[str]) -> bool:
     """Return True if all non-None URLs point to the same hostname."""
@@ -248,6 +251,7 @@ class VideodlApp:
         self._preview_spinner = ft.ProgressRing(width=12, height=12, stroke_width=2, visible=False)
         self._preview_text = Text(size=12, color=Colors.ON_SURFACE_VARIANT)
         self._preview_url: str | None = None
+        self._preview_timer: threading.Timer | None = None
         self.video_preview = Row(
             controls=[self._preview_spinner, self._preview_text],
             spacing=6,
@@ -1057,12 +1061,26 @@ class VideodlApp:
                 self._enable_download_button()
             else:
                 self._disable_download_button(GF.incorrect_timestamp)
-            threading.Thread(target=self._fetch_video_preview, args=(url,), daemon=True).start()
+            self._schedule_preview(url)
         else:
             self.media_link.border_color = "red"
             self.video_preview.visible = False
             self._disable_download_button(GF.invalid_url)
         self.page.update()
+
+    def _schedule_preview(self, url):
+        """Fetch the preview once the link stops changing, not on every keystroke.
+
+        Each keystroke that forms a valid URL used to start a full yt-dlp extraction.
+        Typing or editing a link ran dozens at once, and on a phone they starved the
+        UI thread for the GIL: "Fetching video info..." sat there for many seconds
+        while the one preview that mattered took two.
+        """
+        if self._preview_timer:
+            self._preview_timer.cancel()
+        self._preview_timer = threading.Timer(PREVIEW_DELAY, self._fetch_video_preview, args=(url,))
+        self._preview_timer.daemon = True
+        self._preview_timer.start()
 
     def _clear_original_dropdowns(self):
         self._video_formats = []

@@ -75,3 +75,24 @@ class TestTheWindowStillBuilds:
         app._refresh_labels()
 
         assert app.download_button.content != english
+
+
+class TestPreviewDebounce:
+    def test_a_burst_of_changes_fetches_one_preview_for_the_last_link(self, monkeypatch):
+        import threading
+        import time
+        from types import SimpleNamespace
+
+        import gui.app
+
+        monkeypatch.setattr(gui.app, "PREVIEW_DELAY", 0.05)
+        fetched = []
+        done = threading.Event()
+        fake = SimpleNamespace(_preview_timer=None, _fetch_video_preview=lambda url: (fetched.append(url), done.set()))
+
+        for url in ("https://a", "https://ab", "https://abc"):
+            VideodlApp._schedule_preview(fake, url)
+        assert done.wait(2)
+        time.sleep(0.1)  # room for a stray second fetch to show up
+
+        assert fetched == ["https://abc"]

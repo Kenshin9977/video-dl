@@ -555,6 +555,25 @@ jobs:
             exit 1
           fi
 
+      # The app runs ffmpeg, ffprobe, QuickJS and aria2c as executables out of the
+      # native library directory, and that directory only exists on disk when the APK
+      # asks Android to extract its libs. flet 0.86 stopped asking: v2.3.10 carried
+      # every binary and still had no ffmpeg on any phone, with CI green. So check the
+      # artifact itself, not the code that builds it.
+      - name: The bundled binaries must reach the disk
+        run: |
+          apk=release_apk/video-dl-arm64-v8a.apk
+          for lib in libffmpeg.so libffprobe.so libqjs.so libaria2c.so; do
+            unzip -l "$apk" | grep -q " lib/arm64-v8a/$lib\$" \
+              || { echo "::error::$lib is missing from the APK"; exit 1; }
+          done
+          flag=$(uvx --from androguard==4.1.4 androguard axml "$apk" | grep -oE 'android:extractNativeLibs="[^"]*"' || true)
+          echo "manifest: ${flag:-no extractNativeLibs attribute, Android extracts by default}"
+          if [ "$flag" = 'android:extractNativeLibs="false"' ]; then
+            echo "::error::extractNativeLibs=false: Android will not extract ffmpeg, and every download that merges formats fails"
+            exit 1
+          fi
+
       - uses: actions/upload-artifact@v7
         with:
           name: android-apk

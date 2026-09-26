@@ -44,6 +44,8 @@ CK_SUBTITLES = "Subtitles"
 CK_COOKIES = "Cookies"
 CK_COOKIES_FILE = "Cookies file"
 CK_PROXY = "Proxy"
+CK_CHECK_UPDATES = "Check for updates"
+CK_SKIPPED_VERSION = "Skipped version"
 
 
 class VideodlConfig:
@@ -81,6 +83,8 @@ class VideodlConfig:
                 CK_COOKIES: detected_browser or gt(GF.login_from_none),
                 CK_COOKIES_FILE: "",
                 CK_PROXY: "",
+                CK_CHECK_UPDATES: True,
+                CK_SKIPPED_VERSION: "",
             }
         }
         self._save(config)
@@ -136,6 +140,8 @@ class VideodlConfig:
                 and opts[CK_COOKIES] in browsers
                 and isinstance(opts.get(CK_COOKIES_FILE, ""), str)
                 and isinstance(opts.get(CK_PROXY, ""), str)
+                and isinstance(opts.get(CK_CHECK_UPDATES, True), bool)
+                and isinstance(opts.get(CK_SKIPPED_VERSION, ""), str)
                 and VideodlConfig._logic_is_respected(opts)
             )
         except KeyError:

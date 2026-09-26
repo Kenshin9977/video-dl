@@ -49,6 +49,7 @@ import sys_vars
 from core.download import create_ydl, download
 from core.error_report import ErrorReport, build_error_report
 from core.progress import compute_progress, parse_quantity, parse_speed, timecodes_are_valid
+from core.update_check import LATEST_APK_URL, newer_release
 from core.ydl_opts import (
     build_av_opts,
     build_browser_opts,
@@ -64,6 +65,7 @@ from core.ydl_opts import (
 from gui.config import (
     CK_ACODEC,
     CK_AUDIO_ONLY,
+    CK_CHECK_UPDATES,
     CK_COOKIES,
     CK_COOKIES_FILE,
     CK_DEST_FOLDER,
@@ -74,6 +76,7 @@ from gui.config import (
     CK_ORIGINAL,
     CK_PLAYLIST,
     CK_PROXY,
+    CK_SKIPPED_VERSION,
     CK_SONG_ONLY,
     CK_SUBTITLES,
     CK_THEME,
@@ -349,6 +352,13 @@ class VideodlApp:
             data=CK_SONG_ONLY,
             disabled=True,
             tooltip=gt(GF.song_only_tooltip),
+            on_change=self._option_change,
+        )
+        # Android only: the desktop app updates itself (tufup).
+        self.check_updates = Checkbox(
+            label=gt(GF.check_updates),
+            data=CK_CHECK_UPDATES,
+            value=True,
             on_change=self._option_change,
         )
         self.subtitles = Checkbox(
@@ -678,6 +688,8 @@ class VideodlApp:
             Row(controls=[self._proxy_field]),
             *timecode_rows,
         ]
+        if self._mobile:
+            rows.append(Row(controls=[self.check_updates]))
         return rows
 
     def _gen_ydl_opts(self) -> dict:
@@ -938,6 +950,7 @@ class VideodlApp:
         self.cookies.options[0].text = gt(GF.login_from_none)
         self.cookies.tooltip = gt(GF.login_from_tooltip)
         self._proxy_field.label = gt(GF.proxy)
+        self.check_updates.label = gt(GF.check_updates)
         self._proxy_field.hint_text = gt(GF.proxy_placeholder)
         # These four were left out, so the whole Chrome cookies panel stayed in the
         # system language: it never followed the language the user picked, nor the one
@@ -1804,6 +1817,44 @@ class VideodlApp:
         else:
             self.page.add(*controls)
 
+    def check_for_update(self):
+        """On Android, say so when a newer release is out. See core/update_check.py.
+
+        In the background, so a slow or absent network never delays the window, and
+        at most once per new version: "Ignore" remembers the version it dismissed.
+        """
+        options = self.tomlconfig.config[USER_OPTIONS]
+        if not options.get(CK_CHECK_UPDATES, True):
+            return
+
+        def run():
+            version = newer_release(APP_VERSION)
+            if version and version != options.get(CK_SKIPPED_VERSION, ""):
+                self.page.run_task(self._show_update_banner, version)
+
+        threading.Thread(target=run, daemon=True).start()
+
+    async def _show_update_banner(self, version: str):
+        def ignore(e):
+            self.tomlconfig.update(CK_SKIPPED_VERSION, version)
+            self.page.pop_dialog()
+
+        # The link opens in the browser, which downloads the APK and hands it to the
+        # system installer. Same signing key as the installed app, so it updates in
+        # place and the settings stay.
+        self.page.show_dialog(
+            ft.Banner(
+                leading=Icon(Icons.SYSTEM_UPDATE),
+                content=Text(gt(GF.update_available).format(version=version)),
+                actions=[
+                    ft.TextButton(gt(GF.update_ignore), on_click=ignore),
+                    ft.TextButton(
+                        gt(GF.update_download), url=LATEST_APK_URL, on_click=lambda e: self.page.pop_dialog()
+                    ),
+                ],
+            )
+        )
+
     def load_config(self):
         options = self.tomlconfig.config[USER_OPTIONS]
         self._current_language_name = options[CK_LANGUAGE]
@@ -1825,6 +1876,7 @@ class VideodlApp:
         self.subtitles.value = options[CK_SUBTITLES]
         self.cookies.value = options[CK_COOKIES]
         self._proxy_field.value = options.get(CK_PROXY, "")
+        self.check_updates.value = options.get(CK_CHECK_UPDATES, True)
         self._update_chrome_cookies_row()
         self.indices.disabled = not self.playlist.value
         self.indices_selected.disabled = not self.indices.value
@@ -1952,6 +2004,7 @@ def _videodl_fletgui_mobile(page: Page):
     videodl_app = VideodlApp(page, mobile=True)
     videodl_app.build_gui()
     videodl_app.load_config()
+    videodl_app.check_for_update()
 
 
 def videodl_gui_android():

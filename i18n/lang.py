@@ -100,6 +100,12 @@ class GuiField(enum.Enum):
     error_close = enum.auto()
     error_click_for_details = enum.auto()
 
+    # Update check (Android)
+    check_updates = enum.auto()
+    update_available = enum.auto()
+    update_download = enum.auto()
+    update_ignore = enum.auto()
+
 
 def _get_language() -> Language:
     """
@@ -620,6 +626,26 @@ def get_text(field: GuiField) -> str:
             Language.english: "⚠ Cookies file is {days} days old. Re-export if downloads fail.",
             Language.french: "⚠ Le fichier de cookies a {days} jours. Ré-exportez-le si les téléchargements échouent.",
             Language.german: "⚠ Cookies-Datei ist {days} Tage alt. Exportieren Sie erneut, wenn Downloads fehlschlagen.",
+        },
+        GuiField.check_updates: {
+            Language.english: "Check for updates",
+            Language.french: "Vérifier les mises à jour",
+            Language.german: "Nach Updates suchen",
+        },
+        GuiField.update_available: {
+            Language.english: "Version {version} is available.",
+            Language.french: "La version {version} est disponible.",
+            Language.german: "Version {version} ist verfügbar.",
+        },
+        GuiField.update_download: {
+            Language.english: "Download",
+            Language.french: "Télécharger",
+            Language.german: "Herunterladen",
+        },
+        GuiField.update_ignore: {
+            Language.english: "Ignore",
+            Language.french: "Ignorer",
+            Language.german: "Ignorieren",
         },
         GuiField.chrome_cookies_store_link: {
             Language.english: "Open «Get cookies.txt LOCALLY» in Chrome Web Store",

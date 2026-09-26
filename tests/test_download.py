@@ -424,3 +424,40 @@ class TestDownload:
         config.url = "https://example.com/video"
         download(ydl, config, cancel, MagicMock())
         assert ydl.params["progress_hooks"] == [original_hook]
+
+
+class TestTheWatchdogSeesProgress:
+    """download() used to put its hook into ydl.params after YoutubeDL was built, and
+    yt-dlp only reads progress_hooks when it is built: the watchdog never saw progress."""
+
+    @patch("core.download._finish_download")
+    @patch("core.download._get_child_pids", return_value=set())
+    def test_progress_from_a_real_youtubedl_ticks_the_watchdog(self, mock_pids, mock_finish, monkeypatch):
+        from yt_dlp import YoutubeDL
+
+        import core.download as download_module
+
+        ticks = []
+        monkeypatch.setattr(download_module._StallDetector, "tick", lambda self: ticks.append(1))
+        ydl = YoutubeDL({"quiet": True})
+        seen_by_progress = []
+
+        def extract_info(url):
+            # What YoutubeDL.dl() does: hand its registered hooks to the downloader,
+            # which calls them as bytes come in.
+            before = len(ticks)
+            for hook in ydl._progress_hooks:
+                hook({"status": "downloading", "downloaded_bytes": 1})
+            seen_by_progress.append(len(ticks) - before)
+            return {"_type": "video", "ext": "mp4"}
+
+        monkeypatch.setattr(ydl, "extract_info", extract_info)
+        cancel = MagicMock()
+        cancel.is_cancelled.return_value = False
+        config = _make_config()
+        config.url = "https://example.com/video"
+
+        download(ydl, config, cancel, MagicMock())
+
+        assert seen_by_progress == [1]
+        assert ydl._progress_hooks == [], "the hook outlived its download"

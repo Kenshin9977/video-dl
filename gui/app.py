@@ -577,18 +577,24 @@ class VideodlApp:
             visible=False,
         )
         self._error_report: ErrorReport | None = None
-        self.download_status_text = Text(visible=False)
+        # Errors can run long ("[generic] ...: Unable to download webpage: HTTP Error
+        # 404 ..."). On one unbroken line they overflowed the button row by hundreds
+        # of pixels, cut off at the window edge and pushing the clickable banner out
+        # of reach. Take the room that is left and ellipsize; the details dialog has
+        # the full text.
+        self.download_status_text = Text(visible=False, expand=True, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS)
         # Its own Text, not download_status_text: a control has one parent, and the
         # shared one ended up rendered inside this banner, hidden whenever the banner
         # is. Every plain status ("Download finished.", "Download cancelled.") went
         # to the screen that way and never showed.
-        self._download_error_text = Text()
+        self._download_error_text = Text(expand=True, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS)
         self.download_status_banner = ft.Container(
             content=Row(
                 [Icon(Icons.ERROR_OUTLINE, color="red", size=18), self._download_error_text],
                 spacing=6,
             ),
             on_click=self._show_error_dialog,
+            expand=True,
             visible=False,
             tooltip=gt(GF.error_click_for_details),
         )

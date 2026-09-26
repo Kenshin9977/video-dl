@@ -123,7 +123,7 @@ def quickjs_missing(page: ft.Page):
         ft.Text("QuickJS could not be installed automatically.\nPlease open an issue on the following link:"),
         ft.Markdown(
             "[Open an issue on GitHub](https://github.com/Kenshin9977/video-dl/issues)",
-            on_tap_link=lambda e: page.launch_url(e.data),
+            auto_follow_links=True,
         ),
     )
     page.update()

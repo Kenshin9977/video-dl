@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 import platform
 import sys
 import warnings
@@ -60,6 +61,29 @@ def _silence_windows_loader_dialogs() -> None:
 
 
 _patch_mac_ver()
+
+
+def _use_the_bundled_flet_client() -> None:
+    """On Linux, make flet pick the client archive the build put in the binary.
+
+    flet names the archive it looks for after the distro it detects at runtime
+    (flet-linux-ubuntu24.04-amd64.tar.gz on one machine, debian12 on another), so the
+    one bundled at build time only matched machines like the build runner. Anywhere
+    else flet downloaded a client instead. There is one bundled archive: use it.
+    """
+    if sys.platform != "linux" or not getattr(sys, "frozen", False):
+        return
+    import glob
+
+    import flet_desktop
+
+    bundled = glob.glob(os.path.join(flet_desktop.get_package_bin_dir(), "flet-linux-*.tar.gz"))
+    if len(bundled) == 1:
+        name = os.path.basename(bundled[0])
+        flet_desktop.get_artifact_filename = lambda: name
+
+
+_use_the_bundled_flet_client()
 _silence_windows_loader_dialogs()
 
 
@@ -115,6 +139,18 @@ def selftest() -> None:
 
     if VKIE.ie_key() != "VK":
         raise SystemExit("the VK extractor no longer replaces the built-in one")
+
+    # From 0.83 flet no longer ships the desktop runtime inside flet_desktop: on first
+    # launch it downloads 95 MB from GitHub, unverified, and runs it, and a machine
+    # with no network gets no window at all. v2.3.10 shipped exactly that, 35 MB
+    # instead of 73, and CI was green. flet still prefers a runtime placed in
+    # flet_desktop/app, so that is what the bundle has to carry.
+    # ponytail: "non-empty" only, it does not check the archive matches this platform.
+    import flet_desktop
+
+    runtime_dir = os.path.join(os.path.dirname(flet_desktop.__file__), "app")
+    if not os.path.isdir(runtime_dir) or not os.listdir(runtime_dir):
+        raise SystemExit(f"the Flet desktop runtime is not bundled ({runtime_dir} is empty)")
 
     print(f"selftest ok (yt-dlp {yt_dlp_version})")
 

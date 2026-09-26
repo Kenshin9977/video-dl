@@ -491,6 +491,11 @@ jobs:
       # so an armeabi-v7a or x86_64 APK would install and then fail at the first
       # download or mux. Publishing one working APK beats publishing three of
       # which two are broken.
+      # --android-legacy-packaging: the app runs ffmpeg, ffprobe, QuickJS and aria2c as
+      # executables out of the native library directory, which only exists on disk
+      # when Android extracts the libs at install. Since flet 0.86 the default leaves
+      # them inside the APK, and v2.3.10 shipped with no ffmpeg on any phone.
+      # "The bundled binaries must reach the disk" below fails the build if this goes.
       - name: Build APK
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -504,6 +509,7 @@ jobs:
             --compile-app --compile-packages --cleanup-packages \
             --skip-flutter-doctor \
             --split-per-abi \
+            --android-legacy-packaging \
             --exclude .venv venv dist .git .mypy_cache .ruff_cache .pytest_cache \
               __pycache__ .coverage "*.log" "*.egg-info" tests docs \
               htmlcov .tox build Makefile "*.icns" "*.ico" "*.spec" \
@@ -552,6 +558,25 @@ jobs:
           expected=$(echo "$EXPECTED_SHA256" | tr -d ': ' | tr 'A-Z' 'a-z')
           if [ "$actual" != "$expected" ]; then
             echo "::error::APK signed with the wrong key: got $actual, expected $expected"
+            exit 1
+          fi
+
+      # The app runs ffmpeg, ffprobe, QuickJS and aria2c as executables out of the
+      # native library directory, and that directory only exists on disk when the APK
+      # asks Android to extract its libs. flet 0.86 stopped asking: v2.3.10 carried
+      # every binary and still had no ffmpeg on any phone, with CI green. So check the
+      # artifact itself, not the code that builds it.
+      - name: The bundled binaries must reach the disk
+        run: |
+          apk=release_apk/video-dl-arm64-v8a.apk
+          for lib in libffmpeg.so libffprobe.so libqjs.so libaria2c.so; do
+            unzip -l "$apk" | grep -q " lib/arm64-v8a/$lib\$" \
+              || { echo "::error::$lib is missing from the APK"; exit 1; }
+          done
+          flag=$(uvx --from androguard==4.1.4 androguard axml "$apk" | grep -oE 'android:extractNativeLibs="[^"]*"' || true)
+          echo "manifest: ${flag:-no extractNativeLibs attribute, Android extracts by default}"
+          if [ "$flag" = 'android:extractNativeLibs="false"' ]; then
+            echo "::error::extractNativeLibs=false: Android will not extract ffmpeg, and every download that merges formats fails"
             exit 1
           fi
 

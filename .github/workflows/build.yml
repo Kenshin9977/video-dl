@@ -64,6 +64,10 @@ jobs:
           iconutil -c icns "$ICONSET" -o icon.icns
 
       - name: Build binary
+        # specs/flet_client.py reads the client's SHA-256 from the GitHub API, which
+        # allows 60 unauthenticated calls an hour per IP, shared across runners.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: uv run pyinstaller ${{ matrix.spec }}
 
       # `--help` exits inside argparse, before the app imports flet, yt_dlp or

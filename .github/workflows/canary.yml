@@ -55,6 +55,10 @@ jobs:
         run: uv run pytest -m network -v
 
       - name: The frozen binary must still start
+        # specs/flet_client.py reads the client's SHA-256 from the GitHub API, which
+        # allows 60 unauthenticated calls an hour per IP, shared across runners.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           uv run pyinstaller specs/Linux-video-dl.spec
           ./dist/video-dl --selftest

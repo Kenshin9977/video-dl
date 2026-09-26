@@ -219,6 +219,7 @@ class VideodlApp:
         self.file_picker = FilePicker()
         self.page.services.append(self.file_picker)
         self.media_link = TextField(
+            key="media_link",
             label=gt(GF.link),
             autofocus=not mobile,
             dense=True,

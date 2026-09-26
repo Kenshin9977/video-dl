@@ -175,13 +175,14 @@ fetch-aria2c-android: ## Download the pinned aria2c Android ARM64 build
 	rm -f /tmp/aria2c-android-aarch64 /tmp/SHA256SUMS
 	@echo "aria2c ready in $(ANDROID_LIBS)/"
 
+# API 29, not 24: see "Build QuickJS for ARM64" in build.yml (the api24 build crashes on launch).
 fetch-quickjs-android: ## Cross-compile bellard/quickjs for ARM64 Android
 	@echo "Building QuickJS (bellard) for ARM64 Android..."
 	rm -rf /tmp/quickjs-bellard
 	git clone $(QUICKJS_REPO) /tmp/quickjs-bellard
 	cd /tmp/quickjs-bellard && \
 		git checkout $(QUICKJS_COMMIT) && \
-		CC="$(NDK_BIN)/clang --target=aarch64-linux-android24 --sysroot=$(NDK_BIN)/../sysroot" && \
+		CC="$(NDK_BIN)/clang --target=aarch64-linux-android29 --sysroot=$(NDK_BIN)/../sysroot" && \
 		CFLAGS="-D_GNU_SOURCE -DCONFIG_VERSION=\"$$(cat VERSION)\" -O2 -flto -funsigned-char -fwrapv" && \
 		for f in qjs quickjs quickjs-libc cutils dtoa libregexp libunicode; do \
 			$$CC $$CFLAGS -c -o $$f.o $$f.c; \

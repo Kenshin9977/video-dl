@@ -101,7 +101,9 @@ async def app(download_dir, server, tmp_path_factory):
 async def tester(app, download_dir):
     """The shared app, with an empty link field and an empty download folder."""
     tester = app.tester
-    await tester.enter_text(await tester.find_by_key("media_link"), "")
+    field = await tester.find_by_key("media_link")
+    await tester.tap(field)
+    await tester.enter_text(field, "")
     await tester.pump_and_settle()
     for entry in download_dir.iterdir():
         shutil.rmtree(entry) if entry.is_dir() else entry.unlink()

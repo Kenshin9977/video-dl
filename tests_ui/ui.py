@@ -12,22 +12,8 @@ import pytest
 # taking twenty minutes.
 TIMEOUT = 10
 
-# A failed wait saves what the window showed at that moment. build/ is ignored by git.
-SCREENSHOTS = Path("build/ui-screenshots")
-
 
 async def _fail(message: str) -> None:
-    # flet only screenshots the app itself on Android and iOS, so grab the whole
-    # screen. Best effort: a missing screenshot must never hide the real failure.
-    shot = SCREENSHOTS / f"{re.sub(r'[^A-Za-z0-9]+', '_', message)[:80]}.png"
-    try:
-        from PIL import ImageGrab
-
-        SCREENSHOTS.mkdir(parents=True, exist_ok=True)
-        ImageGrab.grab().save(shot)
-        message += f" (screenshot: {shot})"
-    except Exception as e:
-        message += f" (no screenshot: {e})"
     pytest.fail(message)
 
 
@@ -60,7 +46,12 @@ async def enter_url(tester, url: str) -> None:
     is silently ignored: the next test then downloads the previous test's link.
     Fail here instead.
     """
-    await tester.enter_text(await tester.find_by_key("media_link"), url)
+    # Click into the field first, as a user would. After a download the field comes
+    # back enabled but still holding focus from before, with no live text input
+    # behind it, and typing straight into it goes nowhere.
+    field = await tester.find_by_key("media_link")
+    await tester.tap(field)
+    await tester.enter_text(field, url)
     await tester.pump_and_settle()
     if not (await tester.find_by_text(url)).count:
         await _fail(f"the link field did not take {url!r}; is a download still running?")

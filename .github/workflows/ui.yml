@@ -44,9 +44,3 @@ jobs:
       - name: Drive the app
         run: xvfb-run -a make ui-test
 
-      # What the window showed when a wait gave up: one PNG per failed wait.
-      - uses: actions/upload-artifact@v7
-        if: failure()
-        with:
-          name: ui-screenshots
-          path: build/ui-screenshots/

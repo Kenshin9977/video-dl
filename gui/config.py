@@ -87,9 +87,14 @@ class VideodlConfig:
         return config
 
     def _save(self, config: dict[str, Any] | None = None):
+        # Write aside, then swap in. Opening the real file for writing empties it
+        # first, so a dump that failed half way used to leave the user with no
+        # settings at all.
         config = config or self.config
-        with open(_get_config_filename(), mode="w", encoding="utf-8") as fp:
+        path = _get_config_filename()
+        with open(f"{path}.tmp", mode="w", encoding="utf-8") as fp:
             tomlkit.dump(config, fp)
+        os.replace(f"{path}.tmp", path)
 
     def _load(self) -> dict[str, Any]:
         config: dict[str, Any] | None = None

@@ -117,7 +117,7 @@ format: fix ## Alias for fix
 # --------------------------------------------------------------------------
 # Build
 # --------------------------------------------------------------------------
-.PHONY: apk aab deploy-android check-android fetch-ffmpeg-android fetch-ejs-lib
+.PHONY: apk apk-dev aab deploy-android deploy-dev check-android fetch-ffmpeg-android fetch-ejs-lib
 
 check-android:
 	@if [ -z "$(JAVA_HOME_DETECTED)" ]; then \
@@ -222,10 +222,11 @@ FLET_BUILD_OPTS := \
 	--compile-app --compile-packages --cleanup-packages \
 	--skip-flutter-doctor \
 	--split-per-abi \
+	--android-legacy-packaging \
 	--exclude .venv venv dist .git .mypy_cache .ruff_cache .pytest_cache \
 		__pycache__ .coverage "*.log" "*.egg-info" tests docs \
 		htmlcov .tox build Makefile "*.icns" "*.ico" "*.spec" \
-		check_results.txt test_outdir android_libs \
+		check_results.txt test_outdir android_libs tests_ui \
 	--android-permissions INTERNET=True WRITE_EXTERNAL_STORAGE=True READ_EXTERNAL_STORAGE=True MANAGE_EXTERNAL_STORAGE=True \
 	--android-adaptive-icon-background "\#7C3AED"
 
@@ -257,6 +258,18 @@ inject-native-libs: ## Copy FFmpeg + quickjs binaries as .so into jniLibs for AP
 apk: check-android inject-native-libs fetch-ejs-lib ## Build release APK
 	JAVA_HOME="$(JAVA_HOME_DETECTED)" ANDROID_SDK_ROOT="$(ANDROID_SDK)" \
 		$(RUN) flet build apk $(FLET_BUILD_OPTS)
+
+# A build to try things on a phone. Its own application id and name, so it installs
+# next to the release app instead of over it: Android refuses an update signed with
+# a different key, and this one is signed with the debug key.
+DEV_BUILD_OPTS := --bundle-id com.videodl.video_dl.dev --product "Video-dl dev"
+
+apk-dev: check-android inject-native-libs fetch-ejs-lib ## Build a debug-signed APK that installs next to the release app
+	JAVA_HOME="$(JAVA_HOME_DETECTED)" ANDROID_SDK_ROOT="$(ANDROID_SDK)" \
+		$(RUN) flet build apk $(FLET_BUILD_OPTS) $(DEV_BUILD_OPTS)
+
+deploy-dev: apk-dev ## Build the dev APK and install it on the phone connected over USB
+	$(ADB) install -r build/apk/video-dl-arm64-v8a.apk
 
 deploy-android: apk ## Build APK + install on connected device via USB
 	@APK=$$(ls build/apk/video-dl-arm64-v8a.apk build/apk/video-dl.apk 2>/dev/null | head -1); \

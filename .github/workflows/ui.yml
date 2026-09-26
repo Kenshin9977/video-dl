@@ -42,9 +42,4 @@ jobs:
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev xvfb
 
       - name: Drive the app
-        run: |
-          xvfb-run -a uv run --with pytest-asyncio --with numpy --with pillow --with scikit-image \
-            flet test linux --module-name uitest_main --tests-dir tests_ui -v \
-            --exclude .venv venv dist .git .mypy_cache .ruff_cache .pytest_cache \
-              __pycache__ .coverage "*.log" "*.egg-info" tests docs \
-              htmlcov .tox build Makefile "*.icns" "*.ico" "*.spec" android_libs
+        run: xvfb-run -a make ui-test

@@ -49,6 +49,15 @@ dev = [
     "ruff",
     "tufup>=0.10",
 ]
+# `flet test` and the tests in tests_ui/. flet.testing imports numpy, Pillow and
+# scikit-image at module level for its screenshot comparison, used or not.
+uitest = [
+    "numpy",
+    "Pillow",
+    "pytest",
+    "pytest-asyncio",
+    "scikit-image",
+]
 
 [build-system]
 requires = ["setuptools>=68.0"]

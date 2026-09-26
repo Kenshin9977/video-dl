@@ -81,7 +81,7 @@ setup-android: ## Install Android SDK + platform tools
 # --------------------------------------------------------------------------
 # Development
 # --------------------------------------------------------------------------
-.PHONY: run mobile test lint fix format
+.PHONY: run mobile test ui-test lint fix format
 
 run: ## Launch desktop app
 	$(RUN) python main.py
@@ -91,6 +91,17 @@ mobile: ## Launch mobile UI simulation (390x844 window)
 
 test: ## Run pytest
 	$(RUN) pytest tests/ -v
+
+# The exact Flutter flet was built against, which `flet test` installs under
+# ~/flutter/<version> when it is missing. Put it first so an older Flutter on PATH
+# does not get picked up and fail on "Invalid kernel binary format version".
+UI_FLUTTER = $(HOME)/flutter/$(shell $(RUN) python -c "from flet.version import flutter_version; print(flutter_version)")/bin
+UI_EXCLUDE = .venv venv dist .git .mypy_cache .ruff_cache .pytest_cache __pycache__ .coverage \
+	"*.log" "*.egg-info" tests docs htmlcov .tox build Makefile "*.icns" "*.ico" "*.spec" android_libs tests_ui
+
+ui-test: ## Build the app and drive its real window (tests_ui/)
+	PATH="$(UI_FLUTTER):$$PATH" $(if $(filter Darwin,$(shell uname)),DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer) \
+		$(RUN) --extra uitest flet test --module-name uitest_main --tests-dir tests_ui --exclude $(UI_EXCLUDE)
 
 lint: ## Run ruff check + format check
 	$(RUN) ruff check .

@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import sys
 from logging.handlers import RotatingFileHandler
@@ -47,14 +48,40 @@ def videodl_logger(debug: bool = False, verbose: bool = False) -> None:
         app_logger.setLevel(logging.INFO)
 
     # Always write to a rotating log file (skip if no storage permission)
+    with contextlib.suppress(OSError):
+        get_log_dir().mkdir(parents=True, exist_ok=True)
+    add_log_file(
+        get_log_dir() / "videodl.log",
+        root_logger,
+        level=logging.DEBUG if (debug or verbose) else logging.INFO,
+        formatter=formatter,
+        max_bytes=5 * 1024 * 1024,
+        backup_count=2,
+    )
+
+
+def add_log_file(
+    path: str | Path,
+    logger: logging.Logger,
+    *,
+    level: int = logging.NOTSET,
+    formatter: logging.Formatter | None = None,
+    max_bytes: int = 1_000_000,
+    backup_count: int = 1,
+) -> bool:
+    """Also log to `path`, if it can be written. Never raises.
+
+    A log is not worth failing over. On Android a file in shared storage belongs to
+    the install that created it: after a reinstall, or next to a debug build, the
+    app is refused its own old log. v2.4.1 opened one unguarded at startup and the
+    app would not start at all: PermissionError: '/sdcard/Download/video-dl-debug.log'.
+    """
     try:
-        log_dir = get_log_dir()
-        log_file = log_dir / "videodl.log"
-        log_dir.mkdir(parents=True, exist_ok=True)
-        file_level = logging.DEBUG if (debug or verbose) else logging.INFO
-        file_handler = RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=2, encoding="utf-8")
-        file_handler.setLevel(file_level)
-        file_handler.setFormatter(formatter)
-        root_logger.addHandler(file_handler)
+        handler = RotatingFileHandler(path, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8")
     except OSError:
-        pass
+        return False
+    handler.setLevel(level)
+    if formatter:
+        handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    return True

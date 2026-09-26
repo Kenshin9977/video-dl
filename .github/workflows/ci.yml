@@ -81,6 +81,9 @@ jobs:
       - name: aria2c for the real-aria2c test
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y aria2
+      - name: TEMP aria2c timings
+        if: runner.os == 'Linux'
+        run: python3 scripts/_ci_aria2c_timing.py
       - run: uv run pytest --cov=core --cov=gui --cov=i18n --cov=utils --cov-report=term-missing
 
   # The gate that lets a yt-dlp bump merge unattended. Everything else in the suite

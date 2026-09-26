@@ -12,10 +12,9 @@ class TestParseSpeed:
         assert "B/s" in result
         assert result != "-"
 
-    def test_process_bytes_divides_by_8(self):
-        result = parse_speed({"speed": 800}, "processed_bytes")
-        # 800 / 8 = 100 B/s
-        assert "100" in result
+    def test_process_bytes_are_bytes_too(self):
+        """The processing speed used to be ffmpeg's bitrate in bits, divided by 8 here."""
+        assert parse_speed({"speed": 800}, "processed_bytes") == parse_speed({"speed": 800}, "downloaded_bytes")
 
     def test_none_speed_returns_dash(self):
         assert parse_speed({"speed": None}, "downloaded_bytes") == "-"

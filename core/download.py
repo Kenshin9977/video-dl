@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import contextvars
 import logging
 import os
@@ -8,6 +9,7 @@ import signal
 import subprocess
 import threading
 import time
+from collections.abc import Callable
 
 from yt_dlp import YoutubeDL
 from yt_dlp.downloader.external import FFmpegFD
@@ -37,11 +39,22 @@ _STATUS_PATTERNS = [
 ]
 
 
+# The yt-dlp lines that explain a slow or failed download: which YouTube client it
+# asked, which format it picked, which downloader fetched it. Logged at INFO, so
+# they reach the log even when debug logging is off (it is, on Android).
+_TRACE = re.compile(r"player API JSON|Downloading \d+ format\(s\)|Invoking \w+ downloader|JS runtimes")
+_URL = re.compile(r"https?://\S+")
+# Seconds between two "how fast is it going" lines while a download runs.
+SPEED_REPORT_EVERY = 5
+
+
 class _YdlUiLogger:
     """Bridges yt-dlp log messages to a StatusCallback."""
 
     def __init__(self, status_cb: StatusCallback):
         self._status_cb = status_cb
+        # Called on every debug line: the running download's watchdog, set by download().
+        self.on_activity: Callable[[], None] | None = None
 
     def _update_status(self, msg):
         for pattern, gui_field in _STATUS_PATTERNS:
@@ -50,6 +63,10 @@ class _YdlUiLogger:
                 return
 
     def debug(self, msg):
+        if self.on_activity:
+            self.on_activity()
+        if _TRACE.search(msg):
+            logger.info("yt-dlp: %s", _URL.sub("<url>", msg)[:200])
         logger.debug(msg)
         self._update_status(msg)
 
@@ -141,26 +158,46 @@ def download(
 ) -> None:
     stall = _StallDetector()
 
-    # Wrap existing progress hooks to also tick the stall detector
-    original_hooks = list(ydl.params.get("progress_hooks", []))
+    # yt-dlp registers progress_hooks once, when YoutubeDL is built. This used to put
+    # its hook into ydl.params afterwards, where nothing ever called it: the watchdog
+    # only saw progress through yt-dlp's verbose log lines, and would have killed a
+    # healthy download the day those went quiet. add_progress_hook is the way in.
+    last_report = [0.0]
 
-    def progress_hook_with_stall(d):
+    def tick_on_progress(status):
         stall.tick()
-        for hook in original_hooks:
-            hook(d)
+        # A download that crawls at 100 kB/s looks the same as a fast one in the
+        # log unless the speed is written down. Every few seconds, it is.
+        now = time.monotonic()
+        if status.get("status") == "downloading" and now - last_report[0] >= SPEED_REPORT_EVERY:
+            last_report[0] = now
+            logger.info(
+                "download: %.1f MB at %.2f MB/s, format %s",
+                (status.get("downloaded_bytes") or 0) / 1e6,
+                (status.get("speed") or 0) / 1e6,
+                (status.get("info_dict") or {}).get("format_id"),
+            )
 
-    ydl.params["progress_hooks"] = [progress_hook_with_stall]
-
-    # Also tick on logger activity (covers extraction phase before download)
+    ydl.add_progress_hook(tick_on_progress)
+    # Log lines count as activity too: they are all there is while extracting.
     ydl_logger = ydl.params.get("logger")
-    if ydl_logger and isinstance(ydl_logger, _YdlUiLogger):
-        original_debug = ydl_logger.debug
+    if isinstance(ydl_logger, _YdlUiLogger):
+        ydl_logger.on_activity = stall.tick
+    try:
+        infos_ydl = _extract_with_retries(ydl, config, cancel, stall)
+    finally:
+        # A batch reuses the ydl; do not leave one dead watchdog per URL behind.
+        # yt-dlp has no public way to remove a hook.
+        with contextlib.suppress(AttributeError, ValueError):
+            ydl._progress_hooks.remove(tick_on_progress)
 
-        def debug_with_stall(msg):
-            stall.tick()
-            original_debug(msg)
+    if cancel.is_cancelled():
+        raise DownloadCancelled
+    _finish_download(ydl, infos_ydl, config, cancel, progress_cb)
 
-        ydl_logger.debug = debug_with_stall
+
+def _extract_with_retries(ydl: YoutubeDL, config: DownloadConfig, cancel: CancelToken, stall: _StallDetector):
+    """Run the extraction and download in a thread, retrying when the watchdog fires."""
 
     last_exc: BaseException | None = None
     for attempt in range(MAX_RETRIES):
@@ -213,17 +250,8 @@ def download(
                 raise DownloadCancelled from None
             raise exc
 
-        infos_ydl = result[0] if result else None
-        break
-    else:
-        raise DownloadTimeout(config.url) from last_exc
-
-    # Restore original hooks
-    ydl.params["progress_hooks"] = original_hooks
-
-    if cancel.is_cancelled():
-        raise DownloadCancelled
-    _finish_download(ydl, infos_ydl, config, cancel, progress_cb)
+        return result[0] if result else None
+    raise DownloadTimeout(config.url) from last_exc
 
 
 def _finish_download(

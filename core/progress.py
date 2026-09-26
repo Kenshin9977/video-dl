@@ -9,9 +9,9 @@ def parse_speed(d: dict, bytes_fieldname: str) -> str:
         raw_speed: float | None = d.get("speed")
         if not raw_speed:
             return "-"
-        if bytes_fieldname == "downloaded_bytes":
-            return Quantity(raw_speed, "B/s").render(prec=2)
-        return Quantity(raw_speed / 8, "B/s").render(prec=2)
+        # Bytes per second for both bars: the processing speed used to be ffmpeg's
+        # bitrate, in bits, hence a /8 here. See core/ffmpeg_progress.py.
+        return Quantity(raw_speed, "B/s").render(prec=2)
     except (InvalidNumber, TypeError):
         return "-"
 

@@ -7,7 +7,6 @@ import pytest
 
 from core.ffmpeg_progress import (
     FFmpegProgressTracker,
-    bitrate_to_bits_per_second,
     duration_to_process,
     ffmpeg_time_to_seconds,
 )
@@ -64,21 +63,6 @@ class TestFfmpegTimeToSeconds:
         assert ffmpeg_time_to_seconds(value) == expected
 
 
-class TestBitrate:
-    @pytest.mark.parametrize(
-        ("value", "expected"),
-        [
-            ("1500kbits/s", 1_500_000),
-            ("1.5mbits/s", 1_500_000),
-            ("128bits/s", 128),
-            ("2gbits/s", 2_000_000_000),
-            ("N/A", 0),
-        ],
-    )
-    def test_parses_bitrates(self, value, expected):
-        assert bitrate_to_bits_per_second(value) == expected
-
-
 class TestDurationToProcess:
     def test_whole_file_without_seek_flags(self):
         assert duration_to_process(["-i", "in.mp4", "out.mp4"], 120) == 120
@@ -122,7 +106,8 @@ class TestFFmpegProgressTracker:
         assert progressed[-1]["total_bytes"] == 1000
         assert progressed[-1]["status"] == "processing"
         assert progressed[-1]["filename"] == "out.mp4"
-        assert progressed[-1]["speed"] == 1_500_000
+        # Bytes of real work per second, not the media's bitrate (1500kbits/s here).
+        assert progressed[-1]["speed"] == pytest.approx(1000 / progressed[-1]["elapsed"], rel=0.01)
 
     def test_scales_the_total_to_a_trimmed_range(self):
         reports = []

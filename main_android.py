@@ -44,6 +44,16 @@ def main():
         from videodl_logger import videodl_logger
 
         videodl_logger(debug=False, verbose=False)
+        # The app's own log is in its private storage, out of reach without root, so
+        # a slow or failed download on a phone left nothing to look at. Copy it here,
+        # next to this startup log, where adb can read it: the YouTube client, the
+        # format and the speed of every download (core/download.py). URLs are masked.
+        import logging
+        from logging.handlers import RotatingFileHandler
+
+        handler = RotatingFileHandler(_log_path, maxBytes=1_000_000, backupCount=1, encoding="utf-8")
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+        logging.getLogger("videodl").addHandler(handler)
         _log("[5] Logger OK")
 
         from runtime.android import AndroidPaths

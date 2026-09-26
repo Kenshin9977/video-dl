@@ -1,5 +1,9 @@
 import inspect
+import os
+import shutil
 import sys
+import threading
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -219,3 +223,47 @@ class TestProgressReporting:
         assert returncode == 0
         process.wait.assert_called()
         assert any("no download at all" in str(c) for c in downloader.to_screen.call_args_list)
+
+
+@pytest.mark.skipif(not shutil.which("aria2c"), reason="aria2c not on PATH")
+@pytest.mark.skipif(os.name != "posix", reason="Windows still stops aria2c over RPC, 4 s and all")
+class TestAgainstRealAria2c:
+    def test_a_finished_download_does_not_wait_4_seconds_for_aria2c(self, tmp_path):
+        """Told to stop over RPC, aria2c took a flat 4 s to exit after every file."""
+        from functools import partial
+        from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+        from yt_dlp import YoutubeDL
+
+        served = tmp_path / "served"
+        served.mkdir()
+        payload = os.urandom(4_000_000)
+        (served / "clip.mp4").write_bytes(payload)
+
+        class Quiet(SimpleHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), partial(Quiet, directory=str(served)))
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        try:
+            aria2c_progress.install()
+            # Timed from aria2c's first progress report to the end: before it, yt-dlp
+            # is loading its extractors, which on a fresh CI runner takes 8 s.
+            reports = []
+            opts = {
+                "quiet": True,
+                "outtmpl": str(tmp_path / "out.%(ext)s"),
+                "external_downloader": {"http": shutil.which("aria2c")},
+                "progress_hooks": [lambda d: reports.append((time.monotonic(), d["status"]))],
+            }
+            with YoutubeDL(opts) as ydl:
+                assert ydl.download([f"http://127.0.0.1:{httpd.server_address[1]}/clip.mp4"]) == 0
+        finally:
+            httpd.shutdown()
+
+        assert (tmp_path / "out.mp4").read_bytes() == payload
+        took = reports[-1][0] - reports[0][0]
+        timeline = [(round(t - reports[0][0], 2), status) for t, status in reports]
+        assert reports[-1][1] == "finished"
+        assert took < 3, f"aria2c took {took:.1f} s to hand back a 4 MB local file: {timeline}"

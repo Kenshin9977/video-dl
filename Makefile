@@ -81,7 +81,7 @@ setup-android: ## Install Android SDK + platform tools
 # --------------------------------------------------------------------------
 # Development
 # --------------------------------------------------------------------------
-.PHONY: run mobile test ui-test lint fix format
+.PHONY: run mobile test ui-test speed-test lint fix format
 
 run: ## Launch desktop app
 	$(RUN) python main.py
@@ -103,6 +103,11 @@ ui-test: ## Build the app and drive its real window (tests_ui/). UI_K="..." filt
 	PATH="$(UI_FLUTTER):$$PATH" $(if $(filter Darwin,$(shell uname)),DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer) \
 		$(RUN) --extra uitest flet test --module-name uitest_main --tests-dir tests_ui \
 		$(if $(UI_K),-k "$(UI_K)") --exclude $(UI_EXCLUDE)
+
+MIN_MBPS ?= 1
+speed-test: ## Download URL=... through the app's own path; print client, format, speeds (fails under MIN_MBPS)
+	@test -n "$(URL)" || { echo "usage: make speed-test URL=https://... [MIN_MBPS=1]"; exit 2; }
+	$(RUN) python scripts/speed_test.py "$(URL)" --min-mbps $(MIN_MBPS)
 
 lint: ## Run ruff check + format check
 	$(RUN) ruff check .

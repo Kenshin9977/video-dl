@@ -21,6 +21,7 @@ from core import aria2c_progress, ffmpegfd_progress, vk_extractor, ytdlp_patch
 from core.callbacks import CancelToken, ProgressCallback, StatusCallback
 from core.config_types import DownloadConfig
 from core.encode import post_process_dl
+from core.error_report import is_bot_check
 from core.exceptions import DownloadCancelled, DownloadTimeout, PlaylistNotFound
 from i18n.lang import GuiField as GF
 from i18n.lang import get_text as gt
@@ -196,10 +197,27 @@ def download(
     _finish_download(ydl, infos_ydl, config, cancel, progress_cb)
 
 
+def force_ipv4(ydl: YoutubeDL) -> None:
+    """Send this ydl's requests from IPv4 from now on.
+
+    YouTube judges IPv6 more harshly (a whole /64 is scored as one client), and a
+    home connection with IPv6 draws "Sign in to confirm you're not a bot" where the
+    same line over IPv4 often does not; forcing IPv4 is the usual advice. yt-dlp
+    builds its network layer once and reads source_address then, so setting the
+    param alone would change nothing: drop the built one, as YoutubeDL.close() does,
+    and the next request builds another with the new address.
+    """
+    ydl.params["source_address"] = "0.0.0.0"
+    if "_request_director" in ydl.__dict__:
+        ydl._request_director.close()
+        del ydl._request_director
+
+
 def _extract_with_retries(ydl: YoutubeDL, config: DownloadConfig, cancel: CancelToken, stall: _StallDetector):
     """Run the extraction and download in a thread, retrying when the watchdog fires."""
 
     last_exc: BaseException | None = None
+    retried_over_ipv4 = False
     for attempt in range(MAX_RETRIES):
         if cancel.is_cancelled():
             raise DownloadCancelled
@@ -248,6 +266,11 @@ def _extract_with_retries(ydl: YoutubeDL, config: DownloadConfig, cancel: Cancel
             exc = error[0]
             if isinstance(exc, YtdlpDownloadCancelled):
                 raise DownloadCancelled from None
+            if is_bot_check(exc) and not retried_over_ipv4 and not ydl.params.get("source_address"):
+                retried_over_ipv4 = True
+                logger.info("YouTube asked to confirm we are not a bot; trying once more over IPv4")
+                force_ipv4(ydl)
+                continue
             raise exc
 
         return result[0] if result else None

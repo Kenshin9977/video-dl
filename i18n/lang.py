@@ -64,6 +64,9 @@ class GuiField(enum.Enum):
     error_chrome_cookies_locked = enum.auto()
     error_chrome_dpapi = enum.auto()
     error_login_required = enum.auto()
+    error_login_required_android = enum.auto()
+    error_bot_check = enum.auto()
+    error_bot_check_desktop_hint = enum.auto()
 
     # Chrome cookie extraction (opt-in, Windows only)
     chrome_cookies_extract_button = enum.auto()
@@ -580,6 +583,39 @@ def get_text(field: GuiField) -> str:
                 "Nutzen Sie «Anmeldung von», um Ihren Browser auszuwählen. "
                 "Für Chrome: installieren Sie «Get cookies.txt LOCALLY» und wählen Sie die exportierte Datei."
             ),
+        },
+        GuiField.error_login_required_android: {
+            Language.english: (
+                "This video needs a signed-in account (age-restricted, private or members-only), "
+                "which the Android app cannot provide. The desktop app can, with «Login from»."
+            ),
+            Language.french: (
+                "Cette vidéo demande un compte connecté (restriction d'âge, vidéo privée ou réservée aux membres), "
+                "ce que l'app Android ne peut pas fournir. L'app de bureau le peut, avec «Connexion depuis»."
+            ),
+            Language.german: (
+                "Dieses Video erfordert ein angemeldetes Konto (Altersbeschränkung, privat oder nur für Mitglieder), "
+                "das die Android-App nicht bereitstellen kann. Die Desktop-App kann es, mit «Anmeldung von»."
+            ),
+        },
+        GuiField.error_bot_check: {
+            Language.english: (
+                "YouTube wants to confirm you are not a robot. It usually passes on its own: "
+                "try again in a few minutes, or on another network (Wi-Fi or mobile data)."
+            ),
+            Language.french: (
+                "YouTube demande de confirmer que vous n'êtes pas un robot. Ça passe en général tout seul : "
+                "réessayez dans quelques minutes, ou sur un autre réseau (Wi-Fi ou données mobiles)."
+            ),
+            Language.german: (
+                "YouTube möchte bestätigen, dass Sie kein Roboter sind. Das legt sich meist von selbst: "
+                "versuchen Sie es in ein paar Minuten erneut oder in einem anderen Netz (WLAN oder mobile Daten)."
+            ),
+        },
+        GuiField.error_bot_check_desktop_hint: {
+            Language.english: " If it persists, pick your browser in «Login from».",
+            Language.french: " Si ça persiste, choisissez votre navigateur dans «Connexion depuis».",
+            Language.german: " Wenn es anhält, wählen Sie Ihren Browser unter «Anmeldung von».",
         },
         GuiField.chrome_cookies_extract_button: {
             Language.english: "Select cookies.txt",

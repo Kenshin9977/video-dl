@@ -95,3 +95,46 @@ class TestBuildErrorReport:
             raise AssertionError("should have raised")
         except AttributeError:
             pass
+
+
+# Other test files swap modules in sys.modules; go through the objects
+# core.error_report actually uses, not whatever "runtime" or "i18n" is now.
+import core.error_report as er  # noqa: E402
+
+
+class TestAccountAndBotErrors:
+    """yt-dlp's own words end with "Use --cookies-from-browser or --cookies": flags that
+    mean nothing in the app, and on Android point at an option that is not there."""
+
+    BOT = (
+        "ERROR: [youtube] ch8J7uVEddc: Sign in to confirm you’re not a bot. Use --cookies-from-browser or "
+        "--cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ  for how to manually pass cookies"
+    )
+    AGE = (
+        "ERROR: [youtube] abc: Sign in to confirm your age. This video may be inappropriate for some users. "
+        "Use --cookies-from-browser or --cookies for the authentication."
+    )
+    PRIVATE = (
+        "ERROR: [youtube] abc: Private video. Sign in if you've been granted access to this video. "
+        "Use --cookies-from-browser or --cookies for the authentication."
+    )
+
+    def test_a_bot_check_says_what_it_is_and_what_to_try(self, monkeypatch):
+        monkeypatch.setattr(er.runtime, "is_android", lambda: False)
+        report = build_error_report(Exception(self.BOT))
+
+        assert report.short_message == er.gt(er.GF.error_bot_check) + er.gt(er.GF.error_bot_check_desktop_hint)
+        assert "--cookies" not in report.short_message
+        assert report.color == "yellow"
+        assert report.has_detail is True
+
+    def test_on_android_it_does_not_point_at_an_option_that_is_not_there(self, monkeypatch):
+        monkeypatch.setattr(er.runtime, "is_android", lambda: True)
+
+        assert build_error_report(Exception(self.BOT)).short_message == er.gt(er.GF.error_bot_check)
+
+    def test_videos_that_need_an_account_say_so(self, monkeypatch):
+        for android, field in ((False, er.GF.error_login_required), (True, er.GF.error_login_required_android)):
+            monkeypatch.setattr(er.runtime, "is_android", lambda android=android: android)
+            for message in (self.AGE, self.PRIVATE):
+                assert build_error_report(Exception(message)).short_message == er.gt(field)

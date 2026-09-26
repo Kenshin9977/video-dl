@@ -507,3 +507,48 @@ class TestDownloadTrace:
         download(ydl, config, cancel, MagicMock())
 
         assert "download: 8.4 MB at 0.10 MB/s, format 299" in caplog.text
+
+
+class TestIpv4RetryOnBotCheck:
+    BOT = "ERROR: [youtube] x: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies"
+
+    def test_force_ipv4_rebuilds_the_network_layer_of_a_real_youtubedl(self):
+        """Setting the param alone does nothing: yt-dlp has already built its handlers."""
+        from yt_dlp import YoutubeDL
+
+        from core.download import force_ipv4
+
+        ydl = YoutubeDL({"quiet": True})
+        assert {h.source_address for h in ydl._request_director.handlers.values()} == {None}
+
+        force_ipv4(ydl)
+
+        assert {h.source_address for h in ydl._request_director.handlers.values()} == {"0.0.0.0"}
+
+    @patch("core.download._finish_download")
+    @patch("core.download._get_child_pids", return_value=set())
+    def test_a_bot_check_is_retried_once_over_ipv4(self, mock_pids, mock_finish):
+        ydl = _make_ydl()
+        ydl.params["source_address"] = None
+        ydl.extract_info.side_effect = [Exception(self.BOT), {"_type": "video", "ext": "mp4"}]
+        cancel = MagicMock()
+        cancel.is_cancelled.return_value = False
+        config = _make_config()
+        config.url = "https://www.youtube.com/watch?v=x"
+
+        download(ydl, config, cancel, MagicMock())
+
+        assert ydl.extract_info.call_count == 2
+        assert ydl.params["source_address"] == "0.0.0.0"
+
+    @patch("core.download._get_child_pids", return_value=set())
+    def test_only_once_then_the_error_reaches_the_user(self, mock_pids):
+        ydl = _make_ydl(extract_error=Exception(self.BOT))
+        cancel = MagicMock()
+        cancel.is_cancelled.return_value = False
+        config = _make_config()
+        config.url = "https://www.youtube.com/watch?v=x"
+
+        with pytest.raises(Exception, match="not a bot"):
+            download(ydl, config, cancel, MagicMock())
+        assert ydl.extract_info.call_count == 2

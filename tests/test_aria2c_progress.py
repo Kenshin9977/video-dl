@@ -248,12 +248,18 @@ class TestAgainstRealAria2c:
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
         try:
             aria2c_progress.install()
+            started = time.monotonic()
+            timeline = []
             opts = {
                 "quiet": True,
                 "outtmpl": str(tmp_path / "out.%(ext)s"),
                 "external_downloader": {"http": shutil.which("aria2c")},
+                "progress_hooks": [
+                    lambda d: timeline.append(
+                        f"{time.monotonic() - started:.2f}s {d['status']} {d.get('downloaded_bytes')}"
+                    )
+                ],
             }
-            started = time.monotonic()
             with YoutubeDL(opts) as ydl:
                 assert ydl.download([f"http://127.0.0.1:{httpd.server_address[1]}/clip.mp4"]) == 0
             elapsed = time.monotonic() - started
@@ -261,4 +267,4 @@ class TestAgainstRealAria2c:
             httpd.shutdown()
 
         assert (tmp_path / "out.mp4").read_bytes() == payload
-        assert elapsed < 3, f"a 4 MB local file took {elapsed:.1f} s through aria2c"
+        assert elapsed < 3, f"a 4 MB local file took {elapsed:.1f} s through aria2c: {timeline}"

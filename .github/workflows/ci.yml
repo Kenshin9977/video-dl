@@ -111,7 +111,12 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --locked --extra dev
-      - run: uv run pyinstaller specs/Windows-video-dl.spec
+      - name: Freeze the binary
+        # specs/flet_client.py reads the client's SHA-256 from the GitHub API, which
+        # allows 60 unauthenticated calls an hour per IP, shared across runners.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: uv run pyinstaller specs/Windows-video-dl.spec
       - name: Smoke test the frozen binary
         shell: bash
         run: ./dist/video-dl.exe --selftest

@@ -49,12 +49,15 @@ def main():
         # next to this startup log, where adb can read it: the YouTube client, the
         # format and the speed of every download (core/download.py). URLs are masked.
         import logging
-        from logging.handlers import RotatingFileHandler
 
-        handler = RotatingFileHandler(_log_path, maxBytes=1_000_000, backupCount=1, encoding="utf-8")
-        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
-        logging.getLogger("videodl").addHandler(handler)
-        _log("[5] Logger OK")
+        from videodl_logger import add_log_file
+
+        mirrored = add_log_file(
+            _log_path,
+            logging.getLogger("videodl"),
+            formatter=logging.Formatter("%(asctime)s %(levelname)s %(message)s"),
+        )
+        _log(f"[5] Logger OK (download log in this file: {mirrored})")
 
         from runtime.android import AndroidPaths
         from sys_vars import init_paths_android

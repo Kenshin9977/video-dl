@@ -1,6 +1,8 @@
 import sys
 from unittest.mock import MagicMock
 
+import pytest
+
 # Mock heavy dependencies before importing
 mock_lang = MagicMock()
 mock_lang.get_text.return_value = "None"
@@ -108,3 +110,24 @@ class TestMigrateOriginal:
         opts = {CK_VCODEC: "Auto", CK_ACODEC: "Auto", CK_ORIGINAL: True}
         VideodlConfig._migrate_original(opts)
         assert opts[CK_ORIGINAL] is True
+
+
+class TestSaving:
+    def test_a_save_that_fails_leaves_the_old_settings_alone(self, tmp_path, monkeypatch):
+        """It used to open the real file for writing first, which empties it."""
+        config_file = tmp_path / "videodl-config.toml"
+        config_file.write_text("the user's settings")
+        namespace = VideodlConfig._save.__globals__
+        monkeypatch.setitem(namespace, "_config_filename", str(config_file))
+
+        def dump_that_breaks(config, fp):
+            fp.write("half a")
+            raise ValueError("cannot serialize")
+
+        monkeypatch.setattr(namespace["tomlkit"], "dump", dump_that_breaks)
+        cfg = VideodlConfig.__new__(VideodlConfig)
+        cfg.config = {}
+
+        with pytest.raises(ValueError):
+            cfg._save()
+        assert config_file.read_text() == "the user's settings"

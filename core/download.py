@@ -39,6 +39,15 @@ _STATUS_PATTERNS = [
 ]
 
 
+# The yt-dlp lines that explain a slow or failed download: which YouTube client it
+# asked, which format it picked, which downloader fetched it. Logged at INFO, so
+# they reach the log even when debug logging is off (it is, on Android).
+_TRACE = re.compile(r"player API JSON|Downloading \d+ format\(s\)|Invoking \w+ downloader|JS runtimes")
+_URL = re.compile(r"https?://\S+")
+# Seconds between two "how fast is it going" lines while a download runs.
+SPEED_REPORT_EVERY = 5
+
+
 class _YdlUiLogger:
     """Bridges yt-dlp log messages to a StatusCallback."""
 
@@ -56,6 +65,8 @@ class _YdlUiLogger:
     def debug(self, msg):
         if self.on_activity:
             self.on_activity()
+        if _TRACE.search(msg):
+            logger.info("yt-dlp: %s", _URL.sub("<url>", msg)[:200])
         logger.debug(msg)
         self._update_status(msg)
 
@@ -151,8 +162,21 @@ def download(
     # its hook into ydl.params afterwards, where nothing ever called it: the watchdog
     # only saw progress through yt-dlp's verbose log lines, and would have killed a
     # healthy download the day those went quiet. add_progress_hook is the way in.
-    def tick_on_progress(_status):
+    last_report = [0.0]
+
+    def tick_on_progress(status):
         stall.tick()
+        # A download that crawls at 100 kB/s looks the same as a fast one in the
+        # log unless the speed is written down. Every few seconds, it is.
+        now = time.monotonic()
+        if status.get("status") == "downloading" and now - last_report[0] >= SPEED_REPORT_EVERY:
+            last_report[0] = now
+            logger.info(
+                "download: %.1f MB at %.2f MB/s, format %s",
+                (status.get("downloaded_bytes") or 0) / 1e6,
+                (status.get("speed") or 0) / 1e6,
+                (status.get("info_dict") or {}).get("format_id"),
+            )
 
     ydl.add_progress_hook(tick_on_progress)
     # Log lines count as activity too: they are all there is while extracting.

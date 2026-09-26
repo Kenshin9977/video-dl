@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import signal
 import subprocess
 import sys
@@ -461,3 +462,48 @@ class TestTheWatchdogSeesProgress:
 
         assert seen_by_progress == [1]
         assert ydl._progress_hooks == [], "the hook outlived its download"
+
+
+class TestDownloadTrace:
+    """What a slow or failed download leaves in the log: client, format, downloader, speed."""
+
+    def test_the_lines_that_explain_a_download_reach_info_with_urls_masked(self, caplog):
+        caplog.set_level(logging.INFO, logger="videodl")
+        ui_logger = _YdlUiLogger(MagicMock())
+
+        ui_logger.debug('[debug] Invoking http downloader on "https://rr5.googlevideo.com/videoplayback?ip=1.2.3.4"')
+        ui_logger.debug("[download] 12.3% of 474.83MiB")
+
+        assert [r.getMessage() for r in caplog.records if r.levelno == logging.INFO] == [
+            'yt-dlp: [debug] Invoking http downloader on "<url>'
+        ]
+
+    @patch("core.download._finish_download")
+    @patch("core.download._get_child_pids", return_value=set())
+    def test_the_speed_is_logged_while_it_downloads(self, mock_pids, mock_finish, caplog):
+        from yt_dlp import YoutubeDL
+
+        caplog.set_level(logging.INFO, logger="videodl")
+        ydl = YoutubeDL({"quiet": True})
+
+        def extract_info(url):
+            for hook in ydl._progress_hooks:
+                hook(
+                    {
+                        "status": "downloading",
+                        "downloaded_bytes": 8_400_000,
+                        "speed": 100_000,
+                        "info_dict": {"format_id": "299"},
+                    }
+                )
+            return {"_type": "video", "ext": "mp4"}
+
+        ydl.extract_info = extract_info
+        cancel = MagicMock()
+        cancel.is_cancelled.return_value = False
+        config = _make_config()
+        config.url = "https://example.com/video"
+
+        download(ydl, config, cancel, MagicMock())
+
+        assert "download: 8.4 MB at 0.10 MB/s, format 299" in caplog.text

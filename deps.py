@@ -48,7 +48,7 @@ ARIA2_REPO = "Kenshin9977/aria2"
 # QuickJS, compiled from source for Android. Pinned to a commit: the project has no
 # releases, and a moving master would make two builds of the same tag differ.
 # renovate: datasource=git-refs depName=quickjs packageName=https://github.com/bellard/quickjs currentValue=master
-QUICKJS_COMMIT = "04be246001599f5995fa2f2d8c91a0f198d3f34c"
+QUICKJS_COMMIT = "19d6bd865e709e2b5717fb4f2290c0cecc57ee4b"
 QUICKJS_REPO = "https://github.com/bellard/quickjs"
 
 # The Android NDK the APK is built with.
